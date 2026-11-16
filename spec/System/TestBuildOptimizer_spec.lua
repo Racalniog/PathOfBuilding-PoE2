@@ -26,6 +26,8 @@ describe("BuildOptimizer", function()
 		auxSkills = false,
 		flasks = false,
 		uniquePairAnchors = 1,
+		weaponSets = false,
+		treeWidth = 1,
 	}
 
 	it("rejects unknown classes, ascendancies and skills", function()
@@ -115,6 +117,32 @@ describe("BuildOptimizer", function()
 		assert.is_true(marks <= 1)
 		-- The main skill is still the one being measured
 		assert.are.equals("Lightning Arrow", build.skillsTab.socketGroupList[build.mainSocketGroup].gemList[1].nameSpec)
+	end)
+
+	it("scores a minion skill by the number of minions the Spirit pays for", function()
+		assert.is_true(optimizer.SetupCharacter(build, { class = "Witch", ascendancy = "Lich", skill = "Skeletal Sniper" }))
+		local result = optimizer.Optimize(build, quickOptions)
+		local gemInstance = build.skillsTab.socketGroupList[build.mainSocketGroup].gemList[1]
+		local output = build.calcsTab.mainOutput
+		assert.is_true(gemInstance.count > 1)
+		assert.is_true((output.SpiritUnreserved or 0) >= 0)
+		assert.is_true(math.abs(result.score - output.Minion.CombinedDPS * gemInstance.count) <= result.score * 1e-6)
+	end)
+
+	it("keeps the point budget when the second weapon set is used, and builds trees of different widths", function()
+		assert.is_true(optimizer.SetupCharacter(build, { class = "Sorceress", ascendancy = "Stormweaver", skill = "Spark" }))
+		local options = copyTable(quickOptions)
+		options.auxSkills = true
+		options.weaponSets = true
+		options.treeWidth = 2
+		options.points = 30
+		local result = optimizer.Optimize(build, options)
+		assert.is_true(result.score > 0)
+		local used, _, _, _, set1Used, set2Used = build.spec:CountAllocNodes()
+		assert.is_true(used - math.min(set1Used, set2Used) <= options.points)
+		assert.is_true(set2Used <= 24)
+		assert.is_truthy(optimizer.ConfigReport(build, options):match("== Configuration =="))
+		assert.is_truthy(optimizer.CoverageReport(build):match("Unique items"))
 	end)
 
 	it("survives a save and reload with the same result", function()

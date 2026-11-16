@@ -33,6 +33,7 @@ Usage: OptimizeBuild.lua --class <name> --skill <gem name> [options]
   --no-runes             Leave item sockets empty
   --no-aux               Don't add auras, curses, marks and other supporting skills
   --no-flasks            Don't equip flasks and charms
+  --no-weapon-sets       Don't use the second weapon set for the supporting skills
   --no-combos            Skip the search for combinations whose parts do nothing on their own
   --thorough             Try every unique as one half of a unique pair (adds several minutes)
   --no-uniques           Only produce the rare-item build
@@ -45,7 +46,7 @@ Usage: OptimizeBuild.lua --class <name> --skill <gem name> [options]
 
 local args = { config = { } }
 do
-	local flags = { ["no-lineage"] = true, ["no-runes"] = true, ["no-uniques"] = true, ["no-aux"] = true, ["no-flasks"] = true, ["no-combos"] = true, thorough = true, ["only-uniques"] = true, debug = true, quiet = true, help = true, coverage = true }
+	local flags = { ["no-lineage"] = true, ["no-runes"] = true, ["no-uniques"] = true, ["no-aux"] = true, ["no-flasks"] = true, ["no-weapon-sets"] = true, ["no-combos"] = true, thorough = true, ["only-uniques"] = true, debug = true, quiet = true, help = true, coverage = true }
 	local index = 1
 	while arg and arg[index] do
 		local key = arg[index]:match("^%-%-(.+)$")
@@ -195,6 +196,7 @@ local options = {
 	runes = not args["no-runes"],
 	auxSkills = not args["no-aux"],
 	flasks = not args["no-flasks"],
+	weaponSets = not args["no-weapon-sets"],
 	combos = not args["no-combos"],
 	thorough = args.thorough,
 	autoAscendancy = not args.ascendancy or args.ascendancy:lower() == "auto",

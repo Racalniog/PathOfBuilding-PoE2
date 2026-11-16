@@ -8,7 +8,8 @@ with the highest damage. For a chosen class, ascendancy and skill it decides:
 * the equipment, once using crafted rares only and once with unique items allowed,
 * the passive tree, including ascendancy nodes and jewel sockets,
 * the jewels in the allocated sockets, and the runes / soul cores in item sockets,
-* flasks and charms, where they add damage.
+* flasks and charms, where they add damage,
+* the second weapon set: swap weapons and weapon-set passives for the supporting skills.
 
 Every candidate is scored by the normal calculation engine (`calcs.initEnv` + `calcs.perform`), so
 the number the optimizer reports is the number the program shows when the saved build is opened.
@@ -38,13 +39,22 @@ Useful options (`--help` lists all of them):
 | `--item-level <n>` | Highest affix tier that may be crafted |
 | `--no-lineage`, `--no-runes` | Leave out lineage supports / socketed runes |
 | `--no-aux`, `--no-flasks` | Leave out supporting skills / flasks and charms |
+| `--no-weapon-sets` | Don't use the second weapon set |
+| `--assume sustained` | Switch on the conditions the build keeps up by itself (see below) |
+| `--tree-width <n>` | Number of differently-minded tree builds to compare (1-4) |
+| `--jobs <n>` | Processes to use; the extra ones build tree variants in parallel (about 1 GB each) |
+| `--coverage` | Print how much of the program's data the engine can't calculate, and exit |
 | `--no-combos` | Skip the search for combinations whose parts do nothing alone |
 | `--thorough` | Try every unique as one half of a unique pair (adds several minutes) |
 | `--config key=value` | Any Configuration tab input, e.g. `--config enemyIsBoss=Pinnacle` |
 | `--metric <stat>` | Calc output to maximise, `CombinedDPS` by default |
 | `--rounds <n>` | Passes over the whole pipeline per variant |
 
-A full run takes roughly eight minutes (about 200,000 calculations).
+A full run takes roughly ten minutes. The script stops itself with a stack dump if its memory passes
+3 GB or it reports no progress for 15 minutes (`POB_OPTIMIZER_MEMORY_MB`, `POB_OPTIMIZER_SILENCE_S`).
+
+With plain LuaJIT, parallel workers need to know how to start another copy of the script:
+set `POB_OPTIMIZER_WORKER`, e.g. to `luajit OptimizeBuild.lua`. The Python launcher does this itself.
 
 From Lua the two entry points are:
 
@@ -86,7 +96,10 @@ to later ones:
    with a one-hander plus quiver, focus, shield or second weapon. With uniques allowed, every unique
    that fits the slot competes with the crafted rare. Flask and charm slots are switched on and get
    the magic or unique item that adds the most; slots where nothing helps stay empty.
-5. **Passive tree** - ascendancy points first, then the main tree. Each step values every reachable
+5. **Passive tree** - ascendancy points first, then the main tree. The main tree is built several
+   times, each time ranking candidates by gain / cost ^ exponent with a different exponent (1 is
+   plain value per point, lower values accept more travel to reach a strong cluster), and the best
+   tree is kept; these builds run in parallel worker processes when `--jobs` allows. Each step values every reachable
    node on its own, estimates from that the value per point of whole paths and of whole clusters
    (all useful nodes of a group plus the travel to reach them), verifies the most promising
    candidates with a real calculation and allocates the best. Jewel sockets hold a jewel crafted for
@@ -95,8 +108,32 @@ to later ones:
    again, keeping the result only when the build improves.
 6. **Jewels** - every allocated socket gets its own jewel crafted in place, which is what lets
    Time-Lost jewels be judged by the passives actually in their radius.
-7. **Attributes** - the allocated attribute nodes are set to meet the requirements of gems and gear,
-   and otherwise to whichever attribute scores best.
+7. **Second weapon set** - the main skill stays in set 1. Supporting skills that are cast (curses,
+   marks, offerings; not persistent buffs) move to set 2 where that costs nothing, the swap weapon
+   slots get the items that add the most (for example "+ to Level of all Minion Skills" for an
+   offering), and passives that only serve the main skill are turned into set 1 passives, which
+   frees the same number of points for set 2 passives. All of it is undone if the build isn't better.
+8. **Attributes** - the allocated attribute nodes are set to meet the requirements of gems and gear,
+   and otherwise to whichever attribute scores best. Supporting gems whose requirements still can't
+   be met are lowered in level, or dropped.
+
+### Minions
+
+The engine reports the damage of one minion; the gem's "Count" only decides how much Spirit is
+reserved. For minions that reserve Spirit per minion, the optimizer scores the per-minion damage
+times the number of minions the remaining Spirit can pay for and keeps the gem count in step, so
+Spirit, reservation efficiency and buffs that cost Spirit are all weighed against more minions.
+
+### Configuration
+
+Damage depends on the Configuration tab. By default nothing is assumed beyond a new build's
+defaults. `--assume sustained` switches on the conditions a build keeps up just by using its skill,
+each decided by the build's own numbers (enemy shocked/ignited/chilled/bleeding/poisoned at 20% or
+more chance per hit, crit recently at 20% or more crit chance, and so on;
+`optimizer.sustainedConditions`), keeps the ones that help, and runs another round so the build can
+grow around them. `--assume name,name` does the same for conditions you name. Every summary ends
+with what each remaining yes/no condition would be worth, so you can see what the number rests on
+and what is left on the table.
 
 ### Combinations whose parts do nothing alone
 
@@ -125,7 +162,10 @@ of the pair is worth something by itself.
 There are no hard-coded build recipes. A unique interaction or skill setup is found if, and only
 if, the calculation engine models it and its effect shows up in the optimised stat. In practice:
 
-* Mechanics marked "Not supported in PoB yet" are worth nothing to the search.
+* Mechanics marked "Not supported in PoB yet" are worth nothing to the search. Every summary lists
+  the unsupported lines of that build, and `--coverage` prints the totals: at the time of writing
+  about half of the unique items, a fifth of the notables, ascendancy passives and runes, and 30% of
+  the keystones have at least one modifier the engine can't read.
 * Conditional effects count only if their condition is on in the Configuration tab.
 * Setups that depend on how a skill is played (combos, detonating one skill with another, charges
   generated by a second skill) are not modelled beyond what the engine assumes by default.
@@ -149,22 +189,19 @@ if, the calculation engine models it and its effect shows up in the optimised st
   quality. Lower `--roll` and `--item-level` for something closer to what can be bought.
 * Item choice doesn't take attribute requirements into account. They are met afterwards with
   attribute nodes where possible, and the summary flags any requirement that is left unmet.
-* Weapon-set passive points and a second weapon set are not part of the search.
+* The second weapon set is only used for supporting skills; a second damage skill with its own
+  set, and swapping for a skill rotation, are not searched.
 
 ## Ideas for going further
 
 * **Defensive constraints** - require minimum life, resistances or effective hit pool, and spend the
   affix slots the damage search leaves empty on them.
-* **Wider tree search** - the allocation is greedy with a prune-and-regrow polish. A beam search or
-  simulated annealing over the allocation, or solving the "connect these notables as cheaply as
-  possible" sub-problem exactly (a Steiner tree), would find trees the greedy path misses, at the
-  cost of run time.
 * **Negative-first choices** - try keystones and uniques that lower the score on their own by
   re-running the following stages with them forced in.
 * **Cross-kind combinations** - extend the group test across kinds, e.g. idle supports together with
   idle passives.
-* **Configuration awareness** - search over conditions the player can realistically maintain, and
-  report how much each assumed condition contributes.
-* **Parallel runs** - calculations are independent, so candidate evaluation could be spread over
-  several processes; restarts with different first choices could then be explored in parallel.
-* **Weapon sets** - use the weapon-set passive points and a second weapon set.
+* **More in parallel** - only the tree variants run in worker processes; whole-pipeline restarts
+  and item crafting could be spread out the same way.
+* **Skill rotations** - a second damage skill in the second weapon set, scored with Full DPS.
+* **Exact tree connection** - solving the "connect these notables as cheaply as possible" sub-problem
+  exactly (a Steiner tree) instead of following shortest paths one target at a time.

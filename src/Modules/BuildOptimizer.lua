@@ -48,6 +48,9 @@ optimizer.defaultOptions = {
 	maxSkills = 9,
 	-- Equip flasks and charms where they add damage (they are assumed to be active)
 	flasks = true,
+	-- Use the second weapon set: supporting skills that gain from it are cast with their own
+	-- weapons and weapon-set passives, the main skill keeps the first set
+	weaponSets = true,
 	-- Look for combinations whose parts do nothing on their own (supports, affixes, passives, uniques)
 	combos = true,
 	-- Number of rejected uniques per slot that are tried as one half of a unique pair
@@ -896,6 +899,7 @@ local function itemBaseList(ctx)
 end
 
 local function baseCouldFitSlot(base, slotName)
+	slotName = slotName:gsub(" Swap$", "")
 	if isJewelSlot(slotName) then
 		return base.type == "Jewel"
 	elseif slotName == "Weapon 1" then
@@ -1537,11 +1541,12 @@ local function passiveBudget(ctx)
 end
 
 local function remainingPoints(ctx, ascendancy)
-	local used, ascUsed = ctx.build.spec:CountAllocNodes()
+	local used, ascUsed, _, _, set1Used, set2Used = ctx.build.spec:CountAllocNodes()
 	if ascendancy then
 		return ctx.opts.ascendancyPoints - ascUsed
 	end
-	return passiveBudget(ctx) - used
+	-- A weapon-set point is spent once for both sets
+	return passiveBudget(ctx) - (used - m_min(set1Used or 0, set2Used or 0))
 end
 
 local function isTreeCandidate(node, ascendancy)
@@ -2250,6 +2255,231 @@ local function clearUnusedSockets(ctx)
 end
 
 -----------------------------------------------------------------------------------------------
+-- Second weapon set
+-----------------------------------------------------------------------------------------------
+
+-- Second weapon set. The main skill stays in set 1. A supporting skill that is assigned to set 2
+-- only is cast with the weapons and weapon-set passives of that set, and its buff or debuff still
+-- applies to the main skill, so set 2 can be built purely for the supporting skills:
+--  1. supporting skills move to set 2 where that doesn't cost anything,
+--  2. the swap weapon slots get the items that add the most,
+--  3. passives that only help the main skill are turned into set 1 passives, which frees the same
+--     number of points for set 2 passives that strengthen the supporting skills.
+-- Everything is undone again if the build doesn't end up better
+local function optimizeWeaponSets(ctx, allowUniques)
+	local build = ctx.build
+	local spec = build.spec
+	local groups = build.skillsTab.socketGroupList
+	local start = eval(ctx)
+	local cur = start
+	local aux = { }
+	for _, group in ipairs(groups) do
+		local gemData = group.gemList[1] and group.gemList[1].gemData
+		-- Persistent buffs have to stay available in the set the main skill is used in, so only
+		-- skills that are cast (curses, marks, offerings, ...) are candidates for set 2
+		if group.enabled and isAuxGroup(ctx, group) and gemData and not gemData.tags.persistent then
+			t_insert(aux, group)
+		end
+	end
+	if #aux == 0 then
+		return cur
+	end
+	local function inSet2(group)
+		return group.set2 ~= false and group.set1 == false
+	end
+	local function assign(group, set)
+		group.set1 = set ~= 2
+		group.set2 = set ~= 1
+	end
+	local savedSets = { }
+	for _, group in ipairs(aux) do
+		savedSets[group] = { group.set1, group.set2 }
+	end
+	local savedMain = { ctx.group.set1, ctx.group.set2 }
+	local savedSwap = { equippedItem(ctx, "Weapon 1 Swap"), equippedItem(ctx, "Weapon 2 Swap") }
+	local savedTree = spec:CreateUndoState()
+	assign(ctx.group, 1)
+
+	local function moveGroups(strict)
+		local moved = 0
+		for _, group in ipairs(aux) do
+			if not inSet2(group) then
+				assign(group, 2)
+				local score = eval(ctx)
+				if (strict and better(ctx, score, cur)) or (not strict and score >= cur - math.abs(cur) * 1e-9) then
+					cur = m_max(cur, score)
+					moved = moved + 1
+				else
+					assign(group, nil)
+				end
+			end
+		end
+		return moved
+	end
+	moveGroups(false)
+	local anyInSet2 = false
+	for _, group in ipairs(aux) do
+		anyInSet2 = anyInSet2 or inSet2(group)
+	end
+	if anyInSet2 then
+		sync(ctx)
+		for _, slotName in ipairs({ "Weapon 1 Swap", "Weapon 2 Swap" }) do
+			if slotFor(ctx, slotName) then
+				local item, score = bestItemForSlot(ctx, slotName, allowUniques, nil, "Optimised Swap Weapon")
+				if item and better(ctx, score, cur) then
+					equip(ctx, slotName, item)
+					cur = score
+					log(ctx, "  %s: %s -> %.1f", slotName, item.name, cur)
+				end
+			end
+		end
+		-- Skills that needed a weapon to be worth moving
+		moveGroups(true)
+
+		-- Weapon-set passives
+		local limit = build.maxWeaponSets or 24
+		local failed = { }
+		local function convertToSet1(count)
+			-- Leaves first: a normal passive may not hang off a weapon-set passive
+			local converted = 0
+			local progress = true
+			while converted < count and progress do
+				progress = false
+				local ids = allocatedNodeIds(spec)
+				for _, id in ipairs(ids) do
+					local node = spec.allocNodes[id]
+					if converted < count and node and (node.allocMode or 0) == 0 and not failed[id] and not node.ascendancyName and not node.isAttribute
+					and (node.type == "Normal" or node.type == "Notable") and not node.containJewelSocket then
+						local leaf = true
+						for _, depNode in ipairs(node.depends or { }) do
+							if depNode ~= node and depNode.allocMode ~= 1 then
+								leaf = false
+								break
+							end
+						end
+						if leaf then
+							node.allocMode = 1
+							local score = eval(ctx)
+							if score >= cur - math.abs(cur) * 1e-9 then
+								converted = converted + 1
+								progress = true
+							else
+								node.allocMode = 0
+								failed[id] = true
+							end
+						end
+					end
+				end
+			end
+			spec:BuildAllDependsAndPaths()
+			return converted
+		end
+		while true do
+			local _, _, _, _, set1Used, set2Used = spec:CountAllocNodes()
+			local room = limit - set2Used
+			if room <= 0 then
+				break
+			end
+			local base = eval(ctx)
+			spec.allocMode = 2
+			local cache = { }
+			local candidates = { }
+			for id, node in pairs(spec.nodes) do
+				if isTreeCandidate(node, false) and node.modKey and node.modKey ~= "" and (node.type == "Normal" or node.type == "Notable") and not node.containJewelSocket then
+					local path = spec:GetEffectiveAllocationPath(node)
+					local usable = path and #path > 0 and #path <= room
+					if usable then
+						for _, pathNode in ipairs(path) do
+							if pathNode.type == "Keystone" or pathNode.type == "Socket" or pathNode.containJewelSocket or pathNode.ascendancyName then
+								usable = false
+								break
+							end
+						end
+					end
+					if usable then
+						if cache[node.modKey] == nil then
+							node.allocMode = 2
+							cache[node.modKey] = eval(ctx, { addNodes = { [node] = true } }) - base
+							node.allocMode = 0
+						end
+						if cache[node.modKey] > 0 then
+							t_insert(candidates, { node = node, path = path, estimate = cache[node.modKey] / #path })
+						end
+					end
+				end
+			end
+			spec.allocMode = 0
+			t_sort(candidates, function(a, b)
+				if a.estimate ~= b.estimate then
+					return a.estimate > b.estimate
+				end
+				return a.node.id < b.node.id
+			end)
+			local best, bestRate = nil, 0
+			for index = 1, m_min(#candidates, ctx.opts.treeVerify) do
+				local candidate = candidates[index]
+				local addNodes = { }
+				for _, pathNode in ipairs(candidate.path) do
+					pathNode.allocMode = 2
+					addNodes[pathNode] = true
+				end
+				local gain = eval(ctx, { addNodes = addNodes }) - base
+				for _, pathNode in ipairs(candidate.path) do
+					pathNode.allocMode = 0
+				end
+				if gain / #candidate.path > bestRate then
+					best, bestRate = candidate, gain / #candidate.path
+				end
+			end
+			if not best or bestRate <= math.abs(base) * ctx.opts.epsilon then
+				break
+			end
+			-- Every set 2 point has to be matched by a passive that moves to set 1
+			local needed = m_max(0, (set2Used + #best.path) - set1Used)
+			local undo = spec:CreateUndoState()
+			if needed > 0 and convertToSet1(needed) < needed then
+				spec:RestoreUndoState(undo)
+				break
+			end
+			local target = spec.nodes[best.node.id]
+			spec.allocMode = 2
+			if target and target.path then
+				spec:AllocNode(target)
+			end
+			spec.allocMode = 0
+			sync(ctx)
+			local score = eval(ctx)
+			if remainingPoints(ctx, false) < 0 or not better(ctx, score, cur) then
+				spec:RestoreUndoState(undo)
+				sync(ctx)
+				break
+			end
+			cur = score
+			if ctx.opts.debug then
+				log(ctx, "      set 2 passive: %s -> %.1f", best.node.dn or "?", cur)
+			end
+		end
+	end
+
+	if not better(ctx, cur, start) then
+		-- The second set bought nothing; leave the build as a single-set build
+		for group, sets in pairs(savedSets) do
+			group.set1, group.set2 = sets[1], sets[2]
+		end
+		ctx.group.set1, ctx.group.set2 = savedMain[1], savedMain[2]
+		spec:RestoreUndoState(savedTree)
+		equip(ctx, "Weapon 1 Swap", savedSwap[1])
+		equip(ctx, "Weapon 2 Swap", savedSwap[2])
+		sync(ctx)
+		return eval(ctx)
+	end
+	sync(ctx)
+	local _, _, _, _, set1Used, set2Used = spec:CountAllocNodes()
+	log(ctx, "  second weapon set: %d passives in set 1, %d in set 2 -> %.1f", set1Used, set2Used, cur)
+	return cur
+end
+
+-----------------------------------------------------------------------------------------------
 -- Configuration awareness
 -----------------------------------------------------------------------------------------------
 
@@ -2687,6 +2917,11 @@ local function runRound(ctx, round, allowUniques)
 
 	log(ctx, "[round %d] jewels", round)
 	score = optimizeJewels(ctx, allowUniques)
+	if ctx.opts.weaponSets then
+		log(ctx, "[round %d] second weapon set", round)
+		score = optimizeWeaponSets(ctx, allowUniques)
+		log(ctx, "  -> %.1f", score)
+	end
 	assignAttributes(ctx)
 	if repairGemRequirements(ctx) then
 		-- Lower requirements free attribute nodes for something better
@@ -2779,7 +3014,8 @@ function optimizer.Describe(build)
 			for gemIndex = 2, #other.gemList do
 				t_insert(names, other.gemList[gemIndex].nameSpec or "?")
 			end
-			t_insert(others, s_format("%s (level %d)%s", other.gemList[1].nameSpec or "?", other.gemList[1].level or 1, #names > 0 and (" + " .. t_concat(names, ", ")) or ""))
+			local set2 = other.set1 == false and other.set2 ~= false
+			t_insert(others, s_format("%s (level %d)%s%s", other.gemList[1].nameSpec or "?", other.gemList[1].level or 1, #names > 0 and (" + " .. t_concat(names, ", ")) or "", set2 and "   [cast with weapon set 2]" or ""))
 		end
 	end
 	if #others > 0 then
@@ -2815,8 +3051,18 @@ function optimizer.Describe(build)
 
 	add("")
 	add("== Passive tree ==")
-	local used, ascUsed, _, sockets = spec:CountAllocNodes()
-	add("Points: %d passive, %d ascendancy, %d jewel sockets", used, ascUsed, sockets)
+	local used, ascUsed, _, sockets, set1Used, set2Used = spec:CountAllocNodes()
+	add("Points: %d passive, %d ascendancy, %d jewel sockets", used - m_min(set1Used or 0, set2Used or 0), ascUsed, sockets)
+	if (set1Used or 0) > 0 or (set2Used or 0) > 0 then
+		local set2Names = { }
+		for _, node in pairs(spec.allocNodes) do
+			if node.allocMode == 2 and node.type == "Notable" then
+				t_insert(set2Names, node.dn)
+			end
+		end
+		t_sort(set2Names)
+		add("Weapon-set passives: %d only active in set 1, %d only active in set 2%s", set1Used, set2Used, #set2Names > 0 and (" (" .. t_concat(set2Names, ", ") .. ")") or "")
+	end
 	local keystones, notables, ascendancy = { }, { }, { }
 	for _, node in pairs(spec.allocNodes) do
 		if node.ascendancyName then
