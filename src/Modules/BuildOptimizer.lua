@@ -68,6 +68,9 @@ optimizer.defaultOptions = {
 	rounds = 2,
 	-- Relative improvement below which a change is not considered worth it
 	epsilon = 1e-6,
+	-- Configuration tab conditions to switch on because the build keeps them up by itself:
+	-- "none", "sustained" (see optimizer.sustainedConditions) or a list of option names
+	assume = "none",
 	-- function(text) used to report progress
 	log = nil,
 }
@@ -2135,6 +2138,367 @@ local function clearUnusedSockets(ctx)
 end
 
 -----------------------------------------------------------------------------------------------
+-- Configuration awareness
+-----------------------------------------------------------------------------------------------
+
+-- Conditions from the Configuration tab that a build maintains simply by using its skill on an
+-- enemy, each with the test that decides whether this build does. Used by assume = "sustained".
+-- Deliberately short: anything that needs a kill, another player, a specific enemy or luck is
+-- left to the user (--config) and only shows up in the sensitivity report
+local function ailmentChance(output, name)
+	return m_max(output[name .. "Chance"] or 0, output[name .. "ChanceOnHit"] or 0, (output[name .. "ChanceOnCrit"] or 0) * (output.CritChance or 0) / 100)
+end
+
+optimizer.sustainedConditions = {
+	{ var = "conditionEnemyShocked", why = "shock chance of 20% or more per hit", when = function(output) return ailmentChance(output, "Shock") >= 20 end },
+	{ var = "conditionEnemyIgnited", why = "ignite chance of 20% or more per hit", when = function(output) return ailmentChance(output, "Ignite") >= 20 end },
+	{ var = "conditionEnemyChilled", why = "chill chance of 20% or more per hit", when = function(output) return ailmentChance(output, "Chill") >= 20 end },
+	{ var = "conditionEnemyBleeding", why = "bleed chance of 20% or more per hit", when = function(output) return ailmentChance(output, "Bleed") >= 20 end },
+	{ var = "conditionEnemyPoisoned", why = "poison chance of 20% or more per hit", when = function(output) return ailmentChance(output, "Poison") >= 20 end },
+	{ var = "conditionCritRecently", why = "critical hit chance of 20% or more", when = function(output) return (output.CritChance or 0) >= 20 end },
+	{ var = "conditionSkillCritRecently", why = "critical hit chance of 20% or more", when = function(output) return (output.CritChance or 0) >= 20 end },
+	{ var = "conditionNonCritRecently", why = "critical hit chance of 80% or less", when = function(output) return (output.CritChance or 0) <= 80 end },
+	{ var = "conditionHitRecently", why = "the skill hits", when = function(output) return (output.TotalDPS or 0) > 0 end },
+	{ var = "conditionUsedSkillRecently", why = "the skill is used continuously", when = function() return true end },
+	{ var = "conditionShockedEnemyRecently", why = "shock chance of 20% or more per hit", when = function(output) return ailmentChance(output, "Shock") >= 20 end },
+	{ var = "conditionIgnitedEnemyRecently", why = "ignite chance of 20% or more per hit", when = function(output) return ailmentChance(output, "Ignite") >= 20 end },
+	{ var = "conditionChilledEnemyRecently", why = "chill chance of 20% or more per hit", when = function(output) return ailmentChance(output, "Chill") >= 20 end },
+}
+
+local configOptionList
+local function configOptions()
+	if not configOptionList then
+		configOptionList = { }
+		local section = ""
+		for _, option in ipairs(LoadModule("Modules/ConfigOptions")) do
+			if option.section then
+				section = option.section
+			end
+			if option.var then
+				t_insert(configOptionList, { var = option.var, type = option.type, label = option.label, section = section })
+			end
+		end
+	end
+	return configOptionList
+end
+
+local function plainLabel(label)
+	if type(label) ~= "string" then
+		return ""
+	end
+	return (label:gsub("%^x%x%x%x%x%x%x", ""):gsub("%^%d", ""))
+end
+
+local function setConfig(ctx, var, value)
+	ctx.build.configTab.input[var] = value
+	ctx.build.configTab:BuildModList()
+end
+
+-- How much every yes/no option of the Configuration tab would change the score if it were flipped.
+-- Returns a list of { var, label, section, enabled, change } (change is relative), largest first
+local function configSensitivity(ctx)
+	local input = ctx.build.configTab.input
+	local base = eval(ctx)
+	local list = { }
+	if base <= 0 then
+		return list
+	end
+	for _, option in ipairs(configOptions()) do
+		if option.type == "check" then
+			local old = input[option.var]
+			input[option.var] = not old
+			ctx.build.configTab:BuildModList()
+			local score = eval(ctx)
+			input[option.var] = old
+			if score >= 0 and math.abs(score - base) > base * 0.002 then
+				t_insert(list, { var = option.var, label = plainLabel(option.label), section = option.section, enabled = old and true or false, change = score / base - 1 })
+			end
+		end
+	end
+	ctx.build.configTab:BuildModList()
+	t_sort(list, function(a, b)
+		if a.change ~= b.change then
+			return a.change > b.change
+		end
+		return a.var < b.var
+	end)
+	return list
+end
+
+-- Switch on the conditions the build keeps up by itself (or the ones the user named), keeping
+-- only those that raise the score. Returns true if anything was switched on
+local function applyAssumptions(ctx)
+	local assume = ctx.opts.assume
+	if not assume or assume == "none" then
+		return false
+	end
+	local input = ctx.build.configTab.input
+	local known = { }
+	for _, option in ipairs(configOptions()) do
+		known[option.var] = option
+	end
+	local candidates = { }
+	if assume == "sustained" then
+		local output = calcOutput(ctx)
+		local detail = output.Minion or output
+		for _, entry in ipairs(optimizer.sustainedConditions) do
+			if known[entry.var] and (entry.when(output) or entry.when(detail)) then
+				t_insert(candidates, { var = entry.var, why = entry.why })
+			end
+		end
+	elseif type(assume) == "table" then
+		for _, var in ipairs(assume) do
+			if known[var] then
+				t_insert(candidates, { var = var, why = "requested" })
+			else
+				log(ctx, "  unknown configuration option '%s' ignored", tostring(var))
+			end
+		end
+	end
+	local changed = false
+	local cur = eval(ctx)
+	for _, entry in ipairs(candidates) do
+		if not input[entry.var] then
+			setConfig(ctx, entry.var, true)
+			local score = eval(ctx)
+			if better(ctx, score, cur) then
+				ctx.assumed[entry.var] = { label = plainLabel(known[entry.var].label), why = entry.why, change = cur > 0 and (score / cur - 1) or 0 }
+				log(ctx, "  assuming \"%s\" (%s): %+.1f%%", ctx.assumed[entry.var].label, entry.why, ctx.assumed[entry.var].change * 100)
+				cur = score
+				changed = true
+			else
+				setConfig(ctx, entry.var, nil)
+			end
+		end
+	end
+	if changed then
+		sync(ctx)
+	end
+	return changed
+end
+
+-----------------------------------------------------------------------------------------------
+-- Coverage: what the calculation engine doesn't understand
+-----------------------------------------------------------------------------------------------
+
+local function lineUnsupported(modLine)
+	if modLine.extra then
+		return true
+	end
+	return (not modLine.modList or #modLine.modList == 0) and not (modLine.line or ""):match("^Grants Skill")
+end
+
+local function unmappedGemStats(grantedEffect)
+	local missing = { }
+	local seen = { }
+	for _, statSet in ipairs(grantedEffect.statSets or { }) do
+		local function check(name)
+			if type(name) == "string" and not seen[name] and not (statSet.statMap and statSet.statMap[name]) and not (data.skillStatMap and data.skillStatMap[name]) then
+				seen[name] = true
+				t_insert(missing, name)
+			end
+		end
+		for _, name in ipairs(statSet.stats or { }) do
+			check(name)
+		end
+		for _, entry in ipairs(statSet.constantStats or { }) do
+			check(entry[1])
+		end
+	end
+	t_sort(missing)
+	return missing
+end
+
+-- Text report of the modifiers in the program's data that the calculation engine can't read, i.e.
+-- that are worth nothing to the optimizer no matter how strong they are in the game. With a build,
+-- the unsupported parts of that build are listed first
+function optimizer.CoverageReport(build)
+	local lines = { }
+	local function add(fmt, ...)
+		t_insert(lines, s_format(fmt, ...))
+	end
+	if build and build.spec then
+		add("== Parts of this build the engine does not calculate ==")
+		local any = false
+		for _, slot in ipairs(build.itemsTab.orderedSlots) do
+			local item = build.itemsTab.items[slot.selItemId]
+			local node = slot.nodeId and build.spec.nodes[slot.nodeId]
+			if item and (not slot.nodeId or (node and node.alloc)) then
+				for _, list in ipairs({ item.runeModLines, item.implicitModLines, item.explicitModLines }) do
+					for _, modLine in ipairs(list or { }) do
+						if item:CheckModLineVariant(modLine) and lineUnsupported(modLine) then
+							add("%s (%s): %s", slot.slotName, item.name, modLine.line or "")
+							any = true
+						end
+					end
+				end
+			end
+		end
+		local nodes = { }
+		for _, node in pairs(build.spec.allocNodes) do
+			if (node.unknown or node.extra) and node.sd and #node.sd > 0 then
+				t_insert(nodes, s_format("Passive %s: %s", node.dn or "?", t_concat(node.sd, " / ")))
+			end
+		end
+		t_sort(nodes)
+		for _, text in ipairs(nodes) do
+			add("%s", text)
+			any = true
+		end
+		for _, group in ipairs(build.skillsTab.socketGroupList) do
+			if group.enabled then
+				for _, gemInstance in ipairs(group.gemList) do
+					local grantedEffect = gemInstance.gemData and gemInstance.gemData.grantedEffect
+					-- Active skills carry many cosmetic stats; for supports a missing stat is usually a missing effect
+					local missing = grantedEffect and grantedEffect.support and unmappedGemStats(grantedEffect) or { }
+					if #missing > 0 then
+						add("Gem %s: %d stats without a calculation (%s%s)", gemInstance.nameSpec or "?", #missing, t_concat(missing, ", ", 1, m_min(#missing, 4)), #missing > 4 and ", ..." or "")
+						any = true
+					end
+				end
+			end
+		end
+		if not any then
+			add("-")
+		end
+		add("")
+	end
+
+	add("== Coverage of the program's data (entries with at least one modifier the engine can't read) ==")
+	if build and build.spec then
+		local counts = { }
+		for _, node in pairs(build.spec.tree.nodes) do
+			if node.sd and #node.sd > 0 then
+				local kind = node.ascendancyName and "Ascendancy passives" or node.type == "Keystone" and "Keystones" or node.type == "Notable" and "Notables" or node.type == "Normal" and "Small passives" or nil
+				if kind then
+					counts[kind] = counts[kind] or { 0, 0 }
+					counts[kind][1] = counts[kind][1] + 1
+					if node.unknown or node.extra then
+						counts[kind][2] = counts[kind][2] + 1
+					end
+				end
+			end
+		end
+		for _, kind in ipairs({ "Keystones", "Ascendancy passives", "Notables", "Small passives" }) do
+			if counts[kind] then
+				add("%-28s %5d of %5d (%2.0f%%)", kind, counts[kind][2], counts[kind][1], counts[kind][2] / counts[kind][1] * 100)
+			end
+		end
+	end
+	if main.uniqueDB and main.uniqueDB.list then
+		local items, affected = 0, 0
+		for _, item in pairs(main.uniqueDB.list) do
+			items = items + 1
+			local any = false
+			for _, list in ipairs({ item.implicitModLines, item.explicitModLines }) do
+				for _, modLine in ipairs(list or { }) do
+					if lineUnsupported(modLine) then
+						any = true
+					end
+				end
+			end
+			if any then
+				affected = affected + 1
+			end
+		end
+		add("%-28s %5d of %5d (%2.0f%%)", "Unique items", affected, items, items > 0 and affected / items * 100 or 0)
+	end
+	for _, entry in ipairs({ { "Item", "Item affixes" }, { "Jewel", "Jewel affixes" }, { "Flask", "Flask affixes" }, { "Charm", "Charm affixes" }, { "Desecrated", "Desecrated affixes" }, { "Corruption", "Corruption modifiers" } }) do
+		local total, bad = 0, 0
+		for _, mod in pairs(data.itemMods[entry[1]] or { }) do
+			total = total + 1
+			for _, line in ipairs(mod) do
+				local list, extra = modLib.parseMod(itemLib.applyRange(line, 1))
+				if not list or extra then
+					bad = bad + 1
+					break
+				end
+			end
+		end
+		if total > 0 then
+			add("%-28s %5d of %5d (%2.0f%%)", entry[2], bad, total, bad / total * 100)
+		end
+	end
+	do
+		local total, bad = 0, 0
+		for _, rune in pairs(data.itemMods.Runes or { }) do
+			for _, mod in pairs(rune) do
+				total = total + 1
+				for _, line in ipairs(mod) do
+					local list, extra = modLib.parseMod(line)
+					if not list or extra then
+						bad = bad + 1
+						break
+					end
+				end
+			end
+		end
+		add("%-28s %5d of %5d (%2.0f%%)", "Rune / soul core effects", bad, total, total > 0 and bad / total * 100 or 0)
+	end
+	do
+		local skills, skillsBad, supports, supportsBad = 0, 0, 0, 0
+		for _, gemData in pairs(data.gems) do
+			local grantedEffect = gemData.grantedEffect
+			if not grantedEffect.fromItem and not grantedEffect.fromTree then
+				local missing = #unmappedGemStats(grantedEffect) > 0
+				if grantedEffect.support then
+					supports = supports + 1
+					supportsBad = supportsBad + (missing and 1 or 0)
+				else
+					skills = skills + 1
+					skillsBad = skillsBad + (missing and 1 or 0)
+				end
+			end
+		end
+		add("%-28s %5d of %5d (%2.0f%%)  (a stat without a calculation; many of these are cosmetic)", "Skill gems", skillsBad, skills, skills > 0 and skillsBad / skills * 100 or 0)
+		add("%-28s %5d of %5d (%2.0f%%)  (same)", "Support gems", supportsBad, supports, supports > 0 and supportsBad / supports * 100 or 0)
+	end
+	return t_concat(lines, "\n")
+end
+
+-- Text report of the configuration the build was scored with: the conditions that were assumed,
+-- and what every other yes/no condition would be worth
+function optimizer.ConfigReport(build, options)
+	local ctx = optimizer.NewContext(build, options)
+	if not ctx then
+		return ""
+	end
+	local lines = { }
+	local function add(fmt, ...)
+		t_insert(lines, s_format(fmt, ...))
+	end
+	local sensitivity = configSensitivity(ctx)
+	add("== Configuration ==")
+	local on = { }
+	for _, entry in ipairs(sensitivity) do
+		if entry.enabled then
+			t_insert(on, entry)
+		end
+	end
+	if #on > 0 then
+		add("Assumed conditions (the build was scored with these on; without one, the damage changes by):")
+		for _, entry in ipairs(on) do
+			add("  %-52s %+6.1f%%   [%s]", entry.label, entry.change * 100, entry.var)
+		end
+	else
+		add("No conditions are assumed beyond the defaults of a new build.")
+	end
+	local shown = 0
+	for _, entry in ipairs(sensitivity) do
+		if not entry.enabled and entry.change > 0 then
+			if shown == 0 then
+				add("Conditions that would raise the damage if you can keep them up (--config <name>=true):")
+			end
+			shown = shown + 1
+			if shown <= 15 then
+				add("  %-52s %+6.1f%%   [%s]", entry.label, entry.change * 100, entry.var)
+			end
+		end
+	end
+	return t_concat(lines, "\n")
+end
+
+-----------------------------------------------------------------------------------------------
 -- Driver
 -----------------------------------------------------------------------------------------------
 
@@ -2158,8 +2522,10 @@ local function newContext(build, options)
 		evals = 0,
 		errors = 0,
 		uniqueCount = { },
+		assumed = { },
 	}
 end
+optimizer.NewContext = newContext
 
 local function runRound(ctx, round, allowUniques)
 	local spec = ctx.build.spec
@@ -2240,7 +2606,12 @@ function optimizer.Optimize(build, options)
 	for round = 1, ctx.opts.rounds do
 		local before = score
 		score = runRound(ctx, round, allowUniques)
-		if round > 1 and score <= before * 1.002 then
+		-- Conditions are switched on once the build exists to judge them by; the following round
+		-- then builds around them
+		local assumedNow = applyAssumptions(ctx)
+		if assumedNow then
+			score = eval(ctx)
+		elseif round > 1 and score <= before * 1.002 then
 			break
 		end
 	end

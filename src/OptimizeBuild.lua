@@ -22,6 +22,10 @@ Usage: OptimizeBuild.lua --class <name> --skill <gem name> [options]
   --supports <n>         Number of support gems (default 5)
   --metric <stat>        Calc output to maximise (default CombinedDPS; e.g. TotalDPS, FullDPS)
   --config <key=value>   Set a Configuration tab option, may be repeated (e.g. --config enemyIsBoss=Pinnacle)
+  --assume <what>        Conditions to switch on: "sustained" = the ones the build keeps up by itself
+                         (enemy shocked with enough shock chance, crit recently, ...), or a comma
+                         separated list of Configuration option names. Default: none
+  --coverage             Print what share of the program's data the calculation engine can't read, and exit
   --no-lineage           Don't use lineage support gems
   --no-runes             Leave item sockets empty
   --no-aux               Don't add auras, curses, marks and other supporting skills
@@ -38,7 +42,7 @@ Usage: OptimizeBuild.lua --class <name> --skill <gem name> [options]
 
 local args = { config = { } }
 do
-	local flags = { ["no-lineage"] = true, ["no-runes"] = true, ["no-uniques"] = true, ["no-aux"] = true, ["no-flasks"] = true, ["no-combos"] = true, thorough = true, ["only-uniques"] = true, debug = true, quiet = true, help = true }
+	local flags = { ["no-lineage"] = true, ["no-runes"] = true, ["no-uniques"] = true, ["no-aux"] = true, ["no-flasks"] = true, ["no-combos"] = true, thorough = true, ["only-uniques"] = true, debug = true, quiet = true, help = true, coverage = true }
 	local index = 1
 	while arg and arg[index] do
 		local key = arg[index]:match("^%-%-(.+)$")
@@ -76,7 +80,7 @@ do
 		index = index + 1
 	end
 end
-if args.help or not args.class or not args.skill then
+if args.help or ((not args.class or not args.skill) and not args.coverage) then
 	io.stderr:write(usage)
 	os.exit(args.help and 0 or 2)
 end
@@ -126,6 +130,10 @@ local function say(text)
 end
 
 newBuild()
+if args.coverage and not (args.class and args.skill) then
+	io.stdout:write(optimizer.CoverageReport(build), "\n")
+	os.exit(0)
+end
 local ok, errMsg = optimizer.SetupCharacter(build, {
 	class = args.class,
 	ascendancy = args.ascendancy,
@@ -156,6 +164,16 @@ local options = {
 	thorough = args.thorough,
 	autoAscendancy = not args.ascendancy or args.ascendancy:lower() == "auto",
 }
+if args.assume and args.assume ~= "none" then
+	if args.assume == "sustained" then
+		options.assume = "sustained"
+	else
+		options.assume = { }
+		for var in args.assume:gmatch("[^,%s]+") do
+			table.insert(options.assume, var)
+		end
+	end
+end
 
 local outDir = args.out
 if not outDir then
@@ -174,7 +192,7 @@ local function save(variant)
 	local name = (baseName .. " (" .. variant .. ")"):gsub('[<>:"/\\|%?%*]', "_")
 	build.buildName = name
 	local xmlText = build:SaveDB(name)
-	local summary = optimizer.Describe(build)
+	local summary = optimizer.Describe(build) .. "\n\n" .. optimizer.ConfigReport(build, options) .. "\n\n" .. optimizer.CoverageReport(build)
 	local written = { }
 	for extension, text in pairs({ xml = xmlText, txt = summary }) do
 		local fileName = outDir .. name .. "." .. extension
