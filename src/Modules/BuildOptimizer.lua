@@ -16,6 +16,7 @@ local t_sort = table.sort
 local t_concat = table.concat
 local m_max = math.max
 local m_min = math.min
+local m_floor = math.floor
 local m_huge = math.huge
 local s_format = string.format
 
@@ -87,22 +88,56 @@ end
 local function calcOutput(ctx, override)
 	local env = ctx.calcs.initEnv(ctx.build, "CALCULATOR", override)
 	ctx.calcs.perform(env, true)
-	return env.player.output
+	return env.player.output, env
 end
 
-local function scoreOutput(ctx, output)
-	-- A build that reserves more Spirit than it has is not a build
-	if not ctx.ignoreSpirit and (output.SpiritUnreserved or 0) < 0 then
-		return -1
+-- The engine reports the damage of a single minion; how many there are is the "Count" of the gem,
+-- which only decides how much Spirit is reserved. For minions that reserve Spirit per minion this
+-- returns the number the character can field with the Spirit that is left after everything else,
+-- so that the score is the damage of the whole army and Spirit is worth what it buys.
+-- Returns nil for skills where the count isn't a matter of Spirit
+local function minionCount(ctx, output, env)
+	local skill = env and env.player and env.player.mainSkill
+	if not skill or not skill.minion or not skill.skillTypes or not skill.skillTypes[SkillType.MultipleReservation] then
+		return nil
+	end
+	local current = ctx.group.gemList[1].count or 1
+	local free = skill.skillModList:Sum("BASE", skill.skillCfg, "MinionFreeSpiritCount")
+	local reserved = skill.skillData.SpiritReservedBase or 0
+	if current <= free or reserved <= 0 then
+		-- Nothing is reserved at the current count, so the cost of one more minion is unknown
+		return current, free
+	end
+	local available = (output.SpiritUnreserved or 0) + reserved
+	if available < 0 then
+		return 0, free
+	end
+	return free + m_floor(available / (reserved / (current - free)) + 1e-9), free
+end
+
+local function scoreOutput(ctx, output, env)
+	local minions = ctx.group.gemList[1].count or 1
+	if not ctx.ignoreSpirit then
+		local count = minionCount(ctx, output, env)
+		if count then
+			-- The army is sized to the Spirit that is left, so Spirit can't be overspent by it
+			if count < 1 then
+				return -1
+			end
+			minions = count
+		elseif (output.SpiritUnreserved or 0) < 0 then
+			-- A build that reserves more Spirit than it has is not a build
+			return -1
+		end
 	end
 	local metric = ctx.opts.metric
 	local value
 	if type(metric) == "function" then
-		value = metric(output)
+		value = metric(output, minions)
 	else
 		value = output[metric] or 0
 		if output.Minion and type(output.Minion[metric]) == "number" then
-			value = value + output.Minion[metric]
+			value = value + output.Minion[metric] * minions
 		end
 	end
 	if type(value) ~= "number" or value ~= value or value == m_huge or value == -m_huge then
@@ -114,13 +149,13 @@ end
 -- Score the build as it currently is, with an optional calculation override applied
 local function eval(ctx, override)
 	ctx.evals = ctx.evals + 1
-	local ok, output = pcall(calcOutput, ctx, override)
+	local ok, output, env = pcall(calcOutput, ctx, override)
 	if not ok then
 		ctx.errors = ctx.errors + 1
 		ctx.lastError = output
 		return -1
 	end
-	return scoreOutput(ctx, output)
+	return scoreOutput(ctx, output, env)
 end
 
 local function better(ctx, new, old)
@@ -164,6 +199,27 @@ local function sync(ctx)
 	for index, group in ipairs(ctx.build.skillsTab.socketGroupList) do
 		if group == ctx.group then
 			ctx.build.mainSocketGroup = index
+			break
+		end
+	end
+	-- Keep the minion gem's count at the number of minions the build can field right now
+	local gemInstance = ctx.group.gemList[1]
+	for _ = 1, 2 do
+		local ok, output, env = pcall(calcOutput, ctx)
+		local count, free = nil, nil
+		if ok then
+			count, free = minionCount(ctx, output, env)
+		end
+		if not count then
+			break
+		end
+		if (gemInstance.count or 1) <= free then
+			-- Probe with one paid minion to learn what a minion costs
+			gemInstance.count = free + 1
+		else
+			if count >= 1 then
+				gemInstance.count = count
+			end
 			break
 		end
 	end
@@ -2207,7 +2263,12 @@ function optimizer.Describe(build)
 	local output = build.calcsTab.mainOutput or { }
 	add("%s%s, level %d", spec.curClassName, spec.curAscendClassId ~= 0 and (" / " .. spec.curAscendClassName) or "", build.characterLevel)
 	local detail = output.Minion or output
-	add("Combined DPS: %.0f   (%shit DPS %.0f, crit chance %.1f%%, speed %.2f/s)", (output.CombinedDPS or 0) + (output.Minion and output.Minion.CombinedDPS or 0), output.Minion and "minion " or "", detail.TotalDPS or 0, detail.CritChance or 0, detail.Speed or 0)
+	local mainGroup = build.skillsTab.socketGroupList[build.mainSocketGroup]
+	local minions = output.Minion and mainGroup and mainGroup.gemList[1] and mainGroup.gemList[1].count or 1
+	add("Combined DPS: %.0f   (%shit DPS %.0f, crit chance %.1f%%, speed %.2f/s)", (output.CombinedDPS or 0) + (output.Minion and output.Minion.CombinedDPS or 0) * minions, output.Minion and "per minion: " or "", detail.TotalDPS or 0, detail.CritChance or 0, detail.Speed or 0)
+	if output.Minion then
+		add("Minions: %d (gem count; the engine's own figures are for one minion)", minions)
+	end
 	local unmet = { }
 	for _, attr in ipairs(attributeNames) do
 		if (output["Req" .. attr] or 0) > (output[attr] or 0) then
