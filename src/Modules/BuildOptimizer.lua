@@ -64,6 +64,16 @@ optimizer.defaultOptions = {
 	treeVerify = 10,
 	-- Number of failed prune-and-regrow attempts before the tree refinement stops
 	treeRefineFails = 6,
+	-- The tree is built several times with a different appetite for long travel, and the best
+	-- result is kept. A candidate is ranked by gain / cost ^ exponent: 1 is plain value per point,
+	-- lower exponents accept more travel to reach a strong cluster. The first treeWidth entries are used
+	treeExponents = { 1, 0.75, 0.85, 0.65 },
+	treeWidth = 4,
+	-- function(job) starting a worker process for one tree variant and returning an object with a
+	-- wait() method that returns { score =, nodes = }; nil = build every variant in this process
+	spawnWorker = nil,
+	-- Number of worker processes that may run at the same time
+	workers = 0,
 	-- Full passes over supports -> equipment -> tree -> jewels
 	rounds = 2,
 	-- Relative improvement below which a change is not considered worth it
@@ -1556,6 +1566,10 @@ end
 local function growTree(ctx, ascendancy)
 	local spec = ctx.build.spec
 	local steps = 0
+	local exponent = not ascendancy and ctx.treeExponent or 1
+	local function weight(cost)
+		return exponent == 1 and cost or cost ^ exponent
+	end
 	while true do
 		local remaining = remainingPoints(ctx, ascendancy)
 		if remaining <= 0 then
@@ -1588,7 +1602,7 @@ local function growTree(ctx, ascendancy)
 				for _, pathNode in ipairs(node.path) do
 					gain = gain + (value[pathNode] or 0)
 				end
-				t_insert(candidates, { targets = { node }, nodes = node.path, cost = #node.path, estimate = gain / #node.path })
+				t_insert(candidates, { targets = { node }, nodes = node.path, cost = #node.path, estimate = gain / weight(#node.path) })
 				if node.group then
 					groups[node.group] = groups[node.group] or { }
 					t_insert(groups[node.group], node)
@@ -1615,7 +1629,7 @@ local function growTree(ctx, ascendancy)
 						end
 						return a.id < b.id
 					end)
-					t_insert(candidates, { targets = groupNodes, nodes = list, cost = #list, estimate = gain / #list })
+					t_insert(candidates, { targets = groupNodes, nodes = list, cost = #list, estimate = gain / weight(#list) })
 				end
 			end
 		end
@@ -1677,7 +1691,7 @@ local function growTree(ctx, ascendancy)
 						return a.id < b.id
 					end)
 					local gain = gainOf(list)
-					t_insert(candidates, { targets = combo, nodes = list, cost = #list, estimate = gain / #list, combo = true })
+					t_insert(candidates, { targets = combo, nodes = list, cost = #list, estimate = gain / weight(#list), combo = true })
 				end
 			end
 		end
@@ -1706,7 +1720,7 @@ local function growTree(ctx, ascendancy)
 				end
 				gain = eval(ctx, { addNodes = addNodes }) - base
 			end
-			local rate = gain / candidate.cost
+			local rate = gain / weight(candidate.cost)
 			if rate > bestRate then
 				best, bestRate = candidate, rate
 			end
@@ -1774,6 +1788,104 @@ local function refineTree(ctx)
 	end
 	sync(ctx)
 	return cur
+end
+
+local function allocatedNodeIds(spec)
+	local ids = { }
+	for id in pairs(spec.allocNodes) do
+		t_insert(ids, id)
+	end
+	t_sort(ids)
+	return ids
+end
+
+-- Build the main tree. One greedy allocation follows a single idea of what a point is worth, so
+-- the tree is built once per exponent in treeExponents, each followed by the local search, and the
+-- best one is kept. Variants can be handed to worker processes; the rest are built here
+local function searchTree(ctx)
+	local spec = ctx.build.spec
+	local exponents = { }
+	for index = 1, m_min(#ctx.opts.treeExponents, m_max(ctx.opts.treeWidth, 1)) do
+		t_insert(exponents, ctx.opts.treeExponents[index])
+	end
+	if #exponents <= 1 then
+		ctx.treeExponent = exponents[1] or 1
+		growTree(ctx, false)
+		sync(ctx)
+		local score = refineTree(ctx)
+		ctx.treeExponent = nil
+		return score
+	end
+	local base = spec:CreateUndoState()
+	local handles = { }
+	if ctx.opts.spawnWorker and ctx.opts.workers > 0 then
+		local xmlText = ctx.build:SaveDB("job")
+		-- The last variants go to the workers, the first ones (plain value per point first) stay here
+		while #exponents > 1 and #handles < ctx.opts.workers do
+			local exponent = t_remove(exponents)
+			local ok, handle = pcall(ctx.opts.spawnWorker, { xml = xmlText, exponent = exponent })
+			if ok and handle then
+				t_insert(handles, { handle = handle, exponent = exponent })
+			else
+				log(ctx, "  could not start a worker (%s); building that tree here instead", tostring(handle))
+				t_insert(exponents, exponent)
+				break
+			end
+		end
+	end
+	local best
+	for _, exponent in ipairs(exponents) do
+		spec:RestoreUndoState(base)
+		sync(ctx)
+		ctx.treeExponent = exponent
+		ctx.treeCombo = nil
+		growTree(ctx, false)
+		sync(ctx)
+		local score = refineTree(ctx)
+		log(ctx, "  tree with exponent %.2f -> %.1f", exponent, score)
+		if not best or better(ctx, score, best.score) then
+			best = { score = score, state = spec:CreateUndoState(), exponent = exponent }
+		end
+	end
+	ctx.treeExponent = nil
+	for _, entry in ipairs(handles) do
+		local ok, result = pcall(entry.handle.wait, entry.handle)
+		if ok and type(result) == "table" and result.nodes and result.score then
+			log(ctx, "  tree with exponent %.2f -> %.1f (worker)", entry.exponent, result.score)
+			if better(ctx, result.score, best.score) then
+				-- Check the worker's tree in this process before trusting its score
+				local state = copyTable(base, true)
+				state.hashList = result.nodes
+				state.hashOverrides = { }
+				spec:RestoreUndoState(state)
+				sync(ctx)
+				local score = eval(ctx)
+				if better(ctx, score, best.score) then
+					best = { score = score, state = spec:CreateUndoState(), exponent = entry.exponent }
+				end
+			end
+		else
+			log(ctx, "  worker for exponent %.2f failed: %s", entry.exponent, tostring(result))
+		end
+	end
+	spec:RestoreUndoState(best.state)
+	sync(ctx)
+	return best.score
+end
+
+-- Entry point for a worker process: build one tree variant on a build that is ready for it
+-- (as saved by searchTree) and return its score and the allocated node ids
+function optimizer.RunTreeVariant(build, options, exponent)
+	local ctx, errMsg = optimizer.NewContext(build, options)
+	if not ctx then
+		return nil, errMsg
+	end
+	sync(ctx)
+	ctx.treeExponent = exponent
+	growTree(ctx, false)
+	sync(ctx)
+	local score = refineTree(ctx)
+	return score, allocatedNodeIds(build.spec)
 end
 
 local function optimizeAscendancy(ctx)
@@ -2563,9 +2675,14 @@ local function runRound(ctx, round, allowUniques)
 	end
 	optimizeAscendancy(ctx)
 	placeTemplateJewels(ctx)
-	growTree(ctx, false)
-	sync(ctx)
-	score = refineTree(ctx)
+	if used == 0 then
+		-- A fresh tree gets the wide search; an existing one is only refined
+		score = searchTree(ctx)
+	else
+		growTree(ctx, false)
+		sync(ctx)
+		score = refineTree(ctx)
+	end
 	log(ctx, "  -> %.1f", score)
 
 	log(ctx, "[round %d] jewels", round)

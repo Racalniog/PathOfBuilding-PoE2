@@ -75,6 +75,8 @@ def main():
     import tempfile
     with tempfile.NamedTemporaryFile("w+", suffix=".log", delete=False) as log:
         log_path = log.name
+    # Tell the script how to start worker processes for the parallel parts of the search
+    os.environ.setdefault("POB_OPTIMIZER_WORKER", '"%s" "%s" --run' % (sys.executable, os.path.abspath(__file__)))
     try:
         child = subprocess.Popen([sys.executable, os.path.abspath(__file__), "--run"] + sys.argv[1:],
                                  stdout=subprocess.PIPE, cwd=SRC)

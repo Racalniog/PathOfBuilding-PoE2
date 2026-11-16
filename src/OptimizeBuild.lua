@@ -26,6 +26,9 @@ Usage: OptimizeBuild.lua --class <name> --skill <gem name> [options]
                          (enemy shocked with enough shock chance, crit recently, ...), or a comma
                          separated list of Configuration option names. Default: none
   --coverage             Print what share of the program's data the calculation engine can't read, and exit
+  --tree-width <n>       Number of differently-minded tree builds to compare (1-4, default 4)
+  --jobs <n>             Processes to use in total (default 3). The extra ones build tree variants in
+                         parallel; each needs up to about 1 GB of memory. 1 = everything in one process
   --no-lineage           Don't use lineage support gems
   --no-runes             Leave item sockets empty
   --no-aux               Don't add auras, curses, marks and other supporting skills
@@ -80,7 +83,7 @@ do
 		index = index + 1
 	end
 end
-if args.help or ((not args.class or not args.skill) and not args.coverage) then
+if args.help or ((not args.class or not args.skill) and not args.coverage and not args.worker) then
 	io.stderr:write(usage)
 	os.exit(args.help and 0 or 2)
 end
@@ -120,6 +123,38 @@ print = realPrint
 ConPrintf = function() end
 
 local optimizer = LoadModule("Modules/BuildOptimizer")
+
+-- Plain values of a table as Lua source, for handing options to a worker
+local function serialise(value, indent)
+	local kind = type(value)
+	if kind == "table" then
+		local parts = { }
+		for key, entry in pairs(value) do
+			local text = serialise(entry)
+			if text then
+				table.insert(parts, "[" .. (type(key) == "number" and tostring(key) or string.format("%q", tostring(key))) .. "] = " .. text)
+			end
+		end
+		table.sort(parts)
+		return "{ " .. table.concat(parts, ", ") .. " }"
+	elseif kind == "string" then
+		return string.format("%q", value)
+	elseif kind == "number" or kind == "boolean" then
+		return tostring(value)
+	end
+end
+
+if args.worker then
+	-- Worker: build one tree variant for the job in the given file and write the result next to it
+	local job = dofile(args.worker)
+	loadBuildFromXML(job.xml, "job")
+	job.options.log = function() lastProgress = os.clock() end
+	local score, nodes = optimizer.RunTreeVariant(build, job.options, job.exponent)
+	local file = assert(io.open(args.worker .. ".result", "w"))
+	file:write("return " .. serialise({ score = score or -1, nodes = nodes or { } }) .. "\n")
+	file:close()
+	os.exit(0)
+end
 local startTime = os.clock()
 local function say(text)
 	lastProgress = os.clock()
@@ -163,7 +198,54 @@ local options = {
 	combos = not args["no-combos"],
 	thorough = args.thorough,
 	autoAscendancy = not args.ascendancy or args.ascendancy:lower() == "auto",
+	treeWidth = tonumber(args["tree-width"]),
 }
+
+-- Parallel workers: the launcher (or the user) says how to start another copy of this script in
+-- POB_OPTIMIZER_WORKER, e.g. luajit OptimizeBuild.lua
+local workerCommand = os.getenv("POB_OPTIMIZER_WORKER")
+local jobs = math.max(1, math.floor(tonumber(args.jobs) or 3))
+if workerCommand and workerCommand ~= "" and jobs > 1 and io.popen then
+	local jobCount = 0
+	local tempDir = (os.getenv("TEMP") or os.getenv("TMPDIR") or "."):gsub("\\", "/")
+	options.workers = jobs - 1
+	options.spawnWorker = function(job)
+		jobCount = jobCount + 1
+		local jobFile = string.format("%s/pob_optimizer_%d_%d.job", tempDir, os.time(), jobCount)
+		local workerOptions = { }
+		for key, value in pairs(options) do
+			if type(value) ~= "function" and key ~= "workers" then
+				workerOptions[key] = value
+			end
+		end
+		local level = 1
+		while job.xml:find("]" .. string.rep("=", level) .. "]", 1, true) do
+			level = level + 1
+		end
+		local file = assert(io.open(jobFile, "w"))
+		file:write("return { exponent = ", tostring(job.exponent), ", options = ", serialise(workerOptions), ", xml = [", string.rep("=", level), "[", job.xml, "]", string.rep("=", level), "] }\n")
+		file:close()
+		local command = workerCommand .. ' --worker "' .. jobFile .. '"'
+		if package.config:sub(1, 1) == "\\" then
+			-- cmd.exe strips the outermost pair of quotes
+			command = '"' .. command .. '"'
+		end
+		local pipe = assert(io.popen(command, "r"))
+		return {
+			wait = function()
+				pipe:read("*a")
+				pipe:close()
+				local chunk = loadfile(jobFile .. ".result")
+				os.remove(jobFile)
+				os.remove(jobFile .. ".result")
+				if not chunk then
+					error("the worker produced no result")
+				end
+				return chunk()
+			end,
+		}
+	end
+end
 if args.assume and args.assume ~= "none" then
 	if args.assume == "sustained" then
 		options.assume = "sustained"
