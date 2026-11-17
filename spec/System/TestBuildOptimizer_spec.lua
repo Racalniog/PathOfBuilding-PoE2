@@ -143,6 +143,7 @@ describe("BuildOptimizer", function()
 		assert.is_true(set2Used <= 24)
 		assert.is_truthy(optimizer.ConfigReport(build, options):match("== Configuration =="))
 		assert.is_truthy(optimizer.CoverageReport(build):match("Unique items"))
+		assert.is_truthy(optimizer.BlindSpotReport(build, options):match("== Strong options the engine could not fully evaluate =="))
 	end)
 
 	it("survives a save and reload with the same result", function()

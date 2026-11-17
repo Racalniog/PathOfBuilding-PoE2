@@ -276,7 +276,12 @@ local function save(variant)
 	local name = (baseName .. " (" .. variant .. ")"):gsub('[<>:"/\\|%?%*]', "_")
 	build.buildName = name
 	local xmlText = build:SaveDB(name)
-	local summary = optimizer.Describe(build) .. "\n\n" .. optimizer.ConfigReport(build, options) .. "\n\n" .. optimizer.CoverageReport(build)
+	local summary = optimizer.Describe(build)
+	-- The extra reports must never cost the user the build that was just found
+	for _, report in ipairs({ optimizer.ConfigReport, optimizer.BlindSpotReport, optimizer.CoverageReport }) do
+		local ok, text = pcall(report, build, options)
+		summary = summary .. "\n\n" .. (ok and text or ("(report failed: " .. tostring(text) .. ")"))
+	end
 	local written = { }
 	for extension, text in pairs({ xml = xmlText, txt = summary }) do
 		local fileName = outDir .. name .. "." .. extension

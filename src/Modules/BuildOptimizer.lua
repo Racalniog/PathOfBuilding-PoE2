@@ -2517,7 +2517,8 @@ local function configOptions()
 				section = option.section
 			end
 			if option.var then
-				t_insert(configOptionList, { var = option.var, type = option.type, label = option.label, section = section })
+				t_insert(configOptionList, { var = option.var, type = option.type, label = option.label, section = section,
+					hasDefault = option.defaultState ~= nil or option.defaultPlaceholderState ~= nil })
 			end
 		end
 	end
@@ -2554,6 +2555,23 @@ local function configSensitivity(ctx)
 			input[option.var] = old
 			if score >= 0 and math.abs(score - base) > base * 0.002 then
 				t_insert(list, { var = option.var, label = plainLabel(option.label), section = option.section, enabled = old and true or false, change = score / base - 1 })
+			end
+		elseif option.type == "count" and (input[option.var] or 0) == 0 and option.var:match("^multiplier") and not option.hasDefault then
+			-- Only plain "how many" counters that start at zero: for overrides, distances and
+			-- options with a default, 1/5/10 isn't "more of it" and the result would mislead
+			local old = input[option.var]
+			local counts = { }
+			local valid = true
+			for _, n in ipairs({ 1, 5, 10 }) do
+				input[option.var] = n
+				ctx.build.configTab:BuildModList()
+				local score = eval(ctx)
+				valid = valid and score >= 0
+				counts[n] = score / base - 1
+			end
+			input[option.var] = old
+			if valid and math.abs(counts[1]) > 0.002 then
+				t_insert(list, { var = option.var, label = plainLabel(option.label), section = option.section, enabled = false, change = counts[10], counts = counts })
 			end
 		end
 	end
@@ -2798,6 +2816,157 @@ function optimizer.CoverageReport(build)
 	return t_concat(lines, "\n")
 end
 
+-- Strong-looking uniques, passives and support gems that carry something the engine can't read, so
+-- the optimizer valued them by their readable part only. Leaves the build as it found it
+function optimizer.BlindSpotReport(build, options)
+	local ctx = optimizer.NewContext(build, options); if not ctx then return "" end
+	local lines = { }
+	local function add(fmt, ...)
+		t_insert(lines, s_format(fmt, ...))
+	end
+	add("== Strong options the engine could not fully evaluate ==")
+	local any = false
+	local cur = eval(ctx)
+
+	-- A line is worth showing if it reads like it concerns damage or the main skill
+	local words = { "damage", "critical", "speed", "penetrat", "more ", "exposure", "extra" }
+	local mainGem = ctx.group.gemList[1].gemData
+	for tag in pairs(mainGem and mainGem.tags or { }) do
+		if type(tag) == "string" and #tag >= 4 and tag ~= "grants_active_skill" and tag ~= "support" then
+			t_insert(words, tag)
+		end
+	end
+	local function isRelevant(text)
+		text = text:lower()
+		for _, word in ipairs(words) do
+			if text:find(word, 1, true) then
+				return true
+			end
+		end
+		return false
+	end
+
+	-- Unique items
+	local kept = { }
+	local seenUnique = { }
+	local slots = { "Weapon 1", "Weapon 2" }
+	for _, slotName in ipairs(gearSlots) do
+		if slotAvailable(ctx, slotName) then
+			t_insert(slots, slotName)
+		end
+	end
+	if cur > 0 then
+		for _, slotName in ipairs(slots) do
+			local equipped = equippedItem(ctx, slotName)
+			for _, item in ipairs(uniquesForSlot(ctx, slotName)) do
+				local unsupported = { }
+				for _, list in ipairs({ item.implicitModLines, item.explicitModLines }) do
+					for _, modLine in ipairs(list or { }) do
+						if item:CheckModLineVariant(modLine) and lineUnsupported(modLine) and isRelevant(modLine.line or "") then
+							t_insert(unsupported, modLine.line or "")
+						end
+					end
+				end
+				if #unsupported > 0 and not seenUnique[item.title] and not (equipped and equipped.title == item.title) then
+					local score = evalItem(ctx, slotName, item)
+					if score >= cur * 0.75 then
+						seenUnique[item.title] = true
+						t_insert(kept, { slot = slotName, item = item, ratio = score / cur, lines = unsupported })
+					end
+				end
+			end
+		end
+	end
+	t_sort(kept, function(a, b)
+		if a.ratio ~= b.ratio then
+			return a.ratio > b.ratio
+		end
+		return a.slot .. a.item.name < b.slot .. b.item.name
+	end)
+	for index = 1, m_min(#kept, 12) do
+		local entry = kept[index]
+		add("%s: %s — readable part alone: %+.1f%% vs current", entry.slot, entry.item.name, (entry.ratio - 1) * 100)
+		for _, text in ipairs(entry.lines) do
+			add("      %s", text)
+		end
+		any = true
+	end
+
+	-- Passives
+	local nodes = { }
+	if cur > 0 then
+		for _, node in pairs(build.spec.nodes) do
+			if (isTreeCandidate(node, false) or isTreeCandidate(node, true)) and (node.unknown or node.extra) and node.sd and #node.sd > 0
+			and (node.type == "Notable" or node.type == "Keystone" or node.ascendancyName) and node.pathDist <= 8 then
+				local relevant = false
+				for _, text in ipairs(node.sd) do
+					relevant = relevant or isRelevant(text)
+				end
+				if relevant then
+					t_insert(nodes, node)
+				end
+			end
+		end
+	end
+	t_sort(nodes, function(a, b)
+		if a.pathDist ~= b.pathDist then
+			return a.pathDist < b.pathDist
+		end
+		return a.id < b.id
+	end)
+	for index = 1, m_min(#nodes, 15) do
+		local node = nodes[index]
+		local gain = eval(ctx, { addNodes = { [node] = true } }) - cur
+		add("%s (%s, %d points away) — readable part: %+.1f%%", node.dn or "?", node.ascendancyName or node.type, node.pathDist, gain / cur * 100)
+		for _, text in ipairs(node.sd) do
+			add("      %s", text)
+		end
+		any = true
+	end
+
+	-- Support gems
+	local gems = { }
+	if cur > 0 then
+		local linked = { }
+		for _, gemInstance in ipairs(ctx.group.gemList) do
+			if gemInstance.gemData and gemInstance.gemData.grantedEffect and gemInstance.gemData.grantedEffect.support then
+				t_insert(linked, gemInstance.gemData.grantedEffect)
+			end
+		end
+		for _, gemData in ipairs(supportCandidates(ctx)) do
+			local fresh = #unmappedGemStats(gemData.grantedEffect) > 0
+			for _, other in ipairs(linked) do
+				fresh = fresh and not sharesFamily(gemData.grantedEffect, other)
+			end
+			if fresh then
+				t_insert(ctx.group.gemList, makeGemInstance(ctx, gemData))
+				local score = eval(ctx)
+				t_remove(ctx.group.gemList)
+				if score >= cur * 0.97 then
+					t_insert(gems, { gemData = gemData, score = score })
+				end
+			end
+		end
+	end
+	t_sort(gems, function(a, b)
+		if a.score ~= b.score then
+			return a.score > b.score
+		end
+		return a.gemData.id < b.gemData.id
+	end)
+	for index = 1, m_min(#gems, 8) do
+		local gemData = gems[index].gemData
+		local missing = unmappedGemStats(gemData.grantedEffect)
+		add("%s — readable part as a sixth link: %+.1f%%; stats without a calculation: %s", gemData.name, (gems[index].score / cur - 1) * 100, t_concat(missing, ", ", 1, m_min(#missing, 3)))
+		any = true
+	end
+
+	if not any then
+		add("-")
+	end
+	return t_concat(lines, "\n")
+end
+
 -- Text report of the configuration the build was scored with: the conditions that were assumed,
 -- and what every other yes/no condition would be worth
 function optimizer.ConfigReport(build, options)
@@ -2829,11 +2998,15 @@ function optimizer.ConfigReport(build, options)
 	for _, entry in ipairs(sensitivity) do
 		if not entry.enabled and entry.change > 0 then
 			if shown == 0 then
-				add("Conditions that would raise the damage if you can keep them up (--config <name>=true):")
+				add("Conditions that would raise the damage if you can keep them up (--config <name>=true, or <name>=<number> for counts):")
 			end
 			shown = shown + 1
 			if shown <= 15 then
-				add("  %-52s %+6.1f%%   [%s]", entry.label, entry.change * 100, entry.var)
+				if entry.counts then
+					add("  %-52s %+.1f%% at 1, %+.1f%% at 5, %+.1f%% at 10   [%s]", entry.label, entry.counts[1] * 100, entry.counts[5] * 100, entry.counts[10] * 100, entry.var)
+				else
+					add("  %-52s %+6.1f%%   [%s]", entry.label, entry.change * 100, entry.var)
+				end
 			end
 		end
 	end
