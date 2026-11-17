@@ -7126,6 +7126,18 @@ local function capitalizeWordsInString(string)
 	return finalString:match("^%s*(.-)%s*$") -- remove whitespace before/after
 end
 
+-- Radius jewel lines are applied to every node in radius on every calculation; parse each line once
+-- and hand out copies, as the mods are changed by the caller
+local radiusLineCache = { }
+local function parseRadiusLine(line)
+	local entry = radiusLineCache[line]
+	if not entry then
+		entry = { parseMod(line) }
+		radiusLineCache[line] = entry
+	end
+	return unpack(copyTable(entry))
+end
+
 local jewelOtherFuncs = {
 	["Strength from Passives in Radius is Transformed to Dexterity"] = getSimpleConv({ "Str" }, "Dex", "BASE", true),
 	["Dexterity from Passives in Radius is Transformed to Strength"] = getSimpleConv({ "Dex" }, "Str", "BASE", true),
@@ -7213,7 +7225,7 @@ local jewelOtherFuncs = {
 	["^(%w+) Passive Skills in Radius also grant (.*)$"] = function(passiveType, mod)
 		return function(node, out, data)
 			if node and (node.type == firstToUpper(passiveType) or (node.type == "Normal" and not node.isAttribute and firstToUpper(passiveType) == "Small")) then
-				local modList, extra = parseMod(mod)
+				local modList, extra = parseRadiusLine(mod)
 				-- avoid adding mods if mod line wasn't parsed correctly
 				if not extra and modList[1] then
 					for _, modListMod in ipairs(modList) do
@@ -7231,7 +7243,7 @@ local jewelOtherFuncs = {
 	["conquered (%w+) Passive Skills also grant (.*)$"] = function(passiveType, mod)
 		return function(node, out, data)
 			if node and (node.type == firstToUpper(passiveType) or (node.type == "Normal" and not node.isAttribute and firstToUpper(passiveType) == "Small") or (node.type == "Normal" and node.isAttribute and firstToUpper(passiveType) == "Attribute")) then
-				local modList, extra = parseMod(mod)
+				local modList, extra = parseRadiusLine(mod)
 				-- avoid adding mods if mod line wasn't parsed correctly
 				if not extra and modList[1] then
 					for _, modListMod in ipairs(modList) do

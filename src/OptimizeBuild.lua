@@ -213,7 +213,9 @@ if workerCommand and workerCommand ~= "" and jobs > 1 and io.popen then
 	options.workers = jobs - 1
 	options.spawnWorker = function(job)
 		jobCount = jobCount + 1
-		local jobFile = string.format("%s/pob_optimizer_%d_%d.job", tempDir, os.time(), jobCount)
+		-- Several optimiser runs can start in the same second; the address of a fresh table tells
+		-- their job files apart
+		local jobFile = string.format("%s/pob_optimizer_%d_%s_%d.job", tempDir, os.time(), tostring({ }):match("%x+$"), jobCount)
 		local workerOptions = { }
 		for key, value in pairs(options) do
 			if type(value) ~= "function" and key ~= "workers" then

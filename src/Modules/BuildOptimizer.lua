@@ -101,8 +101,28 @@ local function log(ctx, fmt, ...)
 	end
 end
 
+-- The base modifier databases (class stats, level, Configuration and Party tab mods) only change
+-- with those inputs, so they are built once and reused for every evaluation until one changes.
+-- The tables of the config mod lists are replaced on every rebuild, which makes them a cheap key
+local function baseSignature(build)
+	return table.concat({ tostring(build.configTab.modList), tostring(build.configTab.enemyModList),
+		tostring(build.partyTab and build.partyTab.enemyModList), tostring(build.characterLevel), tostring(build.spec.curClassId) }, "|")
+end
+
 local function calcOutput(ctx, override)
-	local env = ctx.calcs.initEnv(ctx.build, "CALCULATOR", override)
+	local build = ctx.build
+	local signature = baseSignature(build)
+	local base = ctx.baseDB
+	if base and base.signature == signature then
+		local env = ctx.calcs.initEnv(build, "CALCULATOR", override, { cachedPlayerDB = base.player, cachedEnemyDB = base.enemy, cachedMinionDB = base.minion })
+		-- A minion that appeared after the cache was built has no base database; rebuild it then
+		if not (env.minion and not base.minion) then
+			ctx.calcs.perform(env, true)
+			return env.player.output, env
+		end
+	end
+	local env, player, enemy, minion = ctx.calcs.initEnv(build, "CALCULATOR", override)
+	ctx.baseDB = { signature = signature, player = player, enemy = enemy, minion = minion }
 	ctx.calcs.perform(env, true)
 	return env.player.output, env
 end
@@ -836,8 +856,9 @@ end
 
 local function setRune(item, index, name)
 	item.runes[index] = name
+	-- Only the rune lines change, so their mods are rebuilt without parsing the whole item again
 	item:UpdateRunes()
-	item:BuildAndParseRaw()
+	item:BuildModList()
 end
 
 -- Fill every socket of the item with the rune / soul core that adds the most
