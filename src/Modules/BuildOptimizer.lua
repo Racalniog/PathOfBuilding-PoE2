@@ -57,6 +57,9 @@ optimizer.defaultOptions = {
 	uniquePairAnchors = 4,
 	-- Check every unique as one half of a pair instead (slow)
 	thorough = false,
+	-- Also try legacy uniques: older versions of a unique ("Pre 0.4.0") and uniques that are no
+	-- longer obtainable. Off by default, the search only uses what can be found in the game now
+	legacyUniques = false,
 	-- Radius used when crafting Time-Lost jewels
 	jewelRadius = "Small",
 	-- Number of distinct weapon base types that are fully crafted and compared
@@ -1015,10 +1018,67 @@ local function rankBases(ctx, slotName, extra)
 	return result
 end
 
-local function rollUnique(ctx, source)
+-- Older versions of a unique ("Pre 0.4.0", "Fire (Pre 0.2.1 )", or named by the version they
+-- were changed in, "0.2.0"). Test variants (From Nothing's "Everything") don't exist in the game at all
+local function isLegacyVariant(name)
+	return name:match("^Pre ") or name:match("%(Pre ") or name:match("^%d+%.%d+")
+end
+local function isTestVariant(name)
+	return name:find("Test Variant", 1, true) ~= nil
+end
+
+-- Variant numbers of a unique the search tries (false = the unique has no variants), or an empty
+-- list if it is not obtainable. Without legacy uniques that is the selected variant, or the newest
+-- current one if the selected variant is legacy or a test variant; with them, also every legacy variant
+function optimizer.UniqueVariants(source, legacyUniques)
+	-- Same rule as the "Obtainable" filter of the unique database (Classes/ItemDBControl.lua)
+	if not legacyUniques and (source.source == "No longer obtainable" or source.league == "Race Events") then
+		return { }
+	end
+	local names = source.variantList
+	if not names or #names == 0 then
+		return { false }
+	end
+	local function current(name)
+		return not isLegacyVariant(name) and not isTestVariant(name)
+	end
+	local selected = source.variant or #names
+	if not current(names[selected]) then
+		for index = #names, 1, -1 do
+			if current(names[index]) then
+				selected = index
+				break
+			end
+		end
+	end
+	local list = { }
+	if current(names[selected]) or (legacyUniques and not isTestVariant(names[selected])) then
+		t_insert(list, selected)
+	end
+	if legacyUniques then
+		for index, name in ipairs(names) do
+			if index ~= selected and isLegacyVariant(name) then
+				t_insert(list, index)
+			end
+		end
+	end
+	return list
+end
+
+-- The variant name of a unique if it is a legacy one, for the summary
+local function legacyVariantName(item)
+	local name = item.rarity == "UNIQUE" and item.variantList and item.variant and item.variantList[item.variant]
+	return name and isLegacyVariant(name) and name or nil
+end
+
+local function rollUnique(ctx, source, variant)
 	local item = new("Item"):Item(source:BuildRaw())
 	if not item.base then
 		return nil
+	end
+	if variant and item.variant ~= variant then
+		item.variant = variant
+		item:BuildAndParseRaw()
 	end
 	local changed = false
 	for _, list in ipairs({ item.implicitModLines, item.explicitModLines, item.enchantModLines }) do
@@ -1052,9 +1112,11 @@ local function uniquesForSlot(ctx, slotName)
 		local limitReached = source.limit and (ctx.uniqueCount[source.title or name] or 0) >= source.limit
 		if source.base and not limitReached and baseCouldFitSlot(source.base, slotName) and itemsTab:IsItemValidForSlot(source, slotName)
 		and (source.requirements.level or 0) <= ctx.build.characterLevel then
-			local item = rollUnique(ctx, source)
-			if item then
-				t_insert(list, item)
+			for _, variant in ipairs(optimizer.UniqueVariants(source, ctx.opts.legacyUniques)) do
+				local item = rollUnique(ctx, source, variant)
+				if item then
+					t_insert(list, item)
+				end
 			end
 		end
 	end
@@ -3224,7 +3286,8 @@ function optimizer.Describe(build)
 	add("")
 	add("== Equipment ==")
 	local function addItem(label, item)
-		add("%s: %s [%s]", label, item.name, item.rarity)
+		local legacy = legacyVariantName(item)
+		add("%s: %s [%s]%s", label, item.name, item.rarity, legacy and (" (legacy version: " .. legacy .. ")") or "")
 		local function addLines(list, prefix)
 			for _, modLine in ipairs(list or { }) do
 				if item:CheckModLineVariant(modLine) then

@@ -123,7 +123,7 @@ function OptimizerTabClass:OptimizerTab(build)
 	self.controls.treeWidth:SetSel(4)
 
 	-- Include
-	local include = new("SectionControl"):SectionControl({ "TOPLEFT", search, "BOTTOMLEFT" }, { 0, 20, 350, 140 }, "Include")
+	local include = new("SectionControl"):SectionControl({ "TOPLEFT", search, "BOTTOMLEFT" }, { 0, 20, 350, 136 }, "Include")
 	self.controls.includeSection = include
 	local checks = {
 		{ "uniques", "Unique items", true, "After the rare-only build, run again with unique items allowed." },
@@ -134,6 +134,7 @@ function OptimizerTabClass:OptimizerTab(build)
 		{ "weaponSets", "Second weapon set", true, "Use weapon set 2 and its passives for the supporting skills." },
 		{ "combos", "Combination search", true, "Look for supports, affixes and passives that only work together." },
 		{ "thorough", "Thorough uniques", false, "Try every unique as one half of a unique pair. Adds several minutes." },
+		{ "legacyUniques", "Legacy uniques", false, "Also try older versions of uniques and uniques that are no longer obtainable." },
 		{ "sustained", "Assume sustained", false, "Switch on the Configuration conditions the build keeps up by itself (enemy shocked, crit recently, ...)." },
 	}
 	self.checks = { }

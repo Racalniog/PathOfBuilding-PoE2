@@ -68,6 +68,7 @@ Useful options (`--help` lists all of them):
 | `--coverage` | Print how much of the program's data the engine can't calculate, and exit |
 | `--no-combos` | Skip the search for combinations whose parts do nothing alone |
 | `--thorough` | Try every unique as one half of a unique pair (adds several minutes) |
+| `--legacy-uniques` | Also try legacy uniques: older versions ("Pre 0.4.0") and uniques that are no longer obtainable |
 | `--config key=value` | Any Configuration tab input, e.g. `--config enemyIsBoss=Pinnacle` |
 | `--metric <stat>` | Calc output to maximise, `CombinedDPS` by default |
 | `--rounds <n>` | Passes over the whole pipeline per variant |
@@ -122,7 +123,10 @@ to later ones:
    groups and spawn weights, the same rules the "Craft item" dialog uses. Sockets are filled with the
    best runes. Main hand and off hand are searched as pairs so that a two-hander competes fairly
    with a one-hander plus quiver, focus, shield or second weapon. With uniques allowed, every unique
-   that fits the slot competes with the crafted rare. Flask and charm slots are switched on and get
+   that fits the slot competes with the crafted rare. Only uniques that can be found now take part,
+   in their current version: uniques marked "No longer obtainable", older versions ("Pre 0.4.0")
+   and test variants are left out (`--legacy-uniques` / *Legacy uniques* adds the first two; a
+   legacy version is marked as such in the summary). Flask and charm slots are switched on and get
    the magic or unique item that adds the most; slots where nothing helps stay empty.
 5. **Passive tree** - ascendancy points first, then the main tree. The main tree is built several
    times, each time ranking candidates by gain / cost ^ exponent with a different exponent (1 is

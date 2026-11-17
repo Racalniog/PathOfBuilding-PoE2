@@ -30,6 +30,30 @@ describe("BuildOptimizer", function()
 		treeWidth = 1,
 	}
 
+	it("leaves out legacy and unobtainable uniques unless asked to include them", function()
+		local variants = optimizer.UniqueVariants
+		assert.are.same({ false }, variants({ }, false))
+		assert.are.same({ }, variants({ source = "No longer obtainable" }, false))
+		assert.are.same({ false }, variants({ source = "No longer obtainable" }, true))
+		local changed = { variantList = { "Pre 0.1.1", "Pre 0.4.0", "Current" }, variant = 3 }
+		assert.are.same({ 3 }, variants(changed, false))
+		assert.are.same({ 3, 1, 2 }, variants(changed, true))
+		-- A legacy or test variant selected by default falls back to the newest current one
+		assert.are.same({ 2 }, variants({ variantList = { "Fire (Pre 0.2.1 )", "Fire", "0.2.0" }, variant = 3 }, false))
+		assert.are.same({ 1 }, variants({ variantList = { "Zealot's Oath", "Everything (QoL Test Variant)" }, variant = 2 }, true))
+		-- Real alternatives are not legacy
+		assert.are.same({ 1 }, variants({ variantList = { "Helmet", "Gloves" }, variant = 1 }, false))
+
+		-- None of the database's uniques comes out as a legacy version or the test variant by default
+		for _, source in pairs(main.uniqueDB.list) do
+			for _, variant in ipairs(variants(source, false)) do
+				local name = variant and source.variantList[variant] or ""
+				assert.is_falsy(name:match("^Pre ") or name:match("%(Pre ") or name:match("^%d+%.%d+") or name:find("Test Variant", 1, true))
+			end
+		end
+		assert.are.same({ }, variants(main.uniqueDB.list["Infernoclasp, Plate Belt"], false))
+	end)
+
 	it("rejects unknown classes, ascendancies and skills", function()
 		local ok, errMsg = optimizer.SetupCharacter(build, { class = "Bard", skill = "Spark" })
 		assert.is_nil(ok)
