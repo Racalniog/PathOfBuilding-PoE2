@@ -95,6 +95,9 @@ Test variants, such as From Nothing's "Everything", are never used.
 
 ## Example run
 
+For results of 200 runs over many classes and skills, and the best builds found, see
+[Build optimizer runs](buildOptimizerRuns.md).
+
 Lightning Arrow, Ranger / Deadeye, level 100, with *Rounds* 1, *Tree variants* 1 and no combination
 search; everything else at the defaults. The progress log (command line output; the Optimizer tab
 shows the same lines) starts like this:

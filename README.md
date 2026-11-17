@@ -52,6 +52,7 @@ Head over to the [Releases](https://github.com/PathOfBuildingCommunity/PathOfBui
   * Runs in the background with a live progress log; the open build is untouched until you open or save a result
   * Tune the search with roll quality, affix level, number of supports, tree variants and more
   * Also available from the command line for batch and parallel runs; see the [Build Optimizer guide](docs/buildOptimizer.md)
+  * Results of 200 optimizer runs with realistic gear, and the best builds found: [optimizer runs](docs/buildOptimizerRuns.md)
 * Other features:
   * You can import passive tree, items, and skills from existing characters
   * Share builds with other users by generating a share code
