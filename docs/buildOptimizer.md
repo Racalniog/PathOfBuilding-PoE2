@@ -53,6 +53,12 @@ Useful options (`--help` lists all of them):
 A full run takes roughly ten minutes. The script stops itself with a stack dump if its memory passes
 3 GB or it reports no progress for 15 minutes (`POB_OPTIMIZER_MEMORY_MB`, `POB_OPTIMIZER_SILENCE_S`).
 
+To try several variants at once, put one line of arguments per variant in a text file (optionally
+starting with `name=<text>`) and run `python OptimizeBuild.py --batch variants.txt --out <dir>`.
+The variants run in parallel, as many as the physical cores and free memory allow (about 1 GB each;
+`--parallel <n>` overrides), and `batch-results.txt` ranks them. Seven variants took 18 minutes on an
+8-core machine, against about an hour one after another.
+
 With plain LuaJIT, parallel workers need to know how to start another copy of the script:
 set `POB_OPTIMIZER_WORKER`, e.g. to `luajit OptimizeBuild.lua`. The Python launcher does this itself.
 

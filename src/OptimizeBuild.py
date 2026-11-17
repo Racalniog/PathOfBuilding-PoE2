@@ -5,6 +5,11 @@ Lua installation is needed. All arguments are passed through:
 
 For every build file that gets saved, a matching ".code.txt" with the import code for
 "Import/Export Build -> Import from website or code" is written next to it.
+
+Several variants at once (one line of arguments per variant, optionally starting with
+name=<text>; parallelism defaults to the physical cores and free memory):
+
+    python OptimizeBuild.py --batch variants.txt --out ../batch [--parallel 6]
 """
 import base64
 import ctypes
@@ -66,7 +71,90 @@ def write_import_codes(log_path):
             print("Import code:  " + code_path)
 
 
+def free_memory_gb():
+    """Free physical memory in GB, or None where it can't be read."""
+    if os.name != "nt":
+        return None
+
+    class MemoryStatus(ctypes.Structure):
+        _fields_ = [("length", ctypes.c_ulong), ("load", ctypes.c_ulong), ("total", ctypes.c_ulonglong),
+                    ("available", ctypes.c_ulonglong), ("totalPage", ctypes.c_ulonglong), ("availablePage", ctypes.c_ulonglong),
+                    ("totalVirtual", ctypes.c_ulonglong), ("availableVirtual", ctypes.c_ulonglong), ("extended", ctypes.c_ulonglong)]
+
+    status = MemoryStatus()
+    status.length = ctypes.sizeof(MemoryStatus)
+    if not ctypes.windll.kernel32.GlobalMemoryStatusEx(ctypes.byref(status)):
+        return None
+    return status.available / 2 ** 30
+
+
+def run_batch(batch_file, parallel, out_dir):
+    """Run every variant line of batch_file as its own optimiser process, several at once, and rank
+    the results. A line holds the usual arguments; `name=<text>` at the start names the variant.
+    Each optimiser process peaks at about 1 GB, so the default parallelism is limited by both the
+    physical cores and the free memory."""
+    import shlex
+    import subprocess
+    import time
+    variants = []
+    with open(batch_file, encoding="utf-8") as listing:
+        for line in listing:
+            line = line.strip()
+            if line and not line.startswith("#"):
+                args = shlex.split(line, posix=True)
+                name = args.pop(0)[5:] if args and args[0].startswith("name=") else "variant%02d" % (len(variants) + 1)
+                variants.append((name, args))
+    if not parallel:
+        cores = max(1, (os.cpu_count() or 2) // 2 - 1)
+        memory = free_memory_gb()
+        parallel = max(1, min(cores, int(memory // 1.2) if memory else cores))
+    os.makedirs(out_dir, exist_ok=True)
+    print("Running %d variants, %d at a time, into %s" % (len(variants), parallel, out_dir))
+    started = time.time()
+    pending, running, results = list(variants), [], []
+    while pending or running:
+        while pending and len(running) < parallel:
+            name, args = pending.pop(0)
+            log_path = os.path.join(out_dir, name + ".log")
+            log = open(log_path, "wb")
+            # The variants already fill the cores; tree workers inside each would only compete
+            extra = [] if "--jobs" in args else ["--jobs", "1"]
+            command = [sys.executable, os.path.abspath(__file__)] + args + extra + ["--name", name, "--out", out_dir]
+            running.append((name, log_path, log, subprocess.Popen(command, stdout=log, stderr=subprocess.STDOUT, cwd=SRC)))
+        time.sleep(1)
+        for entry in list(running):
+            name, log_path, log, process = entry
+            if process.poll() is not None:
+                log.close()
+                running.remove(entry)
+                with open(log_path, encoding="utf-8", errors="replace") as text:
+                    content = text.read()
+                rares = re.search(r"Rare-only build: (\d+)", content)
+                uniques = re.search(r"Build with uniques: (\d+)", content)
+                results.append((name, int(rares.group(1)) if rares else None, int(uniques.group(1)) if uniques else None, process.returncode))
+                print("[%6.0fs] %-40s %s" % (time.time() - started, name, "done" if process.returncode == 0 else "FAILED, see " + log_path))
+    results.sort(key=lambda r: -(r[2] or r[1] or -1))
+    lines = ["%-40s %14s %14s" % ("variant", "rares only", "with uniques")]
+    for name, rares, uniques, code in results:
+        lines.append("%-40s %14s %14s%s" % (name, "{:,}".format(rares) if rares else "-", "{:,}".format(uniques) if uniques else "-", "" if code == 0 else "  (failed)"))
+    if results and (results[0][2] or results[0][1]):
+        lines.append("")
+        lines.append("Best: %s (files: %s)" % (results[0][0], os.path.join(out_dir, results[0][0] + " (...).xml / .txt / .code.txt")))
+    report = "\n".join(lines)
+    with open(os.path.join(out_dir, "batch-results.txt"), "w", encoding="utf-8") as summary:
+        summary.write(report + "\n")
+    print("\n" + report)
+    print("\nTotal time: %.0fs" % (time.time() - started))
+    return 0 if all(r[3] == 0 for r in results) else 1
+
+
 def main():
+    if "--batch" in sys.argv[1:]:
+        argv = sys.argv[1:]
+
+        def option(name, default=None):
+            return argv[argv.index(name) + 1] if name in argv else default
+        sys.exit(run_batch(option("--batch"), int(option("--parallel", 0)), option("--out", os.path.join(SRC, "..", "optimizer-batch"))))
     if "--run" in sys.argv[1:2]:
         # Child mode: Lua writes straight to the inherited stdout
         sys.exit(run("OptimizeBuild.lua", sys.argv[2:]))
