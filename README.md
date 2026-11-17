@@ -45,6 +45,13 @@ Head over to the [Releases](https://github.com/PathOfBuildingCommunity/PathOfBui
     * Allows you to create rare items for your build to approximate the gear you will be using
     * Choose which modifiers appear on each item, and the rolls for each modifier, to suit your needs
     * Has templates that should cover the majority of builds
+* Build optimizer (automatic build creator):
+  * Pick a class, ascendancy and skill gem, and the Optimizer tab builds a character around it from scratch
+  * Chooses the support gems, auras/curses/marks, gear (crafted rares, optionally competing with uniques), passive tree, jewels, runes, flasks and charms
+  * Every candidate is scored by the normal calculations, so the DPS it reports is exactly what the program shows when you open the result
+  * Runs in the background with a live progress log; the open build is untouched until you open or save a result
+  * Tune the search with roll quality, affix level, number of supports, tree variants and more
+  * Also available from the command line for batch and parallel runs; see the [Build Optimizer guide](docs/buildOptimizer.md)
 * Other features:
   * You can import passive tree, items, and skills from existing characters
   * Share builds with other users by generating a share code
