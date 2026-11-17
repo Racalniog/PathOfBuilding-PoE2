@@ -1,77 +1,256 @@
 # Build Optimizer
 
-`src/Modules/BuildOptimizer.lua` builds a character around one skill gem and searches for the setup
-with the highest damage. For a chosen class, ascendancy and skill it decides:
+The build optimizer builds a character around one skill gem and searches for the setup with the
+most damage. You pick a class, an ascendancy and a skill; it decides:
 
 * the support gems linked to the skill,
-* the auras, curses, marks and other skills whose buff or debuff raises the damage of the main skill,
-* the equipment, once using crafted rares only and once with unique items allowed,
+* the auras, curses, marks and other skills whose buff or debuff raises the main skill's damage,
+* the equipment: crafted rares, and in a second build also the unique items,
 * the passive tree, including ascendancy nodes and jewel sockets,
-* the jewels in the allocated sockets, and the runes / soul cores in item sockets,
+* the jewels in those sockets, and the runes / soul cores in item sockets,
 * flasks and charms, where they add damage,
 * the second weapon set: swap weapons and weapon-set passives for the supporting skills.
 
-Every candidate is scored by the normal calculation engine (`calcs.initEnv` + `calcs.perform`), so
-the number the optimizer reports is the number the program shows when the saved build is opened.
+Every candidate is scored by the program's normal calculations, so the DPS the optimizer reports is
+exactly the DPS the program shows when you open the result.
 
-## Running it
+**Contents:** [Quick start](#quick-start) · [Settings](#settings) · [Example run](#example-run) ·
+[Command line](#command-line) · [How the search works](#how-the-search-works) ·
+[What the optimizer does not know](#what-the-optimizer-does-not-know) · [Limitations](#limitations)
 
-### In the program
+## Quick start
 
-Open a build and press **Optimizer** in the side bar. Choose class, ascendancy ("Auto" compares
-all of them), skill gem (type while the list is open to search) and the search settings, then press
-**Run Optimizer**. *Use current build* fills the form from the build that is open.
+1. Open any build (a new one is fine) and press **Optimizer** in the side bar, next to *Compare*.
+2. Choose the **class**, **ascendancy** (*Auto* compares all ascendancies of the class) and the
+   **skill gem**. Open the skill list and type to search. *Use current build* fills these from the
+   build that is open.
+3. Leave the rest at the defaults, or see [Settings](#settings). For a first look, set
+   *Rounds* and *Tree variants* to 1 and untick *Combination search*: that run takes 3-4 minutes
+   instead of 10-30.
+4. Press **Run Optimizer**.
 
-The search runs in the background (`src/OptimizerSubScript.lua`, started with `LaunchSubScript`):
-it loads its own copy of the program and builds the character there, so the window stays usable
-and the open build is not changed. The progress log shows what the search is doing. When a
-variant is done, its row under *Results* offers:
+![The Optimizer tab: character, search settings and what to include on the left; results and the progress log on the right](images/optimizer-form.png)
 
-* **Summary** - the text summary, configuration report and blind spots of that build,
-* **Save** - writes `<skill> <ascendancy> (rares|uniques).xml` to the builds folder,
-* **Open** - opens the build in the window (asks first if the current build has unsaved changes).
+The search runs in the background, in its own copy of the program, so you can keep using the
+window. Your open build is never changed. The progress log shows each step and the damage after it:
 
-Results stay available until the next run or a restart, also after opening one of them. The
-in-program search uses one process, so tree variants are built one after another; for parallel
-workers and batches use the command line below. The background copy of the program needs about
-1 GB of memory on top of the window.
+![A run in progress: status, the two pending results and the live progress log](images/optimizer-running.png)
 
-### From the command line
+Two builds come out of a run: one with **rare items only** (crafted rares, easy to approximate with
+gear you buy), and one with **unique items allowed**, which starts from the rare build. Each row
+under *Results* has three buttons:
 
-The optimizer also runs headless through `src/OptimizeBuild.lua`. From the `src` directory:
+* **Summary** shows the build as text: links, supporting skills, every item with its modifiers, the
+  tree, jewels, which Configuration conditions would add damage, and what the engine can't evaluate.
+* **Save** writes it to your builds folder as `<skill> <ascendancy> (rares).xml` / `(uniques).xml`.
+* **Open** opens it in the window. If the open build has unsaved changes, you are asked first.
 
-    luajit OptimizeBuild.lua --class Ranger --ascendancy Deadeye --skill "Lightning Arrow" --out ../builds
+![A finished run: both results with their damage, and the end of the log](images/optimizer-results.png)
+![The summary of the unique build](images/optimizer-summary.png)
 
-On Windows no Lua installation is needed; `OptimizeBuild.py` runs the same script in the LuaJIT
-that ships in `runtime/`, and additionally writes an import code for every saved build:
+Results and settings stay until the next run or a restart, also after you open one of the
+results. *Cancel* stops a run. The background copy of the program needs about 1 GB of memory on
+top of the window.
+
+## Settings
+
+Every setting of the Optimizer tab has a command-line equivalent (see [Command line](#command-line)).
+
+| In the Optimizer tab | Command line | What it does |
+| --- | --- | --- |
+| Class / Ascendancy | `--class`, `--ascendancy` | *Auto* / leaving out `--ascendancy` builds every ascendancy of the class and keeps the best |
+| Skill gem | `--skill` | The active skill the build is made for |
+| Character level | `--level` | Level of the character (default 100); limits gem levels, items and passive points |
+| Passive points | `--points` | Points to spend; empty = everything available at the level |
+| Maximise | `--metric` | Calculation output to maximise: `CombinedDPS` (default; includes damage over time and minions), `TotalDPS`, `FullDPS`, ... |
+| Roll quality | `--roll <0..1>` | Roll of crafted affixes and unique modifiers; 100% / `1` is a perfect roll, 50% / `0.5` an average one |
+| Max affix level | `--item-level` | Highest affix tier level that may be crafted (default 82) |
+| Support gems | `--supports` | Number of supports linked to the skill (default 5) |
+| Rounds | `--rounds` | Passes over the whole search (default 2); later rounds let earlier choices react to later ones |
+| Tree variants | `--tree-width <1-4>` | Number of differently-minded passive trees that are built and compared (default 4) |
+| Unique items | `--no-uniques` (off) | Also make the build with unique items allowed |
+| Lineage supports | `--no-lineage` (off) | Allow lineage support gems |
+| Runes / soul cores | `--no-runes` (off) | Fill item sockets with the best runes / soul cores |
+| Supporting skills | `--no-aux` (off) | Add auras, curses, marks and other skills that raise the main skill's damage |
+| Flasks and charms | `--no-flasks` (off) | Equip flasks and charms where they add damage |
+| Second weapon set | `--no-weapon-sets` (off) | Use weapon set 2 and its passives for the supporting skills |
+| Combination search | `--no-combos` (off) | Look for supports, affixes and passives that only work together (slower) |
+| Thorough uniques | `--thorough` | Try every unique as one half of a unique pair (adds several minutes) |
+| Legacy uniques | `--legacy-uniques` | Also try older versions of uniques ("Pre 0.4.0") and uniques that are no longer obtainable |
+| Unique versions | `--unique-variants` | Also try every version of uniques that come in several, e.g. Cursecarver's curse, From Nothing's keystone or Darkness Enthroned's slot (slower, see below) |
+| Assume sustained | `--assume sustained` | Switch on the Configuration conditions the build keeps up by itself (see [Configuration](#configuration)) |
+
+**Which uniques take part.** By default the unique search only uses what can be found in the game
+now: uniques marked "No longer obtainable" (the same rule as the *Obtainable* filter of the unique
+list) and older versions are left out, and each unique is tried in the version the unique list shows.
+Test variants, such as From Nothing's "Everything", are never used.
+
+* *Legacy uniques* adds the older versions and the unobtainable uniques. The summary marks a
+  legacy item, e.g. `Ab Aeterno, Grand Cuisses [UNIQUE] (legacy version: Pre 0.4.0)`.
+* *Unique versions* tries every current version of uniques with one choice, and the summary names
+  the version that won, e.g. `Voices, Sapphire [UNIQUE] (version: 4 Sinister Sockets)`. Uniques
+  where several choices are made at once (Megalomaniac's notables, Mageblood's Legacies, Grip of
+  Kulemak's modifiers) keep the selection of the unique list. Trying their first choice alone is no
+  real search, and their hundreds of variants would each be a full item.
+
+## Example run
+
+Lightning Arrow, Ranger / Deadeye, level 100, with *Rounds* 1, *Tree variants* 1 and no combination
+search; everything else at the defaults. The progress log (command line output; the Optimizer tab
+shows the same lines) starts like this:
+
+```
+[   0.1s] Optimising with rare items only
+[   0.1s] [round 1] weapons
+[   2.3s]     Optimised Weapon, Fanatic Bow + Optimised Off Hand, Visceral Quiver -> 5979.6
+[   3.6s] [round 1] support gems
+[  18.0s]   -> 36706.8
+[  18.0s] [round 1] auras, curses, marks and other supporting skills
+[  18.1s]   + Freezing Mark -> 47378.3
+[  18.2s]   + Elemental Conflux -> 58018.0
+[  18.3s]   + Electrocuting Arrow -> 62392.9
+[  18.4s]   + Barrage -> 63640.8
+[  18.5s]   + Despair -> 63922.4
+[  22.8s] [round 1] equipment
+[  28.5s]   Helmet: Optimised Helmet, Freebooter Cap -> 78873.0
+[  30.7s]   Gloves: Optimised Gloves, Polished Bracers -> 140568.0
+[  32.5s]   Ring 2: Optimised Ring 2, Biostatic Ring -> 253570.6
+[  32.9s] [round 1] passive tree
+[ 135.0s]   -> 3340210.0
+[ 135.0s] [round 1] jewels
+[ 147.9s]   socket 60735: Optimised Jewel, Diamond -> 3719647.8
+[ 147.9s] [round 1] second weapon set
+[ 163.8s] Rare-only build: 3708142 (80941 calculations)
+```
+
+Each `[round 1] ...` line starts a stage; the lines under it are the choices made there with the
+score after them, and a bare `-> number` is the score at the end of the stage. (The time is the
+processor time of the search; the Optimizer tab shows the elapsed time instead.) The unique build
+then starts from the rare one:
+
+```
+[ 213.0s] [round 1] equipment (uniques allowed)
+[ 233.0s]   Body Armour: Hyrri's Ire, Armoured Vest -> 6656672.6
+[ 236.4s]   Boots: Wake of Destruction, Secured Leggings -> 6895762.3
+[ 238.4s]   Ring 2: Kalandra's Touch, Ring -> 7000880.7
+[ 238.7s]   Belt: Mageblood, Utility Belt -> 7794006.2
+[ 239.2s] [round 1] passive tree
+[ 264.3s]   -> 8647343.8
+[ 264.3s] [round 1] jewels
+[ 268.1s]   socket 2491: Voices, Sapphire -> 11280101.7
+[ 311.0s] Build with uniques: 11357349 (34846 calculations)
+```
+
+The summary of the unique build, shortened (`...` marks left-out lines):
+
+```
+Ranger / Deadeye, level 100
+Combined DPS: 11357349   (hit DPS 10562334, crit chance 47.8%, speed 8.00/s)
+Attributes: Str 50, Dex 361, Int 105
+
+== Skill links ==
+Skill:   Lightning Arrow (level 20, quality 20)
+Support: Rakiata's Flow (level 1, quality 20)
+Support: Zerphi's Infamy (level 1, quality 20)
+Support: Hit and Run (level 1, quality 20)
+Support: Elemental Armament II (level 1, quality 20)
+Support: Elemental Focus (level 1, quality 20)
+
+== Auras, curses, marks and other supporting skills ==
+Freezing Mark (level 20)   [cast with weapon set 2]
+Elemental Conflux (level 14)
+Electrocuting Arrow (level 20)
+Barrage (level 20)
+Despair (level 14) + Heightened Curse, Chaos Mastery   [cast with weapon set 2]
+Spirit: 40 of 100 unreserved
+
+== Equipment ==
+Weapon 1: Optimised Weapon, Runeforged Shortbow [RARE]
+      179% increased Physical Damage
+      Adds 101 to 154 Fire Damage
+      Adds 12 to 234 Lightning Damage
+      ...
+Body Armour: Hyrri's Ire, Armoured Vest [UNIQUE]
+      ...
+Belt: Mageblood, Utility Belt [UNIQUE]
+      ...
+
+== Passive tree ==
+Points: 123 passive, 4 ascendancy, 5 jewel sockets
+Ascendancy notables: Projectile Proximity Specialisation
+Notables (23): Acceleration, Catalysis, Clean Shot, Cooked, Cull the Hordes, Falcon Dive, ...
+
+== Jewels ==
+Socket 2491: Voices, Sapphire [UNIQUE] (version: 4 Sinister Sockets)
+      ...
+
+== Configuration ==
+No conditions are assumed beyond the defaults of a new build.
+Conditions that would raise the damage if you can keep them up (--config <name>=true, or <name>=<number> for counts):
+  Is the enemy Critically Weak                          +89.2%   [conditionEnemyCriticalWeakness]
+  Do you have Adrenaline?                               +21.8%   [buffAdrenaline]
+  Is the enemy Shocked?                                 +17.2%   [conditionEnemyShocked]
+  ...
+
+== Strong options the engine could not fully evaluate ==
+Boots: Ab Aeterno, Grand Cuisses — readable part alone: -2.7% vs current
+      Your speed is Unaffected by Slows while Sprinting
+The Spring Hare (Notable, 4 points away) — readable part: +3.2%
+Inexorable Critical I — readable part as a sixth link: +14.1%; stats without a calculation: supported_by_inevitable_criticals
+...
+
+== Parts of this build the engine does not calculate ==
+Boots (Wake of Destruction, Secured Leggings): Drop Shocked Ground while moving, lasting 8 seconds
+Ring 2 (Kalandra's Touch, Ring): Reflects opposite Ring
+...
+```
+
+The last three sections are worth a look before you play the build. *Configuration* lists the
+conditions the number does **not** assume yet: here keeping the enemy Critically Weak would add 89%.
+The other two list what the engine can't calculate (see
+[What the optimizer does not know](#what-the-optimizer-does-not-know)).
+
+The same example with and without *Unique versions*:
+
+| Settings | Rare build | Unique build | Calculations (unique build) |
+| --- | --- | --- | --- |
+| As above | 3,708,142 | 11,357,349 | 34,846 |
+| As above + *Unique versions* | 3,708,142 | 11,625,121 (+2.4%) | 35,643 |
+
+With *Unique versions* the search found Prism of Belief in its "Lightning Arrow" version (extra
+levels of the main skill), which the default search never sees. In the Optimizer tab the first run
+took 3:44 on a 16-core desktop. Expect *Unique versions* to cost more for builds that try many
+jewels with long version lists.
+
+## Command line
+
+The optimizer also runs without the window through `src/OptimizeBuild.lua`. On Windows no Lua
+installation is needed: `OptimizeBuild.py` runs the script in the LuaJIT that ships in `runtime/`,
+and also writes an import code for every saved build. From the `src` directory:
 
     python OptimizeBuild.py --class Ranger --ascendancy Deadeye --skill "Lightning Arrow" --out ../builds
+
+or with LuaJIT:
+
+    luajit OptimizeBuild.lua --class Ranger --ascendancy Deadeye --skill "Lightning Arrow" --out ../builds
 
 Two builds are produced, `<name> (rares).xml` and `<name> (uniques).xml`, each with a `.txt`
 summary. Copy the `.xml` into the build folder, or paste the contents of the `.code.txt` into
 *Import/Export Build -> Import from website or code*.
 
-Useful options (`--help` lists all of them):
+All settings of the [table above](#settings) are available; `--help` lists everything. Options that
+only exist on the command line:
 
 | Option | Meaning |
 | --- | --- |
-| `--ascendancy <name>` | Omit it to let the optimizer compare the ascendancies of the class |
-| `--level <n>`, `--points <n>` | Character level and passive point budget |
-| `--roll <0..1>` | Affix and unique roll quality; `1` is a perfect roll, `0.5` an average one |
-| `--item-level <n>` | Highest affix tier that may be crafted |
-| `--no-lineage`, `--no-runes` | Leave out lineage supports / socketed runes |
-| `--no-aux`, `--no-flasks` | Leave out supporting skills / flasks and charms |
-| `--no-weapon-sets` | Don't use the second weapon set |
-| `--assume sustained` | Switch on the conditions the build keeps up by itself (see below) |
-| `--tree-width <n>` | Number of differently-minded tree builds to compare (1-4) |
-| `--jobs <n>` | Processes to use; the extra ones build tree variants in parallel (about 1 GB each) |
-| `--coverage` | Print how much of the program's data the engine can't calculate, and exit |
-| `--no-combos` | Skip the search for combinations whose parts do nothing alone |
-| `--thorough` | Try every unique as one half of a unique pair (adds several minutes) |
-| `--legacy-uniques` | Also try legacy uniques: older versions ("Pre 0.4.0") and uniques that are no longer obtainable |
+| `--jobs <n>` | Processes to use (default 3); the extra ones build tree variants in parallel (about 1 GB each) |
 | `--config key=value` | Any Configuration tab input, e.g. `--config enemyIsBoss=Pinnacle` |
-| `--metric <stat>` | Calc output to maximise, `CombinedDPS` by default |
-| `--rounds <n>` | Passes over the whole pipeline per variant |
+| `--assume a,b,c` | Switch on the named Configuration conditions |
+| `--gem-level <n>` | Level of the skill gem (default: the highest the character can use) |
+| `--only-uniques` | Only save the build with uniques |
+| `--out <dir>`, `--name <text>` | Where to save the builds, and their base name |
+| `--coverage` | Print how much of the program's data the engine can't calculate, and exit |
+| `--quiet`, `--debug` | Less / more output |
 
 A full run takes roughly ten minutes. The script stops itself with a stack dump if its memory passes
 3 GB or it reports no progress for 15 minutes (`POB_OPTIMIZER_MEMORY_MB`, `POB_OPTIMIZER_SILENCE_S`).
@@ -85,7 +264,7 @@ The variants run in parallel, as many as the physical cores and free memory allo
 With plain LuaJIT, parallel workers need to know how to start another copy of the script:
 set `POB_OPTIMIZER_WORKER`, e.g. to `luajit OptimizeBuild.lua`. The Python launcher does this itself.
 
-From Lua the two entry points are:
+### From Lua
 
 ```lua
 local optimizer = LoadModule("Modules/BuildOptimizer")
@@ -95,7 +274,8 @@ print(result.score, optimizer.Describe(build))
 ```
 
 `Optimize` works on the build in place and only ever accepts changes that raise the score, so it can
-be called again on its own result (this is how the unique variant is derived from the rare one).
+be called again on its own result (this is how the unique build is derived from the rare one). The
+Optimizer tab runs the same calls in a background subscript (`src/OptimizerSubScript.lua`).
 
 ## How the search works
 
@@ -125,8 +305,9 @@ to later ones:
    with a one-hander plus quiver, focus, shield or second weapon. With uniques allowed, every unique
    that fits the slot competes with the crafted rare. Only uniques that can be found now take part,
    in their current version: uniques marked "No longer obtainable", older versions ("Pre 0.4.0")
-   and test variants are left out (`--legacy-uniques` / *Legacy uniques* adds the first two; a
-   legacy version is marked as such in the summary). Flask and charm slots are switched on and get
+   and test variants are left out (`--legacy-uniques` / *Legacy uniques* adds the first two), and a
+   unique that comes in several versions is tried in the one the unique list selects
+   (`--unique-variants` / *Unique versions* tries all of them; see [Settings](#settings)). Flask and charm slots are switched on and get
    the magic or unique item that adds the most; slots where nothing helps stay empty.
 5. **Passive tree** - ascendancy points first, then the main tree. The main tree is built several
    times, each time ranking candidates by gain / cost ^ exponent with a different exponent (1 is
