@@ -38,6 +38,7 @@ Usage: OptimizeBuild.lua --class <name> --skill <gem name> [options]
   --thorough             Try every unique as one half of a unique pair (adds several minutes)
   --no-uniques           Only produce the rare-item build
   --legacy-uniques       Also try legacy uniques: older versions and uniques that are no longer obtainable
+  --unique-variants      Also try every current version of uniques that come in several (slower)
   --only-uniques         Skip saving the rare-only build; only report the build with uniques allowed
   --out <dir>            Directory for the resulting build files (default: the user's build folder)
   --name <text>          Base name of the saved builds
@@ -47,7 +48,7 @@ Usage: OptimizeBuild.lua --class <name> --skill <gem name> [options]
 
 local args = { config = { } }
 do
-	local flags = { ["no-lineage"] = true, ["no-runes"] = true, ["no-uniques"] = true, ["no-aux"] = true, ["no-flasks"] = true, ["no-weapon-sets"] = true, ["no-combos"] = true, thorough = true, ["legacy-uniques"] = true, ["only-uniques"] = true, debug = true, quiet = true, help = true, coverage = true }
+	local flags = { ["no-lineage"] = true, ["no-runes"] = true, ["no-uniques"] = true, ["no-aux"] = true, ["no-flasks"] = true, ["no-weapon-sets"] = true, ["no-combos"] = true, thorough = true, ["legacy-uniques"] = true, ["unique-variants"] = true, ["only-uniques"] = true, debug = true, quiet = true, help = true, coverage = true }
 	local index = 1
 	while arg and arg[index] do
 		local key = arg[index]:match("^%-%-(.+)$")
@@ -201,6 +202,7 @@ local options = {
 	combos = not args["no-combos"],
 	thorough = args.thorough,
 	legacyUniques = args["legacy-uniques"],
+	uniqueVariants = args["unique-variants"],
 	autoAscendancy = not args.ascendancy or args.ascendancy:lower() == "auto",
 	treeWidth = tonumber(args["tree-width"]),
 }

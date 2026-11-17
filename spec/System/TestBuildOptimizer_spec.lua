@@ -31,7 +31,10 @@ describe("BuildOptimizer", function()
 	}
 
 	it("leaves out legacy and unobtainable uniques unless asked to include them", function()
-		local variants = optimizer.UniqueVariants
+		local legacy = { legacyUniques = true }
+		local function variants(source, withLegacy)
+			return optimizer.UniqueVariants(source, withLegacy and legacy or { })
+		end
 		assert.are.same({ false }, variants({ }, false))
 		assert.are.same({ }, variants({ source = "No longer obtainable" }, false))
 		assert.are.same({ false }, variants({ source = "No longer obtainable" }, true))
@@ -41,8 +44,14 @@ describe("BuildOptimizer", function()
 		-- A legacy or test variant selected by default falls back to the newest current one
 		assert.are.same({ 2 }, variants({ variantList = { "Fire (Pre 0.2.1 )", "Fire", "0.2.0" }, variant = 3 }, false))
 		assert.are.same({ 1 }, variants({ variantList = { "Zealot's Oath", "Everything (QoL Test Variant)" }, variant = 2 }, true))
-		-- Real alternatives are not legacy
-		assert.are.same({ 1 }, variants({ variantList = { "Helmet", "Gloves" }, variant = 1 }, false))
+		-- Real alternatives are not legacy; they are all tried only on request
+		local alternatives = { variantList = { "Pre 0.3.0", "Helmet", "Gloves", "Everything (QoL Test Variant)" }, variant = 2 }
+		assert.are.same({ 2 }, variants(alternatives, false))
+		assert.are.same({ 2, 3 }, optimizer.UniqueVariants(alternatives, { uniqueVariants = true }))
+		assert.are.same({ 2, 1, 3 }, optimizer.UniqueVariants(alternatives, { uniqueVariants = true, legacyUniques = true }))
+		-- A unique with several choices at once keeps its selection
+		alternatives.hasAltVariant = true
+		assert.are.same({ 2 }, optimizer.UniqueVariants(alternatives, { uniqueVariants = true }))
 
 		-- None of the database's uniques comes out as a legacy version or the test variant by default
 		for _, source in pairs(main.uniqueDB.list) do

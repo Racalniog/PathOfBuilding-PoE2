@@ -60,6 +60,10 @@ optimizer.defaultOptions = {
 	-- Also try legacy uniques: older versions of a unique ("Pre 0.4.0") and uniques that are no
 	-- longer obtainable. Off by default, the search only uses what can be found in the game now
 	legacyUniques = false,
+	-- Also try every current alternative of uniques that come in several versions (Cursecarver's
+	-- curse, Darkness Enthroned's slot, the keystone of From Nothing, ...). Off by default, only the
+	-- version the unique database selects is tried; on, the unique search takes noticeably longer
+	uniqueVariants = false,
 	-- Radius used when crafting Time-Lost jewels
 	jewelRadius = "Small",
 	-- Number of distinct weapon base types that are fully crafted and compared
@@ -1028,9 +1032,15 @@ local function isTestVariant(name)
 end
 
 -- Variant numbers of a unique the search tries (false = the unique has no variants), or an empty
--- list if it is not obtainable. Without legacy uniques that is the selected variant, or the newest
--- current one if the selected variant is legacy or a test variant; with them, also every legacy variant
-function optimizer.UniqueVariants(source, legacyUniques)
+-- list if it is not obtainable. By default that is the selected variant, or the newest current one
+-- if the selected variant is legacy or a test variant. opts.legacyUniques adds every legacy variant
+-- and the unobtainable uniques, opts.uniqueVariants every other current variant of uniques with one
+-- choice. Uniques with several choices at once ("Has Alt Variant": Megalomaniac's notables, Grip of
+-- Kulemak's modifiers, ...) keep their selection: varying only the first choice is no real search,
+-- and their hundreds of variants would each become a full item
+function optimizer.UniqueVariants(source, opts)
+	local legacyUniques = opts and opts.legacyUniques
+	local alternatives = opts and opts.uniqueVariants and not source.hasAltVariant
 	-- Same rule as the "Obtainable" filter of the unique database (Classes/ItemDBControl.lua)
 	if not legacyUniques and (source.source == "No longer obtainable" or source.league == "Race Events") then
 		return { }
@@ -1055,20 +1065,34 @@ function optimizer.UniqueVariants(source, legacyUniques)
 	if current(names[selected]) or (legacyUniques and not isTestVariant(names[selected])) then
 		t_insert(list, selected)
 	end
-	if legacyUniques then
-		for index, name in ipairs(names) do
-			if index ~= selected and isLegacyVariant(name) then
-				t_insert(list, index)
-			end
+	for index, name in ipairs(names) do
+		if index ~= selected and ((legacyUniques and isLegacyVariant(name)) or (alternatives and current(name))) then
+			t_insert(list, index)
 		end
 	end
 	return list
 end
 
--- The variant name of a unique if it is a legacy one, for the summary
-local function legacyVariantName(item)
-	local name = item.rarity == "UNIQUE" and item.variantList and item.variant and item.variantList[item.variant]
-	return name and isLegacyVariant(name) and name or nil
+-- Which version of a unique the build uses, for the summary: legacy versions, and the chosen one of
+-- several current alternatives
+local function variantNote(item)
+	local names = item.rarity == "UNIQUE" and item.variantList
+	local name = names and item.variant and names[item.variant]
+	if not name then
+		return ""
+	elseif isLegacyVariant(name) then
+		return " (legacy version: " .. name .. ")"
+	elseif item.hasAltVariant then
+		-- Several choices at once (Mageblood's Legacies); the first alone would mislead
+		return ""
+	end
+	local alternatives = 0
+	for _, other in ipairs(names) do
+		if not isLegacyVariant(other) and not isTestVariant(other) then
+			alternatives = alternatives + 1
+		end
+	end
+	return alternatives > 1 and (" (version: " .. name .. ")") or ""
 end
 
 local function rollUnique(ctx, source, variant)
@@ -1112,7 +1136,7 @@ local function uniquesForSlot(ctx, slotName)
 		local limitReached = source.limit and (ctx.uniqueCount[source.title or name] or 0) >= source.limit
 		if source.base and not limitReached and baseCouldFitSlot(source.base, slotName) and itemsTab:IsItemValidForSlot(source, slotName)
 		and (source.requirements.level or 0) <= ctx.build.characterLevel then
-			for _, variant in ipairs(optimizer.UniqueVariants(source, ctx.opts.legacyUniques)) do
+			for _, variant in ipairs(optimizer.UniqueVariants(source, ctx.opts)) do
 				local item = rollUnique(ctx, source, variant)
 				if item then
 					t_insert(list, item)
@@ -3286,8 +3310,7 @@ function optimizer.Describe(build)
 	add("")
 	add("== Equipment ==")
 	local function addItem(label, item)
-		local legacy = legacyVariantName(item)
-		add("%s: %s [%s]%s", label, item.name, item.rarity, legacy and (" (legacy version: " .. legacy .. ")") or "")
+		add("%s: %s [%s]%s", label, item.name, item.rarity, variantNote(item))
 		local function addLines(list, prefix)
 			for _, modLine in ipairs(list or { }) do
 				if item:CheckModLineVariant(modLine) then

@@ -73,6 +73,7 @@ describe("OptimizerTab", function()
 		assert.is_false(options.combos)
 		assert.is_true(options.uniques)
 		assert.is_false(options.legacyUniques)
+		assert.is_false(options.uniqueVariants)
 		assert.is_nil(options.points)
 	end)
 
