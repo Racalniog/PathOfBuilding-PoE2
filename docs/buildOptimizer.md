@@ -16,7 +16,29 @@ the number the optimizer reports is the number the program shows when the saved 
 
 ## Running it
 
-The optimizer runs headless through `src/OptimizeBuild.lua`. From the `src` directory:
+### In the program
+
+Open a build and press **Optimizer** in the side bar. Choose class, ascendancy ("Auto" compares
+all of them), skill gem (type while the list is open to search) and the search settings, then press
+**Run Optimizer**. *Use current build* fills the form from the build that is open.
+
+The search runs in the background (`src/OptimizerSubScript.lua`, started with `LaunchSubScript`):
+it loads its own copy of the program and builds the character there, so the window stays usable
+and the open build is not changed. The progress log shows what the search is doing. When a
+variant is done, its row under *Results* offers:
+
+* **Summary** - the text summary, configuration report and blind spots of that build,
+* **Save** - writes `<skill> <ascendancy> (rares|uniques).xml` to the builds folder,
+* **Open** - opens the build in the window (asks first if the current build has unsaved changes).
+
+Results stay available until the next run or a restart, also after opening one of them. The
+in-program search uses one process, so tree variants are built one after another; for parallel
+workers and batches use the command line below. The background copy of the program needs about
+1 GB of memory on top of the window.
+
+### From the command line
+
+The optimizer also runs headless through `src/OptimizeBuild.lua`. From the `src` directory:
 
     luajit OptimizeBuild.lua --class Ranger --ascendancy Deadeye --skill "Lightning Arrow" --out ../builds
 

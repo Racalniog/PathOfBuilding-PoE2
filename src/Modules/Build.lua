@@ -359,6 +359,11 @@ function buildMode:Init(dbFileName, buildName, buildXML, convertBuild, importLin
 		self.viewMode = "COMPARE"
 	end)
 	self.controls.modeCompare.locked = function() return self.viewMode == "COMPARE" end
+	self.controls.modeOptimizer = new("ButtonControl"):ButtonControl({ "LEFT", self.controls.modeCompare, "RIGHT" }, { 4, 0, 72, 20 }, "Optimizer", function()
+		self.viewMode = "OPTIMIZER"
+	end)
+	self.controls.modeOptimizer.locked = function() return self.viewMode == "OPTIMIZER" end
+	self.controls.modeOptimizer.tooltipText = "Build a character around one skill gem and search for the setup with the most damage."
 	-- Skills
 	self.controls.mainSkillLabel = new("LabelControl"):LabelControl({ "TOPLEFT", self.anchorSideBar, "TOPLEFT" }, { 0, 80, 300, 16 }, "^7Main Skill:")
 	self.controls.mainSocketGroup = new("DropDownControl"):DropDownControl({ "TOPLEFT", self.controls.mainSkillLabel, "BOTTOMLEFT" }, { 0, 2, 300, 18 }, nil, function(index, value)
@@ -537,6 +542,7 @@ function buildMode:Init(dbFileName, buildName, buildXML, convertBuild, importLin
 	-- ensure that we don't refer to outdated calc tab sections
 	self.breakdownIndex = nil
 	self.compareTab = new("CompareTab"):CompareTab(self)
+	self.optimizerTab = new("OptimizerTab"):OptimizerTab(self)
 	-- Used for pinned calculation panes
 	self.overlayPanes = { }
 
@@ -1441,6 +1447,8 @@ function buildMode:OnFrame(inputEvents)
 		self.calcsTab:Draw(tabViewPort, inputEvents)
 	elseif self.viewMode == "COMPARE" then
 		self.compareTab:Draw(tabViewPort, inputEvents)
+	elseif self.viewMode == "OPTIMIZER" then
+		self.optimizerTab:Draw(tabViewPort, inputEvents)
 	end
 
 	-- Draw overlay panes on top of all tab content (last = topmost)
