@@ -1548,6 +1548,42 @@ Huge sets the radius to 11.
 	{ var = "conditionConsumedCorpseInPast2Sec", type = "check", label = "Consumed a corpse in the past 2s?", ifCond = "ConsumedCorpseInPast2Sec", implyCond = "ConsumedCorpseRecently",tooltip = "This also implies you have 'Consumed a corpse Recently'", apply = function(val, modList, enemyModList)
 		modList:NewMod("Condition:ConsumedCorpseInPast2Sec", "FLAG", true, "Config", { type = "Condition", var = "Combat" })
 	end },
+	{ var = "multiplierEnduranceChargesConsumedRecently", type = "count", label = "# of Endurance Charges consumed Recently:", ifMult = "EnduranceChargesConsumedRecently", tooltip = "Number of Endurance Charges your skills have consumed in the past 4 seconds.", apply = function(val, modList, enemyModList)
+		modList:NewMod("Multiplier:EnduranceChargesConsumedRecently", "BASE", val, "Config", { type = "Condition", var = "Combat" })
+	end },
+	{ var = "multiplierFrenzyChargesConsumedRecently", type = "count", label = "# of Frenzy Charges consumed Recently:", ifMult = "FrenzyChargesConsumedRecently", tooltip = "Number of Frenzy Charges your skills have consumed in the past 4 seconds.", apply = function(val, modList, enemyModList)
+		modList:NewMod("Multiplier:FrenzyChargesConsumedRecently", "BASE", val, "Config", { type = "Condition", var = "Combat" })
+	end },
+	{ var = "multiplierPowerChargesConsumedRecently", type = "count", label = "# of Power Charges consumed Recently:", ifMult = "PowerChargesConsumedRecently", tooltip = "Number of Power Charges your skills have consumed in the past 4 seconds.", apply = function(val, modList, enemyModList)
+		modList:NewMod("Multiplier:PowerChargesConsumedRecently", "BASE", val, "Config", { type = "Condition", var = "Combat" })
+	end },
+	{ var = "multiplierGloryConsumedRecently", type = "count", label = "Glory consumed Recently:", ifMult = "GloryConsumedRecently", tooltip = "Amount of Glory your skills have consumed in the window the modifier names.", apply = function(val, modList, enemyModList)
+		modList:NewMod("Multiplier:GloryConsumedRecently", "BASE", val, "Config", { type = "Condition", var = "Combat" })
+	end },
+	{ var = "multiplierGlorySkillsUsedRecently", type = "count", label = "# of Glory Skill uses Recently:", ifMult = "GlorySkillsUsedRecently", tooltip = "Number of times you have used a Skill that requires Glory in the window the modifier names.", apply = function(val, modList, enemyModList)
+		modList:NewMod("Multiplier:GlorySkillsUsedRecently", "BASE", val, "Config", { type = "Condition", var = "Combat" })
+	end },
+	{ var = "multiplierDifferentSpellsCastRecently", type = "count", label = "# of different Spells Cast in the last 8 seconds:", ifMult = "DifferentSpellsCastRecently", tooltip = "Number of different (non-instant) Spells you have cast in the last 8 seconds.", apply = function(val, modList, enemyModList)
+		modList:NewMod("Multiplier:DifferentSpellsCastRecently", "BASE", val, "Config", { type = "Condition", var = "Combat" })
+	end },
+	{ var = "multiplierDifferentAttacksUsedRecently", type = "count", label = "# of different Attacks used in the last 8 seconds:", ifMult = "DifferentAttacksUsedRecently", tooltip = "Number of different (non-instant) Attacks you have used in the last 8 seconds.", apply = function(val, modList, enemyModList)
+		modList:NewMod("Multiplier:DifferentAttacksUsedRecently", "BASE", val, "Config", { type = "Condition", var = "Combat" })
+	end },
+	{ var = "multiplierDifferentWarcriesUsedRecently", type = "count", label = "# of different Warcries used Recently:", ifMult = "DifferentWarcriesUsedRecently", tooltip = "Number of different Warcries you have used in the past 4 seconds.", apply = function(val, modList, enemyModList)
+		modList:NewMod("Multiplier:DifferentWarcriesUsedRecently", "BASE", val, "Config", { type = "Condition", var = "Combat" })
+	end },
+	{ var = "multiplierDifferentCommandSkillsUsedRecently", type = "count", label = "# of different Command Skills used Recently:", ifMult = "DifferentCommandSkillsUsedRecently", tooltip = "Number of different Command Skills you have used in the window the modifier names.", apply = function(val, modList, enemyModList)
+		modList:NewMod("Multiplier:DifferentCommandSkillsUsedRecently", "BASE", val, "Config", { type = "Condition", var = "Combat" })
+	end },
+	{ var = "conditionCollectedFireInfusionRecently", type = "check", label = "Collected a ^xB97123Fire ^7Infusion in the last 8 seconds?", ifCond = "CollectedFireInfusionRecently", apply = function(val, modList, enemyModList)
+		modList:NewMod("Condition:CollectedFireInfusionRecently", "FLAG", true, "Config", { type = "Condition", var = "Combat" })
+	end },
+	{ var = "conditionCollectedColdInfusionRecently", type = "check", label = "Collected a ^x3F6DB3Cold ^7Infusion in the last 8 seconds?", ifCond = "CollectedColdInfusionRecently", apply = function(val, modList, enemyModList)
+		modList:NewMod("Condition:CollectedColdInfusionRecently", "FLAG", true, "Config", { type = "Condition", var = "Combat" })
+	end },
+	{ var = "conditionCollectedLightningInfusionRecently", type = "check", label = "Collected a ^xADAA47Lightning ^7Infusion in the last 8 seconds?", ifCond = "CollectedLightningInfusionRecently", apply = function(val, modList, enemyModList)
+		modList:NewMod("Condition:CollectedLightningInfusionRecently", "FLAG", true, "Config", { type = "Condition", var = "Combat" })
+	end },
 	{ var = "multiplierCorpseConsumedRecently", type = "count", label = "# of Corpses Consumed Recently:", ifMult = "CorpseConsumedRecently", implyCond = "ConsumedCorpseRecently", apply = function(val, modList, enemyModList)
 		modList:NewMod("Multiplier:CorpseConsumedRecently", "BASE", val, "Config", { type = "Condition", var = "Combat" })
 		modList:NewMod("Condition:ConsumedCorpseRecently", "FLAG", true, "Config", { type = "Condition", var = "Combat" })

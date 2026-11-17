@@ -1449,6 +1449,22 @@ local preFlagList = {
 -- List of modifier tags
 local modTagList = {
 	["on enemies"] = { },
+	-- Charges, infusions and Glory spent a short while ago, and variety of skills used
+	["per endurance charge consumed recently"] = { tag = { type = "Multiplier", var = "EnduranceChargesConsumedRecently" } },
+	["per frenzy charge consumed recently"] = { tag = { type = "Multiplier", var = "FrenzyChargesConsumedRecently" } },
+	["per power charge consumed recently"] = { tag = { type = "Multiplier", var = "PowerChargesConsumedRecently" } },
+	["if you've collected a fire infusion in the last %d+ seconds"] = { tag = { type = "Condition", var = "CollectedFireInfusionRecently" } },
+	["if you've collected a cold infusion in the last %d+ seconds"] = { tag = { type = "Condition", var = "CollectedColdInfusionRecently" } },
+	["if you've collected a lightning infusion in the last %d+ seconds"] = { tag = { type = "Condition", var = "CollectedLightningInfusionRecently" } },
+	["for each different spell you've cast in the last eight seconds"] = { tag = { type = "Multiplier", var = "DifferentSpellsCastRecently" } },
+	["for each different non%-instant spell you've used in the past %d+ seconds"] = { tag = { type = "Multiplier", var = "NonInstantSpellCastRecently" } },
+	["for each different non%-instant attack you've used in the past %d+ seconds"] = { tag = { type = "Multiplier", var = "DifferentAttacksUsedRecently" } },
+	["for each different warcry you've used recently"] = { tag = { type = "Multiplier", var = "DifferentWarcriesUsedRecently" } },
+	-- Minion modifiers are evaluated on the minion, the count is kept by the player
+	["per different command skill used in the past %d+ seconds"] = { tag = { type = "Multiplier", var = "DifferentCommandSkillsUsedRecently", actor = "parent" } },
+	["for each time you've used a skill that requires glory in the past %d+ seconds"] = { tag = { type = "Multiplier", var = "GlorySkillsUsedRecently" } },
+	["if you've used a skill that requires glory in the past %d+ seconds"] = { tag = { type = "MultiplierThreshold", var = "GlorySkillsUsedRecently", threshold = 1 } },
+	["against targets in your presence"] = { tag = { type = "Condition", var = "EnemyInPresence" } },
 	["while active"] = { },
 	["for (%d+) seconds"] = { },
 	["when you hit a unique enemy"] = { tag = { type = "ActorCondition", actor = "enemy", var = "RareOrUnique" } },
@@ -2276,6 +2292,33 @@ local dmgTypes
 -- List of special modifiers
 ---@type table<string, Mod[]|fun(...: any):Mod[]?>
 local specialModList = {
+	-- Glory spent a short while ago
+	["consuming glory grants you (%d+)%% increased attack damage per glory consumed for (%d+) seconds, up to (%d+)%%"] = function(num, _, _, limit) return {
+		mod("Damage", "INC", num, nil, ModFlag.Attack, { type = "Multiplier", var = "GloryConsumedRecently", limit = tonumber(limit), limitTotal = true }),
+	} end,
+	-- Aftershocks
+	["(%d+)%% chance for slam skills you use yourself to cause an additional aftershock"] = function(num) return { mod("AftershockChance", "BASE", num, { type = "SkillType", skillType = SkillType.Slam }) } end,
+	["(%d+)%% chance for slam skills to cause an additional aftershock"] = function(num) return { mod("AftershockChance", "BASE", num, { type = "SkillType", skillType = SkillType.Slam }) } end,
+	["(%d+)%% chance for mace slam skills you use yourself to cause an additional aftershock"] = function(num) return { mod("AftershockChance", "BASE", num, nil, ModFlag.Mace, { type = "SkillType", skillType = SkillType.Slam }) } end,
+	["slam skills you use yourself cause an additional aftershock"] = { mod("AftershockChance", "BASE", 100, { type = "SkillType", skillType = SkillType.Slam }) },
+	-- More sources of Critical Weakness
+	["critical hits with spells apply %d+ stacks? of critical weakness"] = { flag("ApplyCriticalWeakness") },
+	["warcries inflict %d+ critical weakness on enemies"] = { flag("ApplyCriticalWeakness") },
+	["parrying applies %d+ stacks of critical weakness"] = { flag("ApplyCriticalWeakness") },
+	-- Exposure applied through another effect of the hit
+	["inflict lightning exposure on critical hit"] = { mod("LightningExposureChance", "BASE", 100, { type = "Condition", var = "CritRecently" }) },
+	["inflict fire exposure on shocking an enemy"] = { mod("FireExposureChance", "BASE", 100, { type = "ActorCondition", actor = "enemy", var = "Shocked" }) },
+	["inflict cold exposure on igniting an enemy"] = { mod("ColdExposureChance", "BASE", 100, { type = "ActorCondition", actor = "enemy", var = "Ignited" }) },
+	-- Added damage from a stat, and extra damage for Empowered Attacks
+	["attacks have added chaos damage equal to (%d+)%% of maximum life"] = function(num) return {
+		mod("ChaosMin", "BASE", 1, nil, ModFlag.Attack, { type = "PercentStat", stat = "Life", percent = num }),
+		mod("ChaosMax", "BASE", 1, nil, ModFlag.Attack, { type = "PercentStat", stat = "Life", percent = num }),
+	} end,
+	["empowered attacks gain (%d+)%% of damage as extra cold damage"] = function(num) return { mod("DamageGainAsCold", "BASE", num, nil, ModFlag.Attack, 0, { type = "Condition", var = "Empowered" }) } end,
+	["empowered attacks gain (%d+)%% of damage as extra fire damage"] = function(num) return { mod("DamageGainAsFire", "BASE", num, nil, ModFlag.Attack, 0, { type = "Condition", var = "Empowered" }) } end,
+	["empowered attacks gain (%d+)%% of damage as extra lightning damage"] = function(num) return { mod("DamageGainAsLightning", "BASE", num, nil, ModFlag.Attack, 0, { type = "Condition", var = "Empowered" }) } end,
+	["empowered attacks gain (%d+)%% of physical damage as extra fire damage"] = function(num) return { mod("PhysicalDamageGainAsFire", "BASE", num, nil, ModFlag.Attack, 0, { type = "Condition", var = "Empowered" }) } end,
+	["convert (%d+)%% of fire damage with mace skills to cold damage"] = function(num) return { mod("FireDamageConvertToCold", "BASE", num, nil, ModFlag.Mace) } end,
 	-- Explode mods
 	["enemies you kill have a (%d+)%% chance to explode, dealing a (.+) of their maximum life as (.+) damage"] = function(chance, _, amount, type)	-- Obliteration, Unspeakable Gifts (chaos cluster), synth implicit mod, current crusader body mod, Ngamahu Warmonger tattoo
 		return explodeFunc(chance, amount, type)

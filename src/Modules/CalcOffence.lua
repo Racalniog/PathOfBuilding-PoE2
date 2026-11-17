@@ -4063,6 +4063,24 @@ function calcs.offence(env, actor, activeSkill)
 		output.ScaledDamageEffect = output.ScaledDamageEffect * (1 + output.DoubleDamageEffect + output.TripleDamageEffect)
 
 		output.DpsMultiplier = ( skillData.dpsMultiplier or 1 ) * calcLib.mod(skillModList, skillCfg, "DPS")
+		-- Aftershocks repeat a Slam's hit, so every 100% chance is one more hit per use.
+		-- Skills that model their Aftershock as a separate stat set (e.g. Earthquake) are left
+		-- alone, as that part already carries its own damage
+		-- The modifiers are for Slams "you use yourself", so not for totems or triggered Slams
+		if activeSkill.skillTypes[SkillType.Slam] and not skillFlags.totem and not skillData.triggered then
+			local aftershockChance = skillModList:Sum("BASE", skillCfg, "AftershockChance")
+			local ownAftershock = false
+			for _, statSet in ipairs(activeSkill.activeEffect.grantedEffect.statSets or { }) do
+				if statSet.label and statSet.label:match("Aftershock") then
+					ownAftershock = true
+					break
+				end
+			end
+			if aftershockChance > 0 and not ownAftershock then
+				output.AftershockChance = aftershockChance
+				output.DpsMultiplier = output.DpsMultiplier * (1 + aftershockChance / 100)
+			end
+		end
 
 		local hitRate = output.HitChance / 100 * (globalOutput.HitSpeed or globalOutput.Speed) * output.DpsMultiplier
 
