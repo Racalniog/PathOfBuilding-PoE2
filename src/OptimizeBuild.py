@@ -10,6 +10,10 @@ Several variants at once (one line of arguments per variant, optionally starting
 name=<text>; parallelism defaults to the physical cores and free memory):
 
     python OptimizeBuild.py --batch variants.txt --out ../batch [--parallel 6]
+
+Census of the modifiers the engine can't calculate (see docs/calculationGapsPlan.md):
+
+    python OptimizeBuild.py --gaps [lines.tsv]
 """
 import base64
 import ctypes
@@ -155,6 +159,8 @@ def main():
         def option(name, default=None):
             return argv[argv.index(name) + 1] if name in argv else default
         sys.exit(run_batch(option("--batch"), int(option("--parallel", 0)), option("--out", os.path.join(SRC, "..", "optimizer-batch"))))
+    if "--gaps" in sys.argv[1:2]:
+        sys.exit(run("CalcGaps.lua", [os.path.abspath(p) for p in sys.argv[2:3]]))
     if "--run" in sys.argv[1:2]:
         # Child mode: Lua writes straight to the inherited stdout
         sys.exit(run("OptimizeBuild.lua", sys.argv[2:]))
