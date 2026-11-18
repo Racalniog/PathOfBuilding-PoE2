@@ -711,6 +711,32 @@ local function doActorMisc(env, actor)
 			modDB:NewMod("AvoidAllDamageFromHitsChance", "BASE", m_floor(15 * effect), "Elusive")
 			modDB:NewMod("MovementSpeed", "INC", m_floor(30 * effect), "Elusive")
 		end
+		-- Archon Buffs (stat descriptions archon_*): "Archon Buffs also grant ..." is part of every Archon Buff, so
+		-- "increased effect of Archon Buffs on you" scales it, and so does buff effect on you as for Onslaught and Elusive.
+		-- What each Archon Buff grants by itself (Elemental Archon, Archon of Undeath, ...) isn't in the exported data.
+		local archonUptime = modDB:Flag(nil, "Condition:AffectedByArchon") and 1 or 0
+		if archonUptime == 0 and modDB:Flag(nil, "ArchonSource") then
+			-- Approximation (ArchonSource needs Use approximations): the buff lasts its duration, then can't be gained again
+			-- until its recovery period has expired, so uptime = duration / (duration + recovery period).
+			-- ponytail: assumes the gain event comes as soon as the recovery period ends; upgrade path = add the wait 1 / (event rate)
+			local duration = modDB:GetMultiplier("ApproxArchonDuration") * calcLib.mod(modDB, nil, "ArchonDuration")
+			local recoveryRate = calcLib.mod(modDB, nil, "ArchonRecoveryRate")
+			local recovery = modDB:Flag(nil, "ArchonNoRecoveryPeriod") and 0 or recoveryRate > 0 and modDB:GetMultiplier("ApproxArchonRecovery") / recoveryRate or m_huge
+			archonUptime = duration > 0 and duration / (duration + recovery) or 0
+		end
+		if archonUptime > 0 then
+			local effect = calcLib.mod(modDB, nil, "ArchonEffect", "BuffEffectOnSelf")
+			output.ArchonEffectMod = effect * archonUptime * 100
+			if actor.breakdown then
+				actor.breakdown.ArchonEffectMod = {
+					s_format("%.2f ^8(effect of Archon Buffs)", effect),
+					s_format("x %.2f ^8(uptime%s)", archonUptime, archonUptime < 1 and ", approx." or ""),
+				}
+			end
+			for _, value in ipairs(modDB:List(nil, "ArchonBuff")) do
+				modDB:ScaleAddMod(value.mod, effect * archonUptime)
+			end
+		end
 		if modDB:Max(nil, "WitherEffectStack") then
 			modDB:NewMod("Condition:CanWither", "FLAG", true, "Config")
 			local effect = modDB:Max(nil, "WitherEffectStack")

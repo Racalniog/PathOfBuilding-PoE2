@@ -117,6 +117,14 @@ local configSettings = {
 	{ var = "approxKillsPerSecond", type = "float", label = "Kills per second:", ifOption = "useApproximations", defaultState = 1, tooltip = "Enemies you kill per second, used to estimate on-kill effects.\nSet 0 for a single boss.", apply = function(val, modList, enemyModList)
 		modList:NewMod("Multiplier:ApproxKillsPerSecond", "BASE", m_max(val, 0), "Config", { type = "Condition", var = "UseApproximations" })
 	end },
+	-- ponytail: the base Archon duration and recovery period aren't in the exported data, 10 s each is a guess;
+	-- upgrade path = export the buff definitions (plan Phase 5) or measure them in the game
+	{ var = "approxArchonDuration", type = "float", label = "Archon Buff duration (s):", ifOption = "useApproximations", defaultState = 10, tooltip = "Base duration of an Archon Buff, used to estimate its uptime when the build has a way to gain one.\nIgnored while 'Are you affected by an Archon Buff?' is on.", apply = function(val, modList, enemyModList)
+		modList:NewMod("Multiplier:ApproxArchonDuration", "BASE", m_max(val, 0), "Config", { type = "Condition", var = "UseApproximations" })
+	end },
+	{ var = "approxArchonRecovery", type = "float", label = "Archon recovery period (s):", ifOption = "useApproximations", defaultState = 10, tooltip = "Base time after losing an Archon Buff before you can gain one again.", apply = function(val, modList, enemyModList)
+		modList:NewMod("Multiplier:ApproxArchonRecovery", "BASE", m_max(val, 0), "Config", { type = "Condition", var = "UseApproximations" })
+	end },
 	-- Section: General options
 	{ section = "General", col = 1 },
 	{ var = "resistancePenalty", type = "list", label = "Elemental Resistance penalty:", list = {{val=0,label="Act 1 (0%)"},{val=-10,label="Act 2 (-10%)"},{val=-20,label="Act 3 (-20%)"},{val=-30,label="Act 4 (-30%)"},{val=-40,label="Act 5 (-40%)"},{val=-50,label="Act 6 (-50%)"},{val=-60,label="Endgame (-60%)"}}, defaultIndex = 7 },
@@ -1301,6 +1309,9 @@ Huge sets the radius to 11.
 	end },
 	{ var = "conditionInfusionConsumedRecently", type = "check", label = "Infusion consumed recently?", apply = function(val, modList, enemyModList)
 		modList:NewMod("Condition:InfusionConsumedRecently", "FLAG", true, "Config", { type = "Condition", var = "Combat" })
+	end },
+	{ var = "conditionAffectedByArchon", type = "check", label = "Are you affected by an Archon Buff?", tooltip = "Applies 'Archon Buffs also grant ...' and 'while affected by an Archon Buff' modifiers.\nWhat the Archon Buff itself grants is not calculated yet.", apply = function(val, modList, enemyModList)
+		modList:NewMod("Condition:AffectedByArchon", "FLAG", true, "Config", { type = "Condition", var = "Combat" })
 	end },
 	{ var = "conditionInDodgeRoll", type = "check", label = "Are you in dodge roll?", ifCond = "InDodgeRoll", apply = function(val, modList, enemyModList)
 		modList:NewMod("Condition:InDodgeRoll", "FLAG", true, "Config", { type = "Condition", var = "Combat" }, { type = "Condition", var ="CannotDodgeRoll", neg = true })
