@@ -108,6 +108,15 @@ local function addQuestModsRewardsConfigOptions(configSettings)
 end
 
 local configSettings = {
+	-- Section: Approximations (docs/calculationGapsPlan.md, "The approximation model")
+	{ section = "Approximations", col = 1 },
+	{ var = "useApproximations", type = "check", label = "Use approximations", tooltip = "Estimates the value of effects that depend on how the build is played (kills, hits, events) from the rates below.\nOff: PoB's exact calculation only, these effects contribute nothing.", apply = function(val, modList, enemyModList)
+		modList:NewMod("Condition:UseApproximations", "FLAG", true, "Config")
+	end },
+	-- ponytail: 1 kill/s is a guessed mapping default; upgrade path = boss/mapping scenario defaults calibrated by in-game measurement (plan Phase 6)
+	{ var = "approxKillsPerSecond", type = "float", label = "Kills per second:", ifOption = "useApproximations", defaultState = 1, tooltip = "Enemies you kill per second, used to estimate on-kill effects.\nSet 0 for a single boss.", apply = function(val, modList, enemyModList)
+		modList:NewMod("Multiplier:ApproxKillsPerSecond", "BASE", m_max(val, 0), "Config", { type = "Condition", var = "UseApproximations" })
+	end },
 	-- Section: General options
 	{ section = "General", col = 1 },
 	{ var = "resistancePenalty", type = "list", label = "Elemental Resistance penalty:", list = {{val=0,label="Act 1 (0%)"},{val=-10,label="Act 2 (-10%)"},{val=-20,label="Act 3 (-20%)"},{val=-30,label="Act 4 (-30%)"},{val=-40,label="Act 5 (-40%)"},{val=-50,label="Act 6 (-50%)"},{val=-60,label="Endgame (-60%)"}}, defaultIndex = 7 },
@@ -1363,6 +1372,12 @@ Huge sets the radius to 11.
 	end },
 	{ var = "conditionDodgeRolledRecently", type = "check", label = "Have you Dodge Rolled Recently?", ifCond = "DodgeRolledRecently", apply = function(val, modList, enemyModList)
 		modList:NewMod("Condition:DodgeRolledRecently", "FLAG", true, "Config", { type = "Condition", var = "Combat" })
+	end },
+	{ var = "conditionParrying", type = "check", label = "Are you Parrying?", ifCond = "Parrying", apply = function(val, modList, enemyModList)
+		modList:NewMod("Condition:Parrying", "FLAG", true, "Config", { type = "Condition", var = "Combat" })
+	end },
+	{ var = "conditionShieldRaised", type = "check", label = "Is your Shield raised?", ifCond = "ShieldRaised", apply = function(val, modList, enemyModList)
+		modList:NewMod("Condition:ShieldRaised", "FLAG", true, "Config", { type = "Condition", var = "Combat" })
 	end },
 	{ var = "conditionEnergyShieldRechargeRecently", type = "check", label = "^x88FFFFEnergy Shield ^7Recharge started Recently?", ifCond = "EnergyShieldRechargeRecently", apply = function(val, modList, enemyModList)
 		modList:NewMod("Condition:EnergyShieldRechargeRecently", "FLAG", true, "Config", { type = "Condition", var = "Combat" })

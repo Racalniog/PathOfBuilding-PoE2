@@ -1754,6 +1754,23 @@ function calcs.defence(env, actor)
 			modDB:NewMod("OverflowEnergyShieldRecovery", "BASE", output.LifeRegenRecovery - recoveryRate, "Zealot's Oath")
 			output[resource.."RegenRecovery"] = 0
 		end
+		-- Approximation: on-kill recovery as an expected rate (amount per kill x kills per second).
+		-- Instant recovery, so regeneration and recovery rate modifiers don't scale it. Kill rate is 0 unless approximations are on.
+		local killsPerSecond = modDB:GetMultiplier("ApproxKillsPerSecond")
+		local onKill = killsPerSecond > 0 and modDB:Sum("BASE", nil, resource.."OnKill") or 0
+		local onKillRecovery = 0
+		if onKill ~= 0 and not modDB:Flag(nil, "CannotGain"..resource) and not (resource == "Life" and modDB:Flag(nil, "CannotRecoverLifeOutsideLeech")) then
+			onKillRecovery = onKill * killsPerSecond
+			output[resource.."OnKillApproxRecovery"] = onKillRecovery
+			output[resource.."RegenRecovery"] = output[resource.."RegenRecovery"] + onKillRecovery
+			if breakdown then
+				breakdown[resource.."OnKillApproxRecovery"] = {
+					s_format("%.1f ^8(%s per kill)", onKill, resourceName:lower()),
+					s_format("x %.2f ^8(kills per second)", killsPerSecond),
+					s_format("= %.1f ^8per second (approx.)", onKillRecovery),
+				}
+			end
+		end
 		if output[resource.."RegenRecovery"] > 0 then
 			modDB:NewMod("Condition:CanGain"..resource, "FLAG", true, resourceName.."Regen")
 		end
@@ -1776,10 +1793,14 @@ function calcs.defence(env, actor)
 			end
 			if recoveryRate ~= 0 then
 				t_insert(breakdown[resource.."RegenRecovery"], s_format("+ %.1f ^8(recovery)", recoveryRate))
-				t_insert(breakdown[resource.."RegenRecovery"], s_format("= %.1f ^8per second", output[resource.."RegenRecovery"] - overflowRecovery))
+				t_insert(breakdown[resource.."RegenRecovery"], s_format("= %.1f ^8per second", output[resource.."RegenRecovery"] - overflowRecovery - onKillRecovery))
 			end
 			if overflowRecovery ~= 0 then
 				t_insert(breakdown[resource.."RegenRecovery"], s_format("+ %.1f ^8(overflow recovery)", overflowRecovery))
+				t_insert(breakdown[resource.."RegenRecovery"], s_format("= %.1f ^8per second", output[resource.."RegenRecovery"] - onKillRecovery))
+			end
+			if onKillRecovery ~= 0 then
+				t_insert(breakdown[resource.."RegenRecovery"], s_format("+ %.1f ^8(on kill, approx.)", onKillRecovery))
 				t_insert(breakdown[resource.."RegenRecovery"], s_format("= %.1f ^8per second", output[resource.."RegenRecovery"]))
 			end
 			if resource == "Life" and modDB:Flag(nil, "ZealotsOath") then

@@ -235,7 +235,7 @@ function itemLib.applyRange(line, range, valueScalar, baseValueScalar)
 			local valueRange = ranges and (ranges[rangeIndex] or 0.5) or range
 			local value = min + valueRange * (tonumber(max) - min)
 			if sign == "-" then value = value * -1 end
-			return (sign == "+" and value > 0) and sign .. tostring(value) or tostring(value)
+			return (sign == "+" and value >= 0) and sign .. tostring(value) or tostring(value)
 		end)
 		:gsub("%-(%d+%.?%d*%%) (%a+)", antonymFunc)
 		:gsub("(%-?%d+%.?%d*)", function(value)

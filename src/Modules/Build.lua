@@ -364,6 +364,16 @@ function buildMode:Init(dbFileName, buildName, buildXML, convertBuild, importLin
 	end)
 	self.controls.modeOptimizer.locked = function() return self.viewMode == "OPTIMIZER" end
 	self.controls.modeOptimizer.tooltipText = "Build a character around one skill gem and search for the setup with the most damage."
+	-- Flips the "Use approximations" config option through its own checkbox handler, so undo, recalculation and the modified flag behave identically
+	self.controls.approxToggle = new("ButtonControl"):ButtonControl({ "LEFT", self.controls.modeOptimizer, "RIGHT" }, { 4, 0, 72, 20 }, function()
+		return self.configTab.input.useApproximations and "Approx: On" or "Approx: Off"
+	end, function()
+		local check = self.configTab.varControls.useApproximations
+		check.state = not self.configTab.input.useApproximations
+		check.changeFunc(check.state)
+	end)
+	self.controls.approxToggle.overSizeText = -1 -- "Approx: Off" is 71px at the default 16px font, too wide for 72
+	self.controls.approxToggle.tooltipText = "Approximations (Configuration tab):\nOn: effects that depend on how the build is played (e.g. recovery on kill) are estimated from the\nrates set in the Configuration tab (kills per second).\nOff: PoB's exact calculation only."
 	-- Skills
 	self.controls.mainSkillLabel = new("LabelControl"):LabelControl({ "TOPLEFT", self.anchorSideBar, "TOPLEFT" }, { 0, 80, 300, 16 }, "^7Main Skill:")
 	self.controls.mainSocketGroup = new("DropDownControl"):DropDownControl({ "TOPLEFT", self.controls.mainSkillLabel, "BOTTOMLEFT" }, { 0, 2, 300, 18 }, nil, function(index, value)
