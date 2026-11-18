@@ -49,11 +49,24 @@ local function unreadable(line)
 	local list, extra = modLib.parseMod(line)
 	return not list or extra
 end
+-- Affix and rune lines the game wraps over two lines are one modifier
+local function joinWrapped(lines)
+	local joined = { }
+	for i, line in ipairs(lines) do
+		if i > 1 and modLib.wrapsInto(joined[#joined], line) then
+			joined[#joined] = joined[#joined] .. " " .. line:gsub("^%s+", "")
+		else
+			table.insert(joined, line)
+		end
+	end
+	return joined
+end
 
 for _, item in pairs(main.uniqueDB.list) do
 	for _, list in ipairs({ item.implicitModLines, item.explicitModLines }) do
 		for _, modLine in ipairs(list or { }) do
-			if modLine.extra or ((not modLine.modList or #modLine.modList == 0) and not (modLine.line or ""):match("^Grants Skill")) then
+			-- A line that rolls to 0 at the default range (e.g. +(-30-30)%) has no modifiers but is readable
+			if modLine.extra or ((not modLine.modList or #modLine.modList == 0) and not (modLine.line or ""):match("^Grants Skill") and unreadable(itemLib.applyRange(modLine.line or "", 1))) then
 				record("unique", modLine.line or "")
 			end
 		end
@@ -62,16 +75,17 @@ end
 for _, node in pairs(build.spec.tree.nodes) do
 	if node.sd and (node.unknown or node.extra) then
 		local source = node.ascendancyName and "ascendancy" or node.type == "Keystone" and "keystone" or node.type == "Notable" and "notable" or "passive"
-		for _, line in ipairs(node.sd) do
-			if unreadable(line) then
-				record(source, line)
+		for i, line in ipairs(node.sd) do
+			local mods = node.mods[i]
+			if not mods.combined and (not mods.list or mods.extra) then
+				record(source, mods.text or line)
 			end
 		end
 	end
 end
 for _, kind in ipairs({ "Item", "Jewel", "Flask", "Charm", "Desecrated", "Corruption" }) do
 	for _, mod in pairs(data.itemMods[kind] or { }) do
-		for _, line in ipairs(mod) do
+		for _, line in ipairs(joinWrapped(mod)) do
 			if unreadable(itemLib.applyRange(line, 1)) then
 				record("affix", line)
 			end
@@ -80,7 +94,7 @@ for _, kind in ipairs({ "Item", "Jewel", "Flask", "Charm", "Desecrated", "Corrup
 end
 for _, rune in pairs(data.itemMods.Runes or { }) do
 	for _, mod in pairs(rune) do
-		for _, line in ipairs(mod) do
+		for _, line in ipairs(joinWrapped(mod)) do
 			if unreadable(line) then
 				record("rune", line)
 			end

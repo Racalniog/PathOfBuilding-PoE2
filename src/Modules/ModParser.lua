@@ -205,6 +205,7 @@ local modNameList = {
 	["mana cost efficiency"] = "ManaCostEfficiency",
 	["mana cost efficiency of skills"] = "ManaCostEfficiency",
 	["mana cost efficiency of attacks"] = { "ManaCostEfficiency", tag = { type = "SkillType", skillType = SkillType.Attack } },
+	["mana cost efficiency of spells"] = { "ManaCostEfficiency", tag = { type = "SkillType", skillType = SkillType.Spell } },
 	["life cost efficiency"] = "LifeCostEfficiency",
 	["life cost efficiency of skills"] = "LifeCostEfficiency",
 	["spirit cost efficiency"] = "SpiritCostEfficiency",
@@ -2591,6 +2592,7 @@ local specialModList = {
 	["critical hits inflict scorch, brittle and sapped"] = { flag("CritAlwaysAltAilments") },
 	["you take (%d+)%% of damage from blocked hits"] = function(num) return { mod("BlockEffect", "BASE", num) } end,
 	["ignore attribute requirements"] = { flag("IgnoreAttributeRequirements") },
+	["equipment has no attribute requirements"] = { flag("IgnoreAttributeRequirements") },
 	["gain no inherent bonuses from attributes"] = { flag("NoAttributeBonuses") },
 	["gain no inherent bonuses from strength"] = { flag("NoStrengthAttributeBonuses") },
 	["gain no inherent bonuses from dexterity"] = { flag("NoDexterityAttributeBonuses") },
@@ -4398,6 +4400,7 @@ local specialModList = {
 	["elemental damage with hits is lucky while you are shocked"] = { flag("ElementalLuckHits", { type = "Condition", var = "Shocked" }) },
 	["break (%d+)%% of armour on heavy stunning an enemy"] = { flag("Condition:CanArmourBreak", { type = "GlobalEffect", effectType = "Buff", effectName = "ArmourBreak" }) },
 	["break (%d+)%% increased armour"] = function(num) return { mod("ArmourBreakPerHit", "INC", num)} end,
+	["hits break (%d+) armour"] = function(num) return { mod("ArmourBreakPerHit", "BASE", num), flag("Condition:CanArmourBreak", { type = "GlobalEffect", effectType = "Buff", effectName = "ArmourBreak" }) } end,
 	["break (%d+)%% increased armour on enemies affected by ailments"] = function(num) return {
 		mod("ArmourBreakPerHit", "INC", num, { type = "ActorCondition", actor = "enemy", varList = { "Frozen","Chilled","Shocked","Electrocuted","Ignited","Poisoned","Bleeding" } } )
 	} end,
@@ -4977,6 +4980,9 @@ local specialModList = {
 	} end,
 	-- Projectiles
 	["skills chain %+(%d) times"] = function(num) return { mod("ChainCountMax", "BASE", num) } end,
+	["lightning skills chain %+(%d) times"] = function(num) return { mod("ChainCountMax", "BASE", num, nil, 0, KeywordFlag.Lightning) } end,
+	["projectiles from spells chain %+(%d) times"] = function(num) return { mod("ChainCountMax", "BASE", num, nil, bor(ModFlag.Spell, ModFlag.Projectile)) } end,
+	["projectiles from spells fork"] = { flag("ForkOnce", nil, bor(ModFlag.Spell, ModFlag.Projectile)), mod("ForkCountMax", "BASE", 1, nil, bor(ModFlag.Spell, ModFlag.Projectile)) },
 	["arrows chain %+(%d) times"] = function(num) return { mod("ChainCountMax", "BASE", num, nil, 0, KeywordFlag.Arrow) } end,
 	["skills chain an additional time while at maximum frenzy charges"] = { mod("ChainCountMax", "BASE", 1, { type = "StatThreshold", stat = "FrenzyCharges", thresholdStat = "FrenzyChargesMax" }) },
 	["attacks chain an additional time when in main hand"] = { mod("ChainCountMax", "BASE", 1, nil, ModFlag.Attack, { type = "SlotNumber", num = 1 }) },

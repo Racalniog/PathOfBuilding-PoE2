@@ -1237,13 +1237,14 @@ function ItemClass:ParseRaw(raw, rarity, highQuality)
 				end
 				local rangedLine = itemLib.applyRange(line, 1, catalystScalar, modLine.corruptedRange)
 				local modList, extra = modLib.parseMod(rangedLine)
-				if (not modList or extra) and self.rawLines[l+1] then
+				if self.rawLines[l+1] and (not modList or extra or modLib.wrapsInto(line, (self.rawLines[l+1]:gsub("%b{}", "")))) then
 					-- Try to combine it with the next line
 					local nextLine = self.rawLines[l+1]:gsub("%b{}", ""):gsub(" ?%(%l+%)","")
 					local combLine = line.." "..nextLine
 					rangedLine = itemLib.applyRange(combLine, 1, catalystScalar, modLine.corruptedRange)
 					modList, extra = modLib.parseMod(rangedLine, true)
-					if modList and not extra then
+					if modList and not extra or modLib.wrapsInto(line, nextLine) then
+						-- Also joins a wrapped modifier that isn't understood, so it reads as one line
 						line = line.."\n"..nextLine
 						l = l + 1
 					else
