@@ -117,13 +117,20 @@ local configSettings = {
 	{ var = "approxKillsPerSecond", type = "float", label = "Kills per second:", ifOption = "useApproximations", defaultState = 1, tooltip = "Enemies you kill per second, used to estimate on-kill effects.\nSet 0 for a single boss.", apply = function(val, modList, enemyModList)
 		modList:NewMod("Multiplier:ApproxKillsPerSecond", "BASE", m_max(val, 0), "Config", { type = "Condition", var = "UseApproximations" })
 	end },
-	-- ponytail: the base Archon duration and recovery period aren't in the exported data, 10 s each is a guess;
-	-- upgrade path = export the buff definitions (plan Phase 5) or measure them in the game
-	{ var = "approxArchonDuration", type = "float", label = "Archon Buff duration (s):", ifOption = "useApproximations", defaultState = 10, tooltip = "Base duration of an Archon Buff, used to estimate its uptime when the build has a way to gain one.\nIgnored while 'Are you affected by an Archon Buff?' is on.", apply = function(val, modList, enemyModList)
-		modList:NewMod("Multiplier:ApproxArchonDuration", "BASE", m_max(val, 0), "Config", { type = "Condition", var = "UseApproximations" })
-	end },
-	{ var = "approxArchonRecovery", type = "float", label = "Archon recovery period (s):", ifOption = "useApproximations", defaultState = 10, tooltip = "Base time after losing an Archon Buff before you can gain one again.", apply = function(val, modList, enemyModList)
+	-- ponytail: the Archon recovery period isn't in the game data (the Archon Buff durations are, data.archonBuffs), 10 s is a guess;
+	-- upgrade path = measure it in the game
+	{ var = "approxArchonRecovery", type = "float", label = "Archon recovery period (s):", ifOption = "useApproximations", defaultState = 10, tooltip = "Base time after losing an Archon Buff before you can gain one again.\nNot in the game data: 10 seconds is a guess.", apply = function(val, modList, enemyModList)
 		modList:NewMod("Multiplier:ApproxArchonRecovery", "BASE", m_max(val, 0), "Config", { type = "Condition", var = "UseApproximations" })
+	end },
+	-- ponytail: infusion remnants from skills and class mechanics aren't tied to a modifier PoB can read; upgrade path = per-skill generation rules
+	{ var = "approxFireRemnantsPerSecond", type = "float", label = "^xB97123Fire ^7Infusion Remnants/s, other:", ifOption = "useApproximations", tooltip = "Fire Infusion Remnants you collect per second from sources PoB can't read,\ne.g. skills that leave a Remnant or class mechanics. Used to estimate your Fire Infusions\nwhen '# of Fire Infusions' is left empty.", apply = function(val, modList, enemyModList)
+		modList:NewMod("Multiplier:ApproxFireRemnantsPerSecond", "BASE", m_max(val, 0), "Config", { type = "Condition", var = "UseApproximations" })
+	end },
+	{ var = "approxColdRemnantsPerSecond", type = "float", label = "^x3F6DB3Cold ^7Infusion Remnants/s, other:", ifOption = "useApproximations", tooltip = "Cold Infusion Remnants you collect per second from sources PoB can't read,\ne.g. skills that leave a Remnant or class mechanics. Used to estimate your Cold Infusions\nwhen '# of Cold Infusions' is left empty.", apply = function(val, modList, enemyModList)
+		modList:NewMod("Multiplier:ApproxColdRemnantsPerSecond", "BASE", m_max(val, 0), "Config", { type = "Condition", var = "UseApproximations" })
+	end },
+	{ var = "approxLightningRemnantsPerSecond", type = "float", label = "^xADAA47Lightning ^7Infusion Remnants/s, other:", ifOption = "useApproximations", tooltip = "Lightning Infusion Remnants you collect per second from sources PoB can't read,\ne.g. skills that leave a Remnant or class mechanics. Used to estimate your Lightning Infusions\nwhen '# of Lightning Infusions' is left empty.", apply = function(val, modList, enemyModList)
+		modList:NewMod("Multiplier:ApproxLightningRemnantsPerSecond", "BASE", m_max(val, 0), "Config", { type = "Condition", var = "UseApproximations" })
 	end },
 	-- Section: General options
 	{ section = "General", col = 1 },
@@ -1310,8 +1317,21 @@ Huge sets the radius to 11.
 	{ var = "conditionInfusionConsumedRecently", type = "check", label = "Infusion consumed recently?", apply = function(val, modList, enemyModList)
 		modList:NewMod("Condition:InfusionConsumedRecently", "FLAG", true, "Config", { type = "Condition", var = "Combat" })
 	end },
-	{ var = "conditionAffectedByArchon", type = "check", label = "Are you affected by an Archon Buff?", tooltip = "Applies 'Archon Buffs also grant ...' and 'while affected by an Archon Buff' modifiers.\nWhat the Archon Buff itself grants is not calculated yet.", apply = function(val, modList, enemyModList)
+	{ var = "conditionAffectedByArchon", type = "check", label = "Are you affected by an Archon Buff?", tooltip = "Applies the Archon Buff's own effect, 'Archon Buffs also grant ...' and 'while affected by an Archon Buff' modifiers.", apply = function(val, modList, enemyModList)
 		modList:NewMod("Condition:AffectedByArchon", "FLAG", true, "Config", { type = "Condition", var = "Combat" })
+	end },
+	{ var = "archonBuff", type = "list", label = "Archon Buff:", ifOption = "conditionAffectedByArchon", tooltip = "Which Archon Buff you have. 'From your Archon source' takes the one your passives or items grant, or Elemental Archon.", list = {{val="SOURCE",label="From your Archon source"},{val="ArchonElemental",label="Elemental Archon"},{val="ArchonFire",label="Flame Archon"},{val="ArchonCold",label="Ice Archon"},{val="ArchonLightning",label="Lightning Archon"},{val="ArchonUndeath",label="Archon of Undeath"},{val="ArchonNature",label="Nature's Archon"},{val="ArchonOfChayula",label="Archon of Chayula"}} },
+	{ var = "conditionLostArchonRecently", type = "check", label = "Lost an Archon Buff in the past 6 seconds?", ifCond = "LostArchonRecently", apply = function(val, modList, enemyModList)
+		modList:NewMod("Condition:LostArchonRecently", "FLAG", true, "Config", { type = "Condition", var = "Combat" })
+	end },
+	{ var = "multiplierFireInfusion", type = "count", label = "# of ^xB97123Fire ^7Infusions:", tooltip = "Capped at your maximum Fire Infusions.\nLeft empty with approximations on, the average number is estimated from your Remnant generation.", apply = function(val, modList, enemyModList)
+		modList:NewMod("FireInfusions", "OVERRIDE", val, "Config", { type = "Condition", var = "Combat" })
+	end },
+	{ var = "multiplierColdInfusion", type = "count", label = "# of ^x3F6DB3Cold ^7Infusions:", tooltip = "Capped at your maximum Cold Infusions.\nLeft empty with approximations on, the average number is estimated from your Remnant generation.", apply = function(val, modList, enemyModList)
+		modList:NewMod("ColdInfusions", "OVERRIDE", val, "Config", { type = "Condition", var = "Combat" })
+	end },
+	{ var = "multiplierLightningInfusion", type = "count", label = "# of ^xADAA47Lightning ^7Infusions:", tooltip = "Capped at your maximum Lightning Infusions.\nLeft empty with approximations on, the average number is estimated from your Remnant generation.", apply = function(val, modList, enemyModList)
+		modList:NewMod("LightningInfusions", "OVERRIDE", val, "Config", { type = "Condition", var = "Combat" })
 	end },
 	{ var = "conditionInDodgeRoll", type = "check", label = "Are you in dodge roll?", ifCond = "InDodgeRoll", apply = function(val, modList, enemyModList)
 		modList:NewMod("Condition:InDodgeRoll", "FLAG", true, "Config", { type = "Condition", var = "Combat" }, { type = "Condition", var ="CannotDodgeRoll", neg = true })

@@ -166,10 +166,10 @@ c["+1 to Minimum Power Charges while you have at least 150 Devotion"]={{[1]={[1]
 c["+1 to Spirit for every 20 Evasion Rating on Equipped Body Armour"]={{[1]={[1]={div=20,stat="EvasionOnBody Armour",type="PerStat"},flags=0,keywordFlags=0,name="Spirit",type="BASE",value=1}},nil}
 c["+1 to Spirit for every 8 Item Energy Shield on Equipped Body Armour"]={{[1]={[1]={div=8,stat="EnergyShieldOnBody Armour",type="PerStat"},flags=0,keywordFlags=0,name="Spirit",type="BASE",value=1}},nil}
 c["+1 to Stun Threshold per Dexterity"]={{[1]={[1]={stat="Dex",type="PerStat"},flags=0,keywordFlags=0,name="StunThreshold",type="BASE",value=1}},nil}
-c["+1 to maximum Cold Infusions"]={{}," maximum Cold Infusions "}
-c["+1 to maximum Fire Infusions"]={{}," maximum Fire Infusions "}
-c["+1 to maximum Lightning Infusions"]={{}," maximum Lightning Infusions "}
-c["+1 to maximum number of Elemental Infusions"]={{}," maximum number of Elemental Infusions "}
+c["+1 to maximum Cold Infusions"]={{[1]={flags=0,keywordFlags=0,name="ColdInfusionsMax",type="BASE",value=1}},nil}
+c["+1 to maximum Fire Infusions"]={{[1]={flags=0,keywordFlags=0,name="FireInfusionsMax",type="BASE",value=1}},nil}
+c["+1 to maximum Lightning Infusions"]={{[1]={flags=0,keywordFlags=0,name="LightningInfusionsMax",type="BASE",value=1}},nil}
+c["+1 to maximum number of Elemental Infusions"]={{[1]={flags=0,keywordFlags=0,name="InfusionsMax",type="BASE",value=1}},nil}
 c["+1 to maximum number of Raised Zombies per 500 Strength"]={{[1]={[1]={div=500,stat="Str",type="PerStat"},flags=0,keywordFlags=0,name="ActiveZombieLimit",type="BASE",value=1}},nil}
 c["+1 to maximum number of Skeletons"]={{[1]={flags=0,keywordFlags=0,name="ActiveSkeletonLimit",type="BASE",value=1}},nil}
 c["+1 to maximum number of Spectres"]={{[1]={flags=0,keywordFlags=0,name="ActiveSpectreLimit",type="BASE",value=1}},nil}
@@ -494,7 +494,7 @@ c["+2 to Maximum Power Charges"]={{[1]={flags=0,keywordFlags=0,name="PowerCharge
 c["+2 to Maximum Rage"]={{[1]={flags=0,keywordFlags=0,name="MaximumRage",type="BASE",value=2}},nil}
 c["+2 to Strength per 25 Tribute"]={{[1]={[1]={actor="parent",div=25,stat="Tribute",type="PerStat"},flags=0,keywordFlags=0,name="Str",type="BASE",value=2}},nil}
 c["+2 to Weapon Range"]={{[1]={flags=0,keywordFlags=0,name="WeaponRange",type="BASE",value=2}},nil}
-c["+2 to maximum number of Elemental Infusions"]={{}," maximum number of Elemental Infusions "}
+c["+2 to maximum number of Elemental Infusions"]={{[1]={flags=0,keywordFlags=0,name="InfusionsMax",type="BASE",value=2}},nil}
 c["+2 to maximum number of Spectres"]={{[1]={flags=0,keywordFlags=0,name="ActiveSpectreLimit",type="BASE",value=2}},nil}
 c["+2% to Cold Resistance"]={{[1]={flags=0,keywordFlags=0,name="ColdResist",type="BASE",value=2}},nil}
 c["+2% to Lightning Resistance"]={{[1]={flags=0,keywordFlags=0,name="LightningResist",type="BASE",value=2}},nil}
@@ -1472,8 +1472,7 @@ c["10% chance to Pierce an Enemy"]={{[1]={flags=0,keywordFlags=0,name="PierceCha
 c["10% chance to Poison on Hit"]={{[1]={flags=0,keywordFlags=0,name="PoisonChance",type="BASE",value=10}},nil}
 c["10% chance to Shock"]={{[1]={flags=0,keywordFlags=0,name="EnemyShockChance",type="BASE",value=10}},nil}
 c["10% chance to Steal Power, Frenzy, and Endurance Charges on Hit"]={{[1]={flags=4,keywordFlags=0,name="FlaskCharges",type="BASE",value=10}}," to Steal Power, Frenzy, and Endurance   "}
-c["10% chance to create an additional Remnant"]={{}," to create an additional Remnant "}
-c["10% chance to create an additional Remnant Remnants can be collected from 50% further away"]={{}," to create an additional Remnant Remnants can be collected from 50% further away "}
+c["10% chance to create an additional Remnant"]={{[1]={flags=0,keywordFlags=0,name="ExtraRemnantChance",type="BASE",value=10}},nil}
 c["10% chance to gain Onslaught for 10 seconds on kill"]={{[1]={[1]={type="Condition",var="KilledRecently"},flags=0,keywordFlags=0,name="Condition:Onslaught",type="FLAG",value=true}},nil}
 c["10% chance to gain Onslaught for 4 seconds on Hit"]={{[1]={flags=4,keywordFlags=0,name="Condition:Onslaught",type="FLAG",value=true}},nil}
 c["10% chance to gain Volatility on Kill"]={nil,"Volatility  "}
@@ -1493,7 +1492,7 @@ c["10% chance to revive one of your Persistent Minions when you kill an"]={{}," 
 c["10% chance to revive one of your Persistent Minions when you kill an  enemy affected by Abyssal Wasting"]={{}," to revive one of your Persistent s when you kill an  enemy affected by Abyssal Wasting "}
 c["10% chance when a Charm is used to use another Charm without consuming Charges"]={{[1]={flags=0,keywordFlags=0,name="FlaskCharges",type="BASE",value=10}}," when a Charm is used to use another Charm without consuming  "}
 c["10% chance when collecting an Elemental Infusion to gain an"]={{}," when collecting an Elemental Infusion to gain an "}
-c["10% chance when collecting an Elemental Infusion to gain an additional Elemental Infusion of the same type"]={{}," when collecting an Elemental Infusion to gain an additional Elemental Infusion of the same type "}
+c["10% chance when collecting an Elemental Infusion to gain an additional Elemental Infusion of the same type"]={{[1]={flags=0,keywordFlags=0,name="InfusionGainSameChance",type="BASE",value=10}},nil}
 c["10% chance when you gain a Frenzy Charge to gain an additional Frenzy Charge"]={{}," when you gain a Frenzy Charge to gain an additional Frenzy Charge "}
 c["10% chance when you gain a Frenzy Charge to gain an additional Frenzy Charge +1 to Maximum Frenzy Charges"]={{[1]={flags=0,keywordFlags=0,name="FrenzyChargesMax",type="BASE",value=10}}," when you gain a Frenzy Charge to gain an additional Frenzy Charge +1 to  "}
 c["10% chance when you gain a Power Charge to gain an additional Power Charge"]={{}," when you gain a Power Charge to gain an additional Power Charge "}
@@ -1600,7 +1599,7 @@ c["10% increased Effect of your Mark Skills"]={{[1]={[1]={skillType=99,type="Ski
 c["10% increased Electrocute Buildup"]={{[1]={flags=0,keywordFlags=0,name="EnemyElectrocuteBuildup",type="INC",value=10}},nil}
 c["10% increased Elemental Ailment Threshold"]={{[1]={flags=0,keywordFlags=0,name="AilmentThreshold",type="INC",value=10}},nil}
 c["10% increased Elemental Damage"]={{[1]={flags=0,keywordFlags=0,name="ElementalDamage",type="INC",value=10}},nil}
-c["10% increased Elemental Infusion duration"]={{[1]={flags=0,keywordFlags=0,name="Duration",type="INC",value=10}}," Elemental Infusion  "}
+c["10% increased Elemental Infusion duration"]={{[1]={flags=0,keywordFlags=0,name="InfusionDuration",type="INC",value=10}},nil}
 c["10% increased Endurance Charge Duration"]={{[1]={flags=0,keywordFlags=0,name="EnduranceChargesDuration",type="INC",value=10}},nil}
 c["10% increased Endurance, Frenzy and Power Charge Duration"]={{[1]={flags=0,keywordFlags=0,name="PowerChargesDuration",type="INC",value=10},[2]={flags=0,keywordFlags=0,name="FrenzyChargesDuration",type="INC",value=10},[3]={flags=0,keywordFlags=0,name="EnduranceChargesDuration",type="INC",value=10}},nil}
 c["10% increased Evasion Rating"]={{[1]={flags=0,keywordFlags=0,name="Evasion",type="INC",value=10}},nil}
@@ -2189,7 +2188,7 @@ c["15 Life Regeneration per second"]={{[1]={flags=0,keywordFlags=0,name="LifeReg
 c["15 to 25 Physical Thorns damage"]={{[1]={flags=32,keywordFlags=0,name="PhysicalMin",type="BASE",value=15},[2]={flags=32,keywordFlags=0,name="PhysicalMax",type="BASE",value=25}},nil}
 c["15% Surpassing Chance to gain a Puppet Master stack whenever you use a Command Skill"]={{},"% Surpassing Chance to gain a Puppet Master stack whenever you use a Command Skill "}
 c["15% additional Physical Damage Reduction"]={{[1]={flags=0,keywordFlags=0,name="PhysicalDamageReduction",type="BASE",value=15}},nil}
-c["15% chance for Remnants you create to grant their effects twice"]={{[1]={flags=0,keywordFlags=0,name="LocalEffect",type="BASE",value=15}}," for Remnants you create to grant their s twice "}
+c["15% chance for Remnants you create to grant their effects twice"]={{[1]={flags=0,keywordFlags=0,name="RemnantDoublePickupChance",type="BASE",value=15}},nil}
 c["15% chance for Shapeshift Slam Skills you use yourself to cause an additional Aftershock"]={{}," for Shapeshift Slam Skills you use yourself to cause an additional Aftershock "}
 c["15% chance that if you would gain Endurance Charges, you instead gain up to maximum Endurance Charges"]={{[1]={flags=0,keywordFlags=0,name="FlaskCharges",type="BASE",value=15}}," that if you would gain Endurance , you instead gain up to maximum Endurance Charges "}
 c["15% chance that if you would gain Frenzy Charges, you instead gain up to your maximum number of Frenzy Charges"]={{[1]={flags=0,keywordFlags=0,name="FlaskCharges",type="BASE",value=15}}," that if you would gain Frenzy , you instead gain up to your maximum number of Frenzy Charges "}
@@ -2206,7 +2205,7 @@ c["15% chance to Shock"]={{[1]={flags=0,keywordFlags=0,name="EnemyShockChance",t
 c["15% chance to cause Bleeding on Hit"]={{[1]={flags=0,keywordFlags=0,name="BleedChance",type="BASE",value=15}},nil}
 c["15% chance to create Chilled Ground when Hit with an Attack"]={{}," to create Chilled Ground when Hit with an Attack "}
 c["15% chance to create Chilled Ground when you Freeze an Enemy"]={{}," to create Chilled Ground when you Freeze an Enemy "}
-c["15% chance to gain Archon of Undeath when you use a Command skill"]={{[1]={[1]={type="Condition",var="UseApproximations"},flags=0,keywordFlags=0,name="ArchonSource",type="FLAG",value=true}},nil}
+c["15% chance to gain Archon of Undeath when you use a Command skill"]={{[1]={flags=0,keywordFlags=0,name="ArchonSource",type="LIST",value="ArchonUndeath"}},nil}
 c["15% chance to gain Onslaught for 3 seconds when you kill an  enemy affected by Abyssal Wasting"]={{[1]={flags=0,keywordFlags=0,name="Condition:Onslaught",type="FLAG",value=true}},"  when you kill an  enemy affected by Abyssal Wasting "}
 c["15% chance to gain Onslaught for 4 seconds on Hit"]={{[1]={flags=4,keywordFlags=0,name="Condition:Onslaught",type="FLAG",value=true}},nil}
 c["15% chance to gain a Frenzy Charge on kill"]={nil,"a Frenzy Charge  "}
@@ -2777,7 +2776,7 @@ c["20% chance to inflict Bleeding on Hit"]={{[1]={flags=0,keywordFlags=0,name="B
 c["20% chance to load a bolt into all Crossbow skills on Kill"]={{}," to load a bolt into all  skills  "}
 c["20% chance to load a bolt into all Crossbow skills on Kill Sacrifice 300 Life to not consume the last bolt when firing"]={{[1]={[1]={type="Condition",var="KilledRecently"},[2]={includeTransfigured=true,skillName="Sacrifice",type="SkillName"},flags=67108864,keywordFlags=0,name="Life",type="BASE",value=20}}," to load a bolt into all  skills 300  to not consume the last bolt when firing "}
 c["20% chance to spread Tar when Hit"]={{}," to spread Tar when Hit "}
-c["20% chance when collecting an Elemental Infusion to gain an additional Elemental Infusion of the same type"]={{}," when collecting an Elemental Infusion to gain an additional Elemental Infusion of the same type "}
+c["20% chance when collecting an Elemental Infusion to gain an additional Elemental Infusion of the same type"]={{[1]={flags=0,keywordFlags=0,name="InfusionGainSameChance",type="BASE",value=20}},nil}
 c["20% faster Curse Activation"]={{[1]={flags=0,keywordFlags=0,name="CurseActivation",type="INC",value=20}},nil}
 c["20% faster start of Energy Shield Recharge"]={{[1]={flags=0,keywordFlags=0,name="EnergyShieldRechargeFaster",type="INC",value=20}},nil}
 c["20% faster start of Energy Shield Recharge when not on Full Life"]={{[1]={[1]={neg=true,type="Condition",var="FullLife"},flags=0,keywordFlags=0,name="EnergyShieldRechargeFaster",type="INC",value=20}},nil}
@@ -3685,8 +3684,7 @@ c["30% increased Elemental Damage if you've Chilled an Enemy Recently"]={{[1]={[
 c["30% increased Elemental Damage if you've Ignited an Enemy Recently"]={{[1]={[1]={type="Condition",var="IgnitedEnemyRecently"},flags=0,keywordFlags=0,name="ElementalDamage",type="INC",value=30}},nil}
 c["30% increased Elemental Damage if you've Shocked an Enemy Recently"]={{[1]={[1]={type="Condition",var="ShockedEnemyRecently"},flags=0,keywordFlags=0,name="ElementalDamage",type="INC",value=30}},nil}
 c["30% increased Elemental Damage with Attack Skills during any Flask Effect"]={{[1]={[1]={type="Condition",var="UsingFlask"},flags=0,keywordFlags=65536,name="ElementalDamage",type="INC",value=30}},nil}
-c["30% increased Elemental Infusion duration"]={{[1]={flags=0,keywordFlags=0,name="Duration",type="INC",value=30}}," Elemental Infusion  "}
-c["30% increased Elemental Infusion duration Remnants can be collected from 30% further away"]={{[1]={flags=0,keywordFlags=0,name="Duration",type="INC",value=30}}," Elemental Infusion  Remnants can be collected from 30% further away "}
+c["30% increased Elemental Infusion duration"]={{[1]={flags=0,keywordFlags=0,name="InfusionDuration",type="INC",value=30}},nil}
 c["30% increased Endurance Charge Duration"]={{[1]={flags=0,keywordFlags=0,name="EnduranceChargesDuration",type="INC",value=30}},nil}
 c["30% increased Energy Shield Recharge Rate"]={{[1]={flags=0,keywordFlags=0,name="EnergyShieldRecharge",type="INC",value=30}},nil}
 c["30% increased Evasion Rating"]={{[1]={flags=0,keywordFlags=0,name="Evasion",type="INC",value=30}},nil}
@@ -4282,7 +4280,7 @@ c["43% increased Recovery rate"]={{[1]={flags=0,keywordFlags=0,name="FlaskRecove
 c["43% reduced Effect of Chill on you"]={{[1]={flags=0,keywordFlags=0,name="SelfChillEffect",type="INC",value=-43}},nil}
 c["43% reduced Magnitude of Ignite on you"]={{[1]={flags=0,keywordFlags=0,name="SelfIgniteEffect",type="INC",value=-43}},nil}
 c["43% reduced effect of Shock on you"]={{[1]={flags=0,keywordFlags=0,name="SelfShockEffect",type="INC",value=-43}},nil}
-c["43% to gain Archon of Undeath when you create an Offering"]={{[1]={[1]={type="Condition",var="UseApproximations"},flags=0,keywordFlags=0,name="ArchonSource",type="FLAG",value=true}},nil}
+c["43% to gain Archon of Undeath when you create an Offering"]={{[1]={flags=0,keywordFlags=0,name="ArchonSource",type="LIST",value="ArchonUndeath"}},nil}
 c["45 Life Regeneration per second"]={{[1]={flags=0,keywordFlags=0,name="LifeRegen",type="BASE",value=45}},nil}
 c["45 to 90 added Physical Thorns damage per Runic Plate"]={{[1]={flags=32,keywordFlags=0,name="Damage",type="BASE",value=45}}," to 90 added Physical  per Runic Plate "}
 c["45% Surpassing Chance to gain a Puppet Master stack whenever you use a Command Skill"]={{},"% Surpassing Chance to gain a Puppet Master stack whenever you use a Command Skill "}
@@ -4341,14 +4339,14 @@ c["5% chance to Daze on Hit"]={{[1]={flags=4,keywordFlags=0,name="DazeChance",ty
 c["5% chance to Freeze"]={{[1]={flags=0,keywordFlags=0,name="EnemyFreezeChance",type="BASE",value=5}},nil}
 c["5% chance to Gain Arcane Surge when you deal a Critical Hit"]={{[1]={[1]={type="Condition",var="CritRecently"},flags=0,keywordFlags=0,name="Condition:ArcaneSurge",type="FLAG",value=true}},nil}
 c["5% chance to Knock Enemies Back on hit"]={{[1]={flags=0,keywordFlags=0,name="EnemyKnockbackChance",type="BASE",value=5}},nil}
-c["5% chance to create an additional Remnant"]={{}," to create an additional Remnant "}
+c["5% chance to create an additional Remnant"]={{[1]={flags=0,keywordFlags=0,name="ExtraRemnantChance",type="BASE",value=5}},nil}
 c["5% chance to gain Volatility on Kill"]={nil,"Volatility  "}
 c["5% chance to grant Onslaught to nearby Enemies on Kill"]={{[1]={[1]={type="Condition",var="KilledRecently"},flags=0,keywordFlags=0,name="Condition:Onslaught",type="BASE",value=5}}," to grant  to nearby Enemies  "}
 c["5% chance to grant a Frenzy Charge to Allies in your Presence on Hit"]={{}," to grant a Frenzy Charge to  "}
 c["5% chance to inflict Bleeding on Hit"]={{[1]={flags=0,keywordFlags=0,name="BleedChance",type="BASE",value=5}},nil}
 c["5% chance to not destroy Corpses when Consuming Corpses"]={{}," to not destroy Corpses when Consuming Corpses "}
 c["5% chance when collecting an Elemental Infusion to gain an"]={{}," when collecting an Elemental Infusion to gain an "}
-c["5% chance when collecting an Elemental Infusion to gain an additional Elemental Infusion of the same type"]={{}," when collecting an Elemental Infusion to gain an additional Elemental Infusion of the same type "}
+c["5% chance when collecting an Elemental Infusion to gain an additional Elemental Infusion of the same type"]={{[1]={flags=0,keywordFlags=0,name="InfusionGainSameChance",type="BASE",value=5}},nil}
 c["5% faster start of Energy Shield Recharge"]={{[1]={flags=0,keywordFlags=0,name="EnergyShieldRechargeFaster",type="INC",value=5}},nil}
 c["5% increased Accuracy Rating"]={{[1]={flags=0,keywordFlags=0,name="Accuracy",type="INC",value=5}},nil}
 c["5% increased Area Damage"]={{[1]={flags=512,keywordFlags=0,name="Damage",type="INC",value=5}},nil}
@@ -4760,7 +4758,7 @@ c["6% increased Duration of Damaging Ailments on Enemies"]={{[1]={flags=0,keywor
 c["6% increased Effect of your Mark Skills"]={{[1]={[1]={skillType=99,type="SkillType"},flags=0,keywordFlags=0,name="LocalEffect",type="INC",value=6}},nil}
 c["6% increased Elemental Damage"]={{[1]={flags=0,keywordFlags=0,name="ElementalDamage",type="INC",value=6}},nil}
 c["6% increased Elemental Damage per Frenzy Charge"]={{[1]={[1]={type="Multiplier",var="FrenzyCharge"},flags=0,keywordFlags=0,name="ElementalDamage",type="INC",value=6}},nil}
-c["6% increased Elemental Infusion duration"]={{[1]={flags=0,keywordFlags=0,name="Duration",type="INC",value=6}}," Elemental Infusion  "}
+c["6% increased Elemental Infusion duration"]={{[1]={flags=0,keywordFlags=0,name="InfusionDuration",type="INC",value=6}},nil}
 c["6% increased Exposure Effect"]={{[1]={flags=0,keywordFlags=0,name="FireExposureEffect",type="INC",value=6},[2]={flags=0,keywordFlags=0,name="ColdExposureEffect",type="INC",value=6},[3]={flags=0,keywordFlags=0,name="LightningExposureEffect",type="INC",value=6}},nil}
 c["6% increased Fire Damage"]={{[1]={flags=0,keywordFlags=0,name="FireDamage",type="INC",value=6}},nil}
 c["6% increased Flask Charges gained"]={{[1]={flags=0,keywordFlags=0,name="FlaskChargesGained",type="INC",value=6}},nil}
@@ -5001,9 +4999,9 @@ c["75% reduced Ignite Duration on Enemies"]={{[1]={flags=0,keywordFlags=0,name="
 c["76% more Recovery if used while on Low Life"]={{[1]={[1]={type="Condition",var="LowLife"},flags=0,keywordFlags=0,name="FlaskLifeRecoveryLowLife",type="MORE",value=76}},nil}
 c["76% more Recovery if used while on Low Mana"]={{[1]={[1]={type="Condition",var="LowMana"},flags=0,keywordFlags=0,name="FlaskLifeRecoveryLowLife",type="MORE",value=76}},"  if used  "}
 c["78% increased Amount Recovered"]={{[1]={flags=0,keywordFlags=0,name="FlaskRecovery",type="INC",value=78}},nil}
-end)();(function()
 c["8 Life Regeneration per second"]={{[1]={flags=0,keywordFlags=0,name="LifeRegen",type="BASE",value=8}},nil}
 c["8 to 14 Fire Damage per Endurance Charge"]={{[1]={[1]={type="Multiplier",var="EnduranceCharge"},flags=0,keywordFlags=0,name="FireMin",type="BASE",value=8},[2]={[1]={type="Multiplier",var="EnduranceCharge"},flags=0,keywordFlags=0,name="FireMax",type="BASE",value=14}},nil}
+end)();(function()
 c["8% Global chance to Blind Enemies on Hit"]={{[1]={[1]={type="Global"},flags=0,keywordFlags=0,name="BlindChance",type="BASE",value=8}},"%  chance  "}
 c["8% additional Physical Damage Reduction"]={{[1]={flags=0,keywordFlags=0,name="PhysicalDamageReduction",type="BASE",value=8}},nil}
 c["8% chance for Mace Slam Skills you use yourself to cause an additional Aftershock"]={{[1]={[1]={skillType=93,type="SkillType"},flags=1048576,keywordFlags=0,name="AftershockChance",type="BASE",value=8}},nil}
@@ -5077,7 +5075,7 @@ c["8% increased Duration of Ignite, Shock and Chill on Enemies"]={{[1]={flags=0,
 c["8% increased Effect of your Mark Skills"]={{[1]={[1]={skillType=99,type="SkillType"},flags=0,keywordFlags=0,name="LocalEffect",type="INC",value=8}},nil}
 c["8% increased Elemental Ailment Threshold"]={{[1]={flags=0,keywordFlags=0,name="AilmentThreshold",type="INC",value=8}},nil}
 c["8% increased Elemental Damage"]={{[1]={flags=0,keywordFlags=0,name="ElementalDamage",type="INC",value=8}},nil}
-c["8% increased Elemental Infusion duration"]={{[1]={flags=0,keywordFlags=0,name="Duration",type="INC",value=8}}," Elemental Infusion  "}
+c["8% increased Elemental Infusion duration"]={{[1]={flags=0,keywordFlags=0,name="InfusionDuration",type="INC",value=8}},nil}
 c["8% increased Evasion Rating"]={{[1]={flags=0,keywordFlags=0,name="Evasion",type="INC",value=8}},nil}
 c["8% increased Evasion Rating per Frenzy Charge"]={{[1]={[1]={type="Multiplier",var="FrenzyCharge"},flags=0,keywordFlags=0,name="Evasion",type="INC",value=8}},nil}
 c["8% increased Fire Damage"]={{[1]={flags=0,keywordFlags=0,name="FireDamage",type="INC",value=8}},nil}
@@ -6989,13 +6987,10 @@ c["Corrupted Blood cannot be inflicted on you"]={{[1]={flags=0,keywordFlags=0,na
 c["Counts as Dual Wielding"]={{[1]={flags=0,keywordFlags=0,name="WeaponData",type="LIST",value={key="countsAsDualWielding",value=true}}},nil}
 c["Counts as all One Handed Melee Weapon Types"]={{[1]={flags=0,keywordFlags=0,name="WeaponData",type="LIST",value={key="countsAsAll1H",value=true}}},nil}
 c["Cover Enemies in Ash when they Hit you"]={nil,"Cover Enemies in Ash when they Hit you "}
-c["Create Cold Infusion Remnants instead of Lightning"]={nil,"Create Cold Infusion Remnants instead of Lightning "}
-c["Create Cold Infusion Remnants instead of Lightning Create Fire Infusion Remnants instead of Cold"]={nil,"Create Cold Infusion Remnants instead of Lightning Create Fire Infusion Remnants instead of Cold "}
+c["Create Cold Infusion Remnants instead of Lightning"]={{[1]={flags=0,keywordFlags=0,name="InfusionRemnantConversion",type="LIST",value={from="Lightning",to="Cold"}}},nil}
 c["Create Consecrated Ground when you Shatter an Enemy"]={nil,"Create Consecrated Ground when you Shatter an Enemy "}
-c["Create Fire Infusion Remnants instead of Cold"]={nil,"Create Fire Infusion Remnants instead of Cold "}
-c["Create Lightning Infusion Remnants instead of Fire"]={nil,"Create Lightning Infusion Remnants instead of Fire "}
-c["Create Lightning Infusion Remnants instead of Fire Create Cold Infusion Remnants instead of Lightning"]={nil,"Create Lightning Infusion Remnants instead of Fire Create Cold Infusion Remnants instead of Lightning "}
-c["Create Lightning Infusion Remnants instead of Fire Create Cold Infusion Remnants instead of Lightning Create Fire Infusion Remnants instead of Cold"]={nil,"Create Lightning Infusion Remnants instead of Fire Create Cold Infusion Remnants instead of Lightning Create Fire Infusion Remnants instead of Cold "}
+c["Create Fire Infusion Remnants instead of Cold"]={{[1]={flags=0,keywordFlags=0,name="InfusionRemnantConversion",type="LIST",value={from="Cold",to="Fire"}}},nil}
+c["Create Lightning Infusion Remnants instead of Fire"]={{[1]={flags=0,keywordFlags=0,name="InfusionRemnantConversion",type="LIST",value={from="Fire",to="Lightning"}}},nil}
 c["Create a Fragment of Divinity in your Presence every 4 seconds"]={nil,"Create a Fragment of Divinity in your Presence every 4 seconds "}
 c["Creates Chilled Ground on Use"]={{},nil}
 c["Creates Consecrated Ground on Critical Hit"]={nil,"Creates Consecrated Ground on Critical Hit "}
@@ -7391,9 +7386,7 @@ c["Every 3 seconds during Effect, deal 50% of Mana spent in those seconds as Cha
 c["Every 3 seconds, Consume a nearby Corpse to Recover 20% of maximum Life"]={nil,"Every 3 seconds, Consume a nearby Corpse to Recover 20% of maximum Life "}
 c["Every 4 seconds, Recover 1 Life for every 0.2 Life Recovery per second from Regeneration"]={nil,"Every 4 seconds, Recover 1 Life for every 0.2 Life Recovery per second from Regeneration "}
 c["Every 5 Rage also grants 5% of Damage taken Recouped as Life"]={{[1]={[1]={div=5,type="Multiplier",var="RageEffect"},flags=0,keywordFlags=0,name="LifeRecoup",type="BASE",value=5}},nil}
-c["Every 5 seconds, gain a Verisium Infusion"]={nil,"Every 5 seconds, gain a Verisium Infusion "}
-c["Every 5 seconds, gain a Verisium Infusion 130% increased Armour and Energy Shield"]={nil,"Every 5 seconds, gain a Verisium Infusion 130% increased Armour and Energy Shield "}
-c["Every 5 seconds, gain a Verisium Infusion 150% increased Armour and Energy Shield"]={nil,"Every 5 seconds, gain a Verisium Infusion 150% increased Armour and Energy Shield "}
+c["Every 5 seconds, gain a Verisium Infusion"]={{[1]={flags=0,keywordFlags=0,name="VerisiumInfusionRate",type="BASE",value=0.2}},nil}
 c["Every Rage also grants 1% increased Armour"]={{[1]={[1]={type="Multiplier",var="RageEffect"},flags=0,keywordFlags=0,name="Armour",type="INC",value=1}},nil}
 c["Every Rage also grants 1% increased Evasion Rating"]={{[1]={[1]={type="Multiplier",var="RageEffect"},flags=0,keywordFlags=0,name="Evasion",type="INC",value=1}},nil}
 c["Every Rage also grants 1% increased Fire Damage"]={{[1]={[1]={type="Multiplier",var="RageEffect"},flags=0,keywordFlags=0,name="FireDamage",type="INC",value=1}},nil}
@@ -7735,9 +7728,9 @@ c["Gain Deflection Rating equal to 50% of Evasion Rating"]={{[1]={flags=0,keywor
 c["Gain Deflection Rating equal to 6% of Evasion Rating"]={{[1]={flags=0,keywordFlags=0,name="EvasionGainAsDeflection",type="BASE",value=6}},nil}
 c["Gain Deflection Rating equal to 60% of Evasion Rating"]={{[1]={flags=0,keywordFlags=0,name="EvasionGainAsDeflection",type="BASE",value=60}},nil}
 c["Gain Deflection Rating equal to 8% of Evasion Rating"]={{[1]={flags=0,keywordFlags=0,name="EvasionGainAsDeflection",type="BASE",value=8}},nil}
-c["Gain Elemental Archon after spending 100% of your Maximum Mana"]={{[1]={[1]={type="Condition",var="UseApproximations"},flags=0,keywordFlags=0,name="ArchonSource",type="FLAG",value=true}},nil}
-c["Gain Elemental Archon when you cast a Spell while on High Infernal Flame"]={{[1]={[1]={type="Condition",var="UseApproximations"},flags=0,keywordFlags=0,name="ArchonSource",type="FLAG",value=true}},nil}
-c["Gain Elemental Archon when your Energy Shield Recharge begins"]={{[1]={[1]={type="Condition",var="UseApproximations"},flags=0,keywordFlags=0,name="ArchonSource",type="FLAG",value=true}},nil}
+c["Gain Elemental Archon after spending 100% of your Maximum Mana"]={{[1]={flags=0,keywordFlags=0,name="ArchonSource",type="LIST",value="ArchonElemental"}},nil}
+c["Gain Elemental Archon when you cast a Spell while on High Infernal Flame"]={{[1]={flags=0,keywordFlags=0,name="ArchonSource",type="LIST",value="ArchonElemental"}},nil}
+c["Gain Elemental Archon when your Energy Shield Recharge begins"]={{[1]={flags=0,keywordFlags=0,name="ArchonSource",type="LIST",value="ArchonElemental"}},nil}
 c["Gain Endurance Charges instead of Power Charges"]={nil,"Endurance Charges instead of Power Charges "}
 c["Gain Finality for 0.5 seconds per Combo expended when using Skills"]={nil,"Finality for 0.5 seconds per Combo expended when using Skills "}
 c["Gain Finality for 0.5 seconds per Combo expended when using Skills Gain 1000 Guard for 0.5 seconds per Combo expended when using Skills"]={nil,"Finality for 0.5 seconds per Combo expended when using Skills Gain 1000 Guard for 0.5 seconds per Combo expended when using Skills "}
@@ -9251,7 +9244,7 @@ c["Remnants you create have 10% increased effect"]={{[1]={flags=0,keywordFlags=0
 c["Remnants you create have 12% increased effect"]={{[1]={flags=0,keywordFlags=0,name="RemnantEffect",type="INC",value=12}},nil}
 c["Remnants you create have 2% increased effect per 10 Tribute"]={nil,"Remnants you create have 2% increased effect per 10 Tribute "}
 c["Remnants you create have 50% increased effect"]={{[1]={flags=0,keywordFlags=0,name="RemnantEffect",type="INC",value=50}},nil}
-c["Remnants you create reappear once, 3 seconds after being collected"]={nil,"Remnants you create reappear once, 3 seconds after being collected "}
+c["Remnants you create reappear once, 3 seconds after being collected"]={{[1]={flags=0,keywordFlags=0,name="RemnantDoublePickupChance",type="BASE",value=100}},nil}
 c["Remove Bleeding when you use a Life Flask"]={nil,"Remove Bleeding when you use a Life Flask "}
 c["Remove Ignite when you Warcry"]={nil,"Remove Ignite when you Warcry "}
 c["Remove a Curse after Channelling for 2 seconds"]={nil,"Remove a Curse after Channelling for 2 seconds "}
@@ -9345,16 +9338,16 @@ c["Skills have -1 seconds to Cooldown"]={{[1]={flags=0,keywordFlags=0,name="Cool
 c["Skills have -1.5 seconds to Cooldown"]={{[1]={flags=0,keywordFlags=0,name="CooldownRecoveryFromTemporalis",type="BASE",value=-1.5}},nil}
 c["Skills have -2 seconds to Cooldown"]={{[1]={flags=0,keywordFlags=0,name="CooldownRecoveryFromTemporalis",type="BASE",value=-2}},nil}
 c["Skills have 10% chance to not remove Charges but still count as consuming them"]={{[1]={flags=0,keywordFlags=0,name="FlaskCharges",type="BASE",value=10}}," to not remove  but still count as consuming them "}
-c["Skills have 10% chance to not remove Elemental Infusions but still count as consuming them"]={{}," to not remove Elemental Infusions but still count as consuming them "}
+c["Skills have 10% chance to not remove Elemental Infusions but still count as consuming them"]={{[1]={flags=0,keywordFlags=0,name="InfusionNotConsumedChance",type="BASE",value=10}},nil}
 c["Skills have 100% longer Perfect Timing window during effect"]={{},"% longer Perfect Timing window  "}
 c["Skills have 120% longer Perfect Timing window during effect"]={{},"% longer Perfect Timing window  "}
 c["Skills have 120% longer Perfect Timing window during effect 150% increased Amount Recovered"]={{[1]={[1]={type="Condition",var="UsingFlask"},flags=0,keywordFlags=0,name="FlaskRecovery",type="BASE",value=120}},"% longer Perfect Timing window  150% increased  "}
 c["Skills have 13% chance to not remove Charges but still count as consuming them"]={{[1]={flags=0,keywordFlags=0,name="FlaskCharges",type="BASE",value=13}}," to not remove  but still count as consuming them "}
 c["Skills have 20% increased Critical Hit Chance per Connected Blue Support Gem"]={{[1]={flags=0,keywordFlags=0,name="SkillCritChanceIncreasedPerBlueSupport",type="FLAG",value=20}},nil}
-c["Skills have 45% chance to not remove Elemental Infusions but still count as consuming them if you've lost an Archon Buff in the past 6 seconds"]={{}," to not remove Elemental Infusions but still count as consuming them if you've lost an Archon Buff in the past 6 seconds "}
-c["Skills have 5% chance to not remove Elemental Infusions but still count as consuming them"]={{}," to not remove Elemental Infusions but still count as consuming them "}
+c["Skills have 45% chance to not remove Elemental Infusions but still count as consuming them if you've lost an Archon Buff in the past 6 seconds"]={{[1]={[1]={type="Condition",var="LostArchonRecently"},flags=0,keywordFlags=0,name="InfusionNotConsumedChance",type="BASE",value=45}},nil}
+c["Skills have 5% chance to not remove Elemental Infusions but still count as consuming them"]={{[1]={flags=0,keywordFlags=0,name="InfusionNotConsumedChance",type="BASE",value=5}},nil}
 c["Skills have 6% increased Skill Speed per Connected Green Support Gem"]={{[1]={flags=0,keywordFlags=0,name="SkillSpeedIncreasedPerGreenSupport",type="FLAG",value=6}},nil}
-c["Skills have 8% chance to not remove Elemental Infusions but still count as consuming them"]={{}," to not remove Elemental Infusions but still count as consuming them "}
+c["Skills have 8% chance to not remove Elemental Infusions but still count as consuming them"]={{[1]={flags=0,keywordFlags=0,name="InfusionNotConsumedChance",type="BASE",value=8}},nil}
 c["Skills have a 125% longer Perfect Timing window"]={{[1]={flags=0,keywordFlags=0,name="PerfectTiming",type="INC",value=125}},nil}
 c["Skills have a 15% chance to not consume Glory"]={{}," to not consume Glory "}
 c["Skills have a 150% longer Perfect Timing window"]={{[1]={flags=0,keywordFlags=0,name="PerfectTiming",type="INC",value=150}},nil}
@@ -9727,7 +9720,7 @@ c["Warcry Skills have 30% increased Area of Effect"]={{[1]={[1]={skillType=63,ty
 c["When a Banner expires, recover 15% of the Glory required for that Banner"]={nil,"When a Banner expires, recover 15% of the Glory required for that Banner "}
 c["When a Party Member in your Presence Casts a Spell, you"]={nil,"When a Party Member in your Presence Casts a Spell, you "}
 c["When a Party Member in your Presence Casts a Spell, you Sacrifice 20% of Mana and they Leech that Mana"]={nil,"When a Party Member in your Presence Casts a Spell, you Sacrifice 20% of Mana and they Leech that Mana "}
-c["When collecting an Elemental Infusion, gain another different Elemental Infusion"]={nil,"When collecting an Elemental Infusion, gain another different Elemental Infusion "}
+c["When collecting an Elemental Infusion, gain another different Elemental Infusion"]={{[1]={flags=0,keywordFlags=0,name="InfusionGainOtherChance",type="BASE",value=100}},nil}
 c["When taking damage from Hits, 20% of Life Loss is prevented, then 150% of Life Loss prevented this way is Lost over 4 seconds"]={{[1]={flags=0,keywordFlags=0,name="LifeLossPrevented",type="BASE",value=20},[2]={flags=0,keywordFlags=0,name="LifeLossLost",type="BASE",value="150"}},nil}
 c["When used in the Synthesiser, the new item will have an additional Herald Modifier"]={nil,"When used in the Synthesiser, the new item will have an additional Herald Modifier "}
 c["When you Attack, take 18% of Life as Physical Damage for each Warcry Empowering the Attack"]={nil,"When you Attack, take 18% of Life as Physical Damage for each Warcry Empowering the Attack "}

@@ -55,6 +55,25 @@ for row in dat("GameConstants"):Rows() do
 end
 out:write('}\n')
 
+-- A template's stat is either its own stat or "buff_impl_stat", which stands for the buff definition's stat at the same position
+local archonBuffs = { }
+for row in dat("BuffTemplates"):Rows() do
+	if row.BuffDefinition and row.BuffDefinition.Id:match("^archon_") then
+		local stats = { }
+		for i, stat in ipairs(row.Stats) do
+			local buffStat = row.BuffDefinition.Stats[i]
+			if stat.Id == "buff_impl_stat" and buffStat then
+				table.insert(stats, '["' .. buffStat.Id .. '"] = ' .. row.StatValues[i])
+			end
+		end
+		table.sort(stats)
+		table.insert(archonBuffs, '\t["' .. row.Id .. '"] = { buff = "' .. row.BuffDefinition.Id .. '", duration = ' .. row.Duration .. ', stats = { ' .. table.concat(stats, ', ') .. (#stats > 0 and ' ' or '') .. '} },\n')
+	end
+end
+table.sort(archonBuffs)
+out:write('-- From BuffTemplates.dat: Archon Buffs, their duration in seconds and the values of their own stats\n')
+out:write('data.archonBuffs = {\n' .. table.concat(archonBuffs) .. '}\n')
+
 out:write('-- From Metadata/Characters/Character.ot\n')
 out:write('data.characterConstants = {\n')
 local file = getFile("Metadata/Characters/Character.ot")
