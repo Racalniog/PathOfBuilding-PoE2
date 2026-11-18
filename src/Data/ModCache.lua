@@ -4998,11 +4998,10 @@ c["75% of Volatility Physical Damage Taken as Cold Damage"]={{[1]={flags=0,keywo
 c["75% reduced Amount Recovered"]={{[1]={flags=0,keywordFlags=0,name="FlaskRecovery",type="INC",value=-75}},nil}
 c["75% reduced Charges per use"]={{[1]={flags=0,keywordFlags=0,name="FlaskChargesUsed",type="INC",value=-75}},nil}
 c["75% reduced Ignite Duration on Enemies"]={{[1]={flags=0,keywordFlags=0,name="EnemyIgniteDuration",type="INC",value=-75}},nil}
-end)();(function()
 c["76% more Recovery if used while on Low Life"]={{[1]={[1]={type="Condition",var="LowLife"},flags=0,keywordFlags=0,name="FlaskLifeRecoveryLowLife",type="MORE",value=76}},nil}
-end)();(function()
 c["76% more Recovery if used while on Low Mana"]={{[1]={[1]={type="Condition",var="LowMana"},flags=0,keywordFlags=0,name="FlaskLifeRecoveryLowLife",type="MORE",value=76}},"  if used  "}
 c["78% increased Amount Recovered"]={{[1]={flags=0,keywordFlags=0,name="FlaskRecovery",type="INC",value=78}},nil}
+end)();(function()
 c["8 Life Regeneration per second"]={{[1]={flags=0,keywordFlags=0,name="LifeRegen",type="BASE",value=8}},nil}
 c["8 to 14 Fire Damage per Endurance Charge"]={{[1]={[1]={type="Multiplier",var="EnduranceCharge"},flags=0,keywordFlags=0,name="FireMin",type="BASE",value=8},[2]={[1]={type="Multiplier",var="EnduranceCharge"},flags=0,keywordFlags=0,name="FireMax",type="BASE",value=14}},nil}
 c["8% Global chance to Blind Enemies on Hit"]={{[1]={[1]={type="Global"},flags=0,keywordFlags=0,name="BlindChance",type="BASE",value=8}},"%  chance  "}
