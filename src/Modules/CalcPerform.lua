@@ -1389,7 +1389,9 @@ local function doInfusionApprox(env)
 	local speed = output.Speed or 0
 	-- ponytail: hits on the one target PoB calculates, one per cast unless the skill has its own hit rate; upgrade path = targets hit per cast
 	local hitRate = (output.HitSpeed or speed) * (output.HitChance or 0) / 100
-	local crit = (output.CritChance or 0) / 100
+	-- CritChance already includes the chance to hit (its confirmation roll); per landed hit it is CritChance / AccuracyHitChance
+	local accuracy = output.AccuracyHitChance or 100
+	local crit = accuracy > 0 and m_min((output.CritChance or 0) / accuracy, 1) or 0
 	-- Siphon Elements (stat descriptions infusion_remnants_%_chance_to_spawn_*): a chance to create a Remnant on igniting a non-Ignited
 	-- target, on shocking a non-Shocked target, and per Power on freezing a target
 	local remnants = { }
