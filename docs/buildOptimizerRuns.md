@@ -14,6 +14,8 @@ How the optimizer works and what it cannot see is described in the [build optimi
 - [First batch](#first-batch)
 - [Second batch](#second-batch)
 - [Survivability runs](#survivability-runs)
+- [Tankiest builds](#tankiest-builds)
+- [Damage builds with approximations](#damage-builds-with-approximations)
 - [Caveats](#caveats)
 
 ## Settings
@@ -482,6 +484,57 @@ effective HP calculation (commit 8efa6ca9d).
   setting can't settle which is better.
 - Effective HP is a hit pool, so recovery (regeneration, leech, recovery on kill) doesn't count
   toward the score. Most builds end with no net life recovery.
+
+## Tankiest builds
+
+Ten class and skill combinations with survivability weight 1, so the score is effective HP only, with
+approximations on and the same realistic settings. Damage doesn't count at all, so these builds deal
+almost none. They show how much defence the engine can stack.
+
+| # | Build | Effective HP | Life / ES | Armour / Evasion | Block | Max hit (phys / fire) | Net Life recovery |
+|---:|---|---:|---|---|---:|---|---:|
+| 1 | Titan Earthquake | endless | 4,166 / 0 | 50,020 / 32,802 | 50% | 9,199 / 26,926 | 41.7/s |
+| 2 | Warbringer Shield Charge | endless | 2,668 / 188 | 35,817 / 28,463 | 60% | 8,018 / 20,902 | 13.3/s |
+| 3 | Chronomancer Comet | endless | 2,537 / 89 | 34,757 / 21,725 | 58% | 7,667 / 13,220 | – |
+| 4 | Lich Skeletal Sniper | 3,047,779 | 2,831 / 3,796 | 23,343 / 30,801 | 58% | 13,204 / 40,839 | 4.8/s |
+| 5 | Pathfinder Rain of Arrows | 1,950,303 | 2,651 / 0 | 34,242 / 35,073 | 50% | 9,478 / 26,883 | – |
+| 6 | Shaman Fury of the Mountain | 1,881,205 | 4,434 / 0 | 32,532 / 32,814 | 17% | 13,788 / 35,944 | – |
+| 7 | Gemling Legionnaire Fragmentation Rounds | 1,853,618 | 4,596 / 0 | 31,862 / 33,042 | 16% | 12,323 / 33,399 | – |
+| 8 | Amazon Lightning Spear | 1,703,648 | 3,104 / 284 | 41,170 / 51,299 | 50% | 9,191 / 26,210 | – |
+| 9 | Witchhunter Galvanic Shards | 772,045 | 3,484 / 338 | 35,535 / 35,053 | 17% | 8,277 / 32,939 | – |
+| 10 | Invoker Ice Strike | 562,890 | 3,321 / 531 | 27,294 / 30,737 | 15% | 9,049 / 31,548 | – |
+
+- **"Endless"** means the build recovers more per enemy attack than it loses against PoB's default enemy,
+  so the effective HP simulation never ends. The Chronomancer, for example, recovers 119 Life and
+  12 ES per block, blocks 58% of hits and isn't hit at all 68% of the time. The optimizer caps
+  endless at one value, so the order of the top three is arbitrary. By maximum hit taken, Titan leads.
+- Every build caps or overcaps its resistances except the Chronomancer, which out-heals the default
+  enemy anyway.
+- The largest single hits are taken by the Lich (13.2k physical, 40.8k fire), thanks to its large
+  Energy Shield.
+
+## Damage builds with approximations
+
+The ten best damage combinations, run again on the current engine with approximations on (1 kill per
+second) and damage as the only score.
+
+| # | Build | Rares only | With uniques |
+|---:|---|---:|---:|
+| 1 | Blood Mage Hexblast | 90.8M | 164.4M |
+| 2 | Blood Mage Comet | 49.9M | 84.1M |
+| 3 | Infernalist Comet | 39.6M | 74.2M |
+| 4 | Blood Mage Ember Fusillade | 55.3M | 73.1M |
+| 5 | Titan Hammer of the Gods | 36.5M | 67.2M |
+| 6 | Blood Mage Firestorm | 36.1M | 58.5M |
+| 7 | Lich Hexblast | 43.3M | 56.4M |
+| 8 | Smith of Kitava Hammer of the Gods | 19.2M | 51.1M |
+| 9 | Stormweaver Comet | 14.2M | 47.1M |
+| 10 | Warbringer Hammer of the Gods | 21.0M | 47.1M |
+
+Every result is identical to the earlier runs of the same build, to the last digit. The approximations
+so far only cover defence and recovery, and the new defence mechanics don't change damage. Damage
+approximations, such as Elemental Infusion and Archon uptime, are the next step of the
+[calculation gaps plan](calculationGapsPlan.md).
 
 ## Caveats
 
