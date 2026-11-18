@@ -2,10 +2,7 @@ local c = {}
 (function()
 c[""]={nil," "}
 c[" enemy affected by Abyssal Wasting"]={nil," enemy affected by Abyssal Wasting "}
-c[" enemy affected by Abyssal Wasting Abyssal Wasting you inflict also prevents targets from dealing Critical Hits"]={nil," enemy affected by Abyssal Wasting Abyssal Wasting you inflict also prevents targets from dealing Critical Hits "}
-c[" enemy affected by Abyssal Wasting Gain 1 Volatility when you kill an enemy affected by Abyssal Wasting"]={nil," enemy affected by Abyssal Wasting Gain 1 Volatility when you kill an enemy affected by Abyssal Wasting "}
 c[" grant 100% increased Flask Charges"]={nil," grant 100% increased Flask Charges "}
-c[" grant 100% increased Flask Charges 40% increased Immobilisation buildup against targets affected by Abyssal Wasting"]={nil," grant 100% increased Flask Charges 40% increased Immobilisation buildup against targets affected by Abyssal Wasting "}
 c["(10-15)% increased Energy Shield Recharge Rate"]={nil,"(10-15)% increased Energy Shield Recharge Rate "}
 c["(12-17)% increased Mana Regeneration Rate"]={nil,"(12-17)% increased Mana Regeneration Rate "}
 c["(15-25)% increased Mana Regeneration Rate"]={nil,"(15-25)% increased Mana Regeneration Rate "}
@@ -5001,10 +4998,10 @@ c["75% more Stun Buildup with Lightning Damage"]={{[1]={[1]={type="Condition",va
 c["75% of Damage Converted to Fire Damage"]={{[1]={flags=0,keywordFlags=0,name="DamageConvertToFire",type="BASE",value=75}},nil}
 c["75% of Volatility Physical Damage Taken as Cold Damage"]={{[1]={flags=0,keywordFlags=0,name="PhysicalDamageTakenAsCold",type="BASE",value=75}}," Volatility   "}
 c["75% reduced Amount Recovered"]={{[1]={flags=0,keywordFlags=0,name="FlaskRecovery",type="INC",value=-75}},nil}
-end)();(function()
 c["75% reduced Charges per use"]={{[1]={flags=0,keywordFlags=0,name="FlaskChargesUsed",type="INC",value=-75}},nil}
 c["75% reduced Ignite Duration on Enemies"]={{[1]={flags=0,keywordFlags=0,name="EnemyIgniteDuration",type="INC",value=-75}},nil}
 c["76% more Recovery if used while on Low Life"]={{[1]={[1]={type="Condition",var="LowLife"},flags=0,keywordFlags=0,name="FlaskLifeRecoveryLowLife",type="MORE",value=76}},nil}
+end)();(function()
 c["76% more Recovery if used while on Low Mana"]={{[1]={[1]={type="Condition",var="LowMana"},flags=0,keywordFlags=0,name="FlaskLifeRecoveryLowLife",type="MORE",value=76}},"  if used  "}
 c["78% increased Amount Recovered"]={{[1]={flags=0,keywordFlags=0,name="FlaskRecovery",type="INC",value=78}},nil}
 c["8 Life Regeneration per second"]={{[1]={flags=0,keywordFlags=0,name="LifeRegen",type="BASE",value=8}},nil}
@@ -7383,8 +7380,7 @@ c["Equipment and Skill Gems have 25% reduced Attribute Requirements"]={{[1]={fla
 c["Equipment and Skill Gems have 4% reduced Attribute Requirements"]={{[1]={flags=0,keywordFlags=0,name="GlobalAttributeRequirements",type="INC",value=-4}},nil}
 c["Equipment and Skill Gems have 50% increased Attribute Requirements"]={{[1]={flags=0,keywordFlags=0,name="GlobalAttributeRequirements",type="INC",value=50}},nil}
 c["Equipment and Skill Gems have 50% reduced Attribute Requirements"]={{[1]={flags=0,keywordFlags=0,name="GlobalAttributeRequirements",type="INC",value=-50}},nil}
-c["Equipment has no Attribute Requirements"]={nil,"Equipment has no Attribute Requirements "}
-c["Equipment has no Attribute Requirements Skill Gems have no Attribute Requirements"]={nil,"Equipment has no Attribute Requirements Skill Gems have no Attribute Requirements "}
+c["Equipment has no Attribute Requirements"]={{[1]={flags=0,keywordFlags=0,name="IgnoreAttributeRequirements",type="FLAG",value=true}},nil}
 c["Eternal Youth"]={{[1]={flags=0,keywordFlags=0,name="Keystone",type="LIST",value="Eternal Youth"},[2]={flags=0,keywordFlags=0,name="Condition:HaveEternalYouth",type="FLAG",value=true}},nil}
 c["Evasion Rating from Equipped Body Armour is halved"]={{[1]={[1]={slotName="Body Armour",type="SlotName"},flags=0,keywordFlags=0,name="Evasion",type="MORE",value=-50}},nil}
 c["Evasion Rating from Equipped Helmet, Gloves and Boots is doubled"]={{[1]={[1]={slotNameList={[1]="Helmet",[2]="Boots",[3]="Gloves"},type="SlotName"},flags=0,keywordFlags=0,name="Evasion",type="MORE",value=100}},nil}
@@ -8208,9 +8204,8 @@ c["Hit damage is taken from Mana before Life if your current Mana is higher than
 c["Hit damage is taken from Mana before Life if your current Mana is higher than your current Life 15% less maximum Life"]={nil,"Hit damage is taken from Mana before Life if your current Mana is higher than your current Life 15% less maximum Life "}
 c["Hit damage is taken from Mana before Life if your current Mana is higher than your current Life 15% less maximum Life 15% less maximum Mana"]={nil,"Hit damage is taken from Mana before Life if your current Mana is higher than your current Life 15% less maximum Life 15% less maximum Mana "}
 c["Hits Break 30% increased Armour on targets with Ailments"]={{[1]={[1]={actor="enemy",type="ActorCondition",varList={[1]="Frozen",[2]="Chilled",[3]="Shocked",[4]="Electrocuted",[5]="Ignited",[6]="Poisoned",[7]="Bleeding"}},flags=0,keywordFlags=0,name="ArmourBreakPerHit",type="INC",value=30}},nil}
-c["Hits Break 40 Armour"]={nil,"Hits Break 40 Armour "}
-c["Hits Break 50 Armour"]={nil,"Hits Break 50 Armour "}
-c["Hits Break 50 Armour Inflicts Elemental Exposure when this Weapon Fully Breaks Armour"]={nil,"Hits Break 50 Armour Inflicts Elemental Exposure when this Weapon Fully Breaks Armour "}
+c["Hits Break 40 Armour"]={{[1]={flags=0,keywordFlags=0,name="ArmourBreakPerHit",type="BASE",value=40},[2]={[1]={effectName="ArmourBreak",effectType="Buff",type="GlobalEffect"},flags=0,keywordFlags=0,name="Condition:CanArmourBreak",type="FLAG",value=true}},nil}
+c["Hits Break 50 Armour"]={{[1]={flags=0,keywordFlags=0,name="ArmourBreakPerHit",type="BASE",value=50},[2]={[1]={effectName="ArmourBreak",effectType="Buff",type="GlobalEffect"},flags=0,keywordFlags=0,name="Condition:CanArmourBreak",type="FLAG",value=true}},nil}
 c["Hits Break 50% increased Armour on targets with Ailments"]={{[1]={[1]={actor="enemy",type="ActorCondition",varList={[1]="Frozen",[2]="Chilled",[3]="Shocked",[4]="Electrocuted",[5]="Ignited",[6]="Poisoned",[7]="Bleeding"}},flags=0,keywordFlags=0,name="ArmourBreakPerHit",type="INC",value=50}},nil}
 c["Hits against you have 12% reduced Critical Damage Bonus"]={{[1]={flags=0,keywordFlags=0,name="EnemyModifier",type="LIST",value={mod={flags=4,keywordFlags=0,name="CritMultiplier",type="INC",value=-12}}}},nil}
 c["Hits against you have 15% reduced Critical Damage Bonus per Socket filled"]={{[1]={flags=0,keywordFlags=0,name="EnemyModifier",type="LIST",value={mod={[1]={type="Multiplier",var="RunesSocketedIn{SlotName}"},flags=4,keywordFlags=0,name="CritMultiplier",type="INC",value=-15}}}},nil}
@@ -8482,6 +8477,7 @@ c["Life Regeneration is applied to Energy Shield instead"]={{[1]={flags=0,keywor
 c["Life and Mana Flasks can be equipped in either slot"]={nil,"Life and Mana Flasks can be equipped in either slot "}
 c["Life that would be lost by taking Damage is instead Reserved"]={{[1]={flags=0,keywordFlags=0,name="DamageInsteadReservesLife",type="FLAG",value=true}},nil}
 c["Life that would be lost by taking Damage is instead Reserved until you take no Damage to Life for 3 seconds"]={nil,"Life that would be lost by taking Damage is instead Reserved until you take no Damage to Life for 3 seconds "}
+c["Life that would be lost by taking Damage is instead Reserved until you take no Damage to Life for 5 seconds"]={nil,"Life that would be lost by taking Damage is instead Reserved until you take no Damage to Life for 5 seconds "}
 c["Light Radius is based on Energy Shield instead of Life"]={nil,"Light Radius is based on Energy Shield instead of Life "}
 c["Lightning Damage from Hits Contributes to Freeze Buildup instead of Shock Chance"]={{[1]={flags=0,keywordFlags=0,name="LightningCanFreeze",type="FLAG",value=true},[2]={flags=0,keywordFlags=0,name="LightningCannotShock",type="FLAG",value=true}},nil}
 c["Lightning Damage from Hits also Contributes to Poison Magntiude"]={nil,"Lightning Damage from Hits also Contributes to Poison Magntiude "}
@@ -8491,9 +8487,7 @@ c["Lightning Damage of Enemies Hitting you is Unlucky Attacks have added Physica
 c["Lightning Damage of Enemies Hitting you is Unlucky during effect"]={nil,"Lightning Damage of Enemies Hitting you is Unlucky during effect "}
 c["Lightning Resistance does not affect Lightning damage taken"]={{[1]={flags=0,keywordFlags=0,name="SelfIgnoreLightningResistance",type="FLAG",value=true}},nil}
 c["Lightning Resistance is unaffected by Area Penalties"]={nil,"Lightning Resistance is unaffected by Area Penalties "}
-c["Lightning Skills Chain +1 times"]={nil,"Lightning Skills Chain +1 times "}
-c["Lightning Skills Chain +1 times 20% increased Magnitude of Shock you inflict"]={nil,"Lightning Skills Chain +1 times 20% increased Magnitude of Shock you inflict "}
-c["Lightning Skills Chain +1 times Gain 15% of Damage as Extra Chaos Damage"]={nil,"Lightning Skills Chain +1 times Gain 15% of Damage as Extra Chaos Damage "}
+c["Lightning Skills Chain +1 times"]={{[1]={flags=0,keywordFlags=128,name="ChainCountMax",type="BASE",value=1}},nil}
 c["Lightning Skills have 20% chance to Poison on Hit"]={{[1]={flags=0,keywordFlags=128,name="PoisonChance",type="BASE",value=20}},nil}
 c["Lightning damage from Hits Contributes to Electrocution Buildup"]={{[1]={flags=0,keywordFlags=0,name="LightningCanElectrocution",type="FLAG",value=true}},nil}
 c["Loads 2 additional bolts"]={{[1]={[1]={skillType=116,type="SkillType"},flags=67108864,keywordFlags=0,name="CrossbowBoltCount",type="BASE",value=2}},nil}
@@ -8990,10 +8984,8 @@ c["Projectiles from Attacks Fork an additional time"]={{[1]={[1]={skillType=41,t
 c["Projectiles from Attacks have 20% chance to Maim on Hit while you have a Bestial Minion"]={{}," to Maim   "}
 c["Projectiles from Attacks have 20% chance to Poison on Hit while you have a Bestial Minion"]={{[1]={[1]={skillType=41,type="SkillType"},[2]={type="Condition",var="HaveBestialMinion"},flags=0,keywordFlags=0,name="PoisonChance",type="BASE",value=20}},nil}
 c["Projectiles from Attacks have 20% chance to inflict Bleeding on Hit while you have a Bestial Minion"]={{[1]={[1]={skillType=41,type="SkillType"},[2]={type="Condition",var="HaveBestialMinion"},flags=0,keywordFlags=0,name="BleedChance",type="BASE",value=20}},nil}
-c["Projectiles from Spells Chain +1 times"]={nil,"Projectiles from Spells Chain +1 times "}
-c["Projectiles from Spells Chain +1 times Projectiles from Spells cannot Pierce"]={nil,"Projectiles from Spells Chain +1 times Projectiles from Spells cannot Pierce "}
-c["Projectiles from Spells Fork"]={nil,"Projectiles from Spells Fork "}
-c["Projectiles from Spells Fork Projectiles from Spells Chain +1 times"]={nil,"Projectiles from Spells Fork Projectiles from Spells Chain +1 times "}
+c["Projectiles from Spells Chain +1 times"]={{[1]={flags=1026,keywordFlags=0,name="ChainCountMax",type="BASE",value=1}},nil}
+c["Projectiles from Spells Fork"]={{[1]={flags=1026,keywordFlags=0,name="ForkOnce",type="FLAG",value=true},[2]={flags=1026,keywordFlags=0,name="ForkCountMax",type="BASE",value=1}},nil}
 c["Projectiles from Spells cannot Pierce"]={{[1]={flags=2,keywordFlags=0,name="CannotPierce",type="FLAG",value=true}},nil}
 c["Projectiles have 10% chance for an additional Projectile when Forking per 10 Tribute"]={{[1]={[1]={actor="parent",div=10,stat="Tribute",type="PerStat"},flags=1024,keywordFlags=0,name="ProjectileCount",type="BASE",value=10}}," for an additional  when Forking  "}
 c["Projectiles have 10% chance to Chain an additional time from terrain"]={{[1]={flags=1024,keywordFlags=0,name="TerrainChainChance",type="BASE",value=10}},nil}
@@ -9982,16 +9974,12 @@ c["as being boosted by Ignited, Shocked, and Chilled Ground"]={nil,"as being boo
 c["as being boosted by Shocked Ground"]={nil,"as being boosted by Shocked Ground "}
 c["being Shapeshifted for at least 8 seconds"]={nil,"being Shapeshifted for at least 8 seconds "}
 c["for 4 seconds, every 0.25 seconds while raised"]={nil,"for 4 seconds, every 0.25 seconds while raised "}
-c["gain 6 Cold Surges or 6 Fire Surges"]={{}," Cold Surges or 6 Fire Surges "}
+c["gain (2-6) Cold Surges or (2-6) Fire Surges"]={nil,"(2-6) Cold Surges or (2-6) Fire Surges "}
 c["the enemy's Power for 20 seconds, up to a total of 500"]={nil,"the enemy's Power for 20 seconds, up to a total of 500 "}
 c["their Explicit Modifiers are transformed into more powerful related Modifiers"]={nil,"their Explicit Modifiers are transformed into more powerful related Modifiers "}
-c["their Explicit Modifiers are transformed into more powerful related Modifiers Ignore Attribute Requirements to equip Gloves"]={nil,"their Explicit Modifiers are transformed into more powerful related Modifiers Ignore Attribute Requirements to equip Gloves "}
 c["until you take no Damage to Life for 3 seconds"]={nil,"until you take no Damage to Life for 3 seconds "}
 c["until you take no Damage to Life for 5 seconds"]={nil,"until you take no Damage to Life for 5 seconds "}
-c["until you take no Damage to Life for 5 seconds Life that would be lost by taking Damage is instead Reserved"]={nil,"until you take no Damage to Life for 5 seconds Life that would be lost by taking Damage is instead Reserved "}
 c["you Shapeshift to an Animal form"]={nil,"you Shapeshift to an Animal form "}
-c["you Shapeshift to an Animal form Modifiers gained this way are lost after 30 seconds or when you next Shapeshift"]={nil,"you Shapeshift to an Animal form Modifiers gained this way are lost after 30 seconds or when you next Shapeshift "}
 c["your maximum number of Power Charges"]={nil,"your maximum number of Power Charges "}
-c["your maximum number of Power Charges +1 to Maximum Power Charges"]={nil,"your maximum number of Power Charges +1 to Maximum Power Charges "}
 end)();
 return c

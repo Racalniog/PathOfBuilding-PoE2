@@ -2671,6 +2671,7 @@ function PassiveSpecClass:NodeAdditionOrReplacementFromString(node,sd,replacemen
 			end
 		end
 		local line = addition.sd[i]
+		local wrapped
 		local parsedMod, unrecognizedMod = modLib.parseMod(line)
 		if not parsedMod or unrecognizedMod then
 			-- Try to combine it with one or more of the lines that follow this one
@@ -2690,6 +2691,19 @@ function PassiveSpecClass:NodeAdditionOrReplacementFromString(node,sd,replacemen
 				end
 				endI = endI + 1
 			end
+			if (not parsedMod or unrecognizedMod) and modLib.wrapsInto(line, addition.sd[i + 1]) then
+				-- A wrapped modifier that isn't understood: keep the halves together as one line
+				endI = i + 1
+				wrapped = line .. " " .. addition.sd[endI]
+				while modLib.wrapsInto(wrapped, addition.sd[endI + 1]) do
+					endI = endI + 1
+					wrapped = wrapped .. " " .. addition.sd[endI]
+				end
+				parsedMod, unrecognizedMod = modLib.parseMod(wrapped)
+				for ci = i + 1, endI do
+					addition.mods[ci] = { list = parsedMod, extra = unrecognizedMod or not parsedMod }
+				end
+			end
 		end
 		if not parsedMod then
 			-- Parser had no idea how to read this modifier
@@ -2702,7 +2716,7 @@ function PassiveSpecClass:NodeAdditionOrReplacementFromString(node,sd,replacemen
 				addition.modKey = addition.modKey.."["..modLib.formatMod(mod).."]"
 			end
 		end
-		addition.mods[i] = { list = parsedMod, extra = unrecognizedMod }
+		addition.mods[i] = { list = parsedMod, extra = unrecognizedMod, text = wrapped }
 		i = i + 1
 		while addition.mods[i] do
 			-- Skip any lines with dummy lists added by the line combining code

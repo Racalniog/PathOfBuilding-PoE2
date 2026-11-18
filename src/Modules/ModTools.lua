@@ -46,6 +46,23 @@ modLib = { }
 ---@field type OtherModTagType
 ---@field [string] any
 
+-- A modifier that the game wraps over two lines: the next line starts in lower case and is no modifier
+-- on its own, or this line ends on a word that can't end a modifier. Used to keep the halves together
+-- when the whole isn't understood
+local danglingWords = { an = true, a = true, to = true, of = true, per = true, also = true, when = true, ["and"] = true }
+function modLib.wrapsInto(line, nextLine)
+	if not nextLine then
+		return false
+	end
+	if nextLine:match("^%s*%l") then
+		local list, extra = modLib.parseMod(nextLine)
+		if not list or extra then
+			return true
+		end
+	end
+	return danglingWords[line:match("(%a+)$")] and true or false
+end
+
 ---@alias ModTag ConditionModTag|PerStatModTag|OtherModTag
 ---@alias SkillModFunction fun(modName: string, modType: NumericModTypes|"FLAG"|"LIST", modVal?: any, flags?: number, keywordFlags?: number, ...: ModTag): Mod
 ---@alias CreateModFunction fun(modName: string, modType: NumericModTypes|"FLAG"|"LIST", modVal?: any, sourceOrTag?: string|number|ModTag, flagsOrModTag?: number|ModTag, keywordFlagsOrModTag?: number|ModTag, ...: ModTag): Mod

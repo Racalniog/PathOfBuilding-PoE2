@@ -489,6 +489,7 @@ function PassiveTreeClass:ProcessStats(node, startIndex)
 			end
 		end
 		local line = node.sd[i]
+		local wrapped
 		local list, extra = modLib.parseMod(line)
 		if not list or extra then
 			-- Try to combine it with one or more of the lines that follow this one
@@ -508,6 +509,20 @@ function PassiveTreeClass:ProcessStats(node, startIndex)
 				end
 				endI = endI + 1
 			end
+			if (not list or extra) and modLib.wrapsInto(line, node.sd[i + 1]) then
+				-- A wrapped modifier that isn't understood: keep the halves together as one line
+				endI = i + 1
+				wrapped = line .. " " .. node.sd[endI]
+				while modLib.wrapsInto(wrapped, node.sd[endI + 1]) do
+					endI = endI + 1
+					wrapped = wrapped .. " " .. node.sd[endI]
+				end
+				list, extra = modLib.parseMod(wrapped)
+				for ci = i + 1, endI do
+					-- Carries the result so a reader that stops on the last half sees it isn't supported
+					node.mods[ci] = { list = list, extra = extra or not list, combined = true }
+				end
+			end
 		end
 		if not list then
 			-- Parser had no idea how to read this modifier
@@ -520,7 +535,7 @@ function PassiveTreeClass:ProcessStats(node, startIndex)
 				node.modKey = node.modKey.."["..modLib.formatMod(mod).."]"
 			end
 		end
-		node.mods[i] = { list = list, extra = extra }
+		node.mods[i] = { list = list, extra = extra, text = wrapped }
 		i = i + 1
 		while node.mods[i] do
 			-- Skip any lines with dummy lists added by the line combining code
