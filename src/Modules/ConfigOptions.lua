@@ -117,6 +117,10 @@ local configSettings = {
 	{ var = "approxKillsPerSecond", type = "float", label = "Kills per second:", ifOption = "useApproximations", defaultState = 1, tooltip = "Enemies you kill per second, used to estimate on-kill effects.\nSet 0 for a single boss.", apply = function(val, modList, enemyModList)
 		modList:NewMod("Multiplier:ApproxKillsPerSecond", "BASE", m_max(val, 0), "Config", { type = "Condition", var = "UseApproximations" })
 	end },
+	-- ponytail: 3 enemies near the target is a guessed mapping pack; upgrade path = scenario defaults calibrated by in-game measurement (plan Phase 6)
+	{ var = "approxEnemiesNearTarget", type = "count", label = "Enemies near the target:", ifOption = "useApproximations", defaultState = 3, tooltip = "Other enemies close to the one you hit, used for effects that spread to them\n(Ignite and Shock spread). These are reported as pack values and never change single-target DPS.", apply = function(val, modList, enemyModList)
+		modList:NewMod("Multiplier:ApproxEnemiesNearTarget", "BASE", m_max(val, 0), "Config", { type = "Condition", var = "UseApproximations" })
+	end },
 	-- ponytail: the Archon recovery period isn't in the game data (the Archon Buff durations are, data.archonBuffs), 10 s is a guess;
 	-- upgrade path = measure it in the game
 	{ var = "approxArchonRecovery", type = "float", label = "Archon recovery period (s):", ifOption = "useApproximations", defaultState = 10, tooltip = "Base time after losing an Archon Buff before you can gain one again.\nNot in the game data: 10 seconds is a guess.", apply = function(val, modList, enemyModList)
@@ -1876,6 +1880,10 @@ Huge sets the radius to 11.
 	{ var = "multiplierIgniteOnEnemy", type = "count", label = "# of ^xB97123Ignites^7 on enemy (if not average):", ifFlag = "IgniteCanStack", implyCond = "Ignited", apply = function(val, modList, enemyModList)
 		enemyModList:NewMod("Multiplier:IgniteStacks", "BASE", val, "Config", { type = "Condition", var = "Effective" })
 	end },
+	{ var = "multiplierIgnitedByYouSeconds", type = "count", label = "Seconds of ignite on enemy?", ifEnemyCond = "IgnitedByYou", apply = function(val, modList, enemyModList)
+		enemyModList:NewMod("Multiplier:IgnitedByYouSeconds", "BASE", val, "Config", { type = "Condition", var = "Combat" })
+		enemyModList:NewMod("Condition:IgnitedByYou", "FLAG", true, "Config", { type = "Condition", var = "Effective" })
+	end },
 	{ var = "conditionEnemyScorched", type = "check", ifFlag = "inflictScorch", label = "Is the enemy ^xB97123Scorched?", tooltip = "^xB97123Scorched ^7enemies have lowered elemental resistances, up to -30%.\nThis option will also allow you to input the effect of ^xB97123Scorched.", apply = function(val, modList, enemyModList)
 		enemyModList:NewMod("Condition:Scorched", "FLAG", true, "Config", { type = "Condition", var = "Effective" })
 		enemyModList:NewMod("Condition:ScorchedConfig", "FLAG", true, "Config", { type = "Condition", var = "Effective" })
@@ -1922,6 +1930,10 @@ Huge sets the radius to 11.
 	{ var = "conditionEnemyOnChilledGround", type = "check", label = "Is the enemy on ^x3F6DB3Chilled ^7Ground?", ifEnemyCond = "OnChilledGround", implyCond = "Chilled", tooltip = "This also implies that the enemy is ^x3F6DB3Chilled.", apply = function(val, modList, enemyModList)
 		enemyModList:NewMod("Condition:OnChilledGround", "FLAG", true, "Config", { type = "Condition", var = "Effective" })
 		enemyModList:NewMod("Condition:Chilled", "FLAG", true, "Config", { type = "Condition", var = "Effective" })
+	end },
+	{ var = "conditionEnemyOnIgnitedGround", type = "check", label = "Is the enemy on ^xB97123Ignited ^7Ground?", ifEnemyCond = "OnIgnitedGround", implyCond = "Ignited", tooltip = "This also implies that the enemy is ^xB97123Ignited.", apply = function(val, modList, enemyModList)
+		enemyModList:NewMod("Condition:OnIgnitedGround", "FLAG", true, "Config", { type = "Condition", var = "Effective" })
+		enemyModList:NewMod("Condition:Ignited", "FLAG", true, "Config", { type = "Condition", var = "Effective" })
 	end },
 	{ var = "conditionEnemyBrittle", type = "check", ifFlag = "inflictBrittle", label = "Is the enemy ^x3F6DB3Brittle?", tooltip = "Hits against ^x3F6DB3Brittle ^7enemies have up to +6% Critical Strike Chance.\nThis option will also allow you to input the effect of ^x3F6DB3Brittle.", apply = function(val, modList, enemyModList)
 		enemyModList:NewMod("Condition:Brittle", "FLAG", true, "Config", { type = "Condition", var = "Effective" })

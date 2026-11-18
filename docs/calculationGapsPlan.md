@@ -248,6 +248,28 @@ Order by the Phase 0 ranking. The census suggests this order:
 3. **Recovery on events**: on kill, in Presence, leech variants (151 lines). Started early, as the
    first user of the approximation model: on-kill recovery uses the kills-per-second rate.
 4. **Ailments**: spread, magnitude and duration interactions (102 lines).
+   - Done (November 2026), rules from the stat descriptions:
+     - **Exact:** increased chance to Poison / inflict Bleeding, "Chance to Poison is calculated from your base chance to inflict Bleeding
+       instead" and the reverse (the other ailment's flat chance), Magnitude of Elemental Ailments with Spells (Ignite, Shock, Chill; spell
+       Ignite only), Elemental Ailment Application (Ignite and Shock chance, like "chance to inflict Elemental Ailments"; whether it raises
+       Freeze Buildup is untested), "<type> Damage from Hits also Contributes to Flammability and Ignite / Chill Magnitudes", Freeze Buildup
+       with Empowered Attacks, minions' Magnitude of Damaging Ailments, "Enemies Ignited by you permanently take ... Fire Damage" (new
+       *Seconds of ignite on enemy?* option, like the chill and freeze ones), "Enemies standing on Chilled / Ignited Ground take ..." (new
+       *Is the enemy on Ignited Ground?* option), "Projectiles Pierce all Ignited enemies", Become Ignited on Critical Hit (Fire degen
+       while *Are you Ignited?*).
+     - **Approximation (Use approximations on):** aggravating Bleeding on Hit, on Critical Hit, with Empowered Attacks and "older than N
+       seconds". A Hit aggravates the Bleeding instances on the target for the rest of their duration D (100% more damage), and the
+       strongest instance deals damage, so the share is the chance that an aggravated instance is alive: 1 − e^(−a·(D − N)) for "older
+       than N" (a = Bleeding applied per second) and 1 − e^(−r·D) for chances on Hit / Critical Hit (r = hits/s × chance per hit),
+       combined as independent. Hit rates are known inside offence, so this feeds Bleed DPS directly (Calcs tab, Bleed: *Aggravated
+       (approx.)*). The Malady support's base chance swap is mapped too.
+     - **Pack only (Use approximations on, new *Enemies near the target* input, 3 by default, a guess):** Ignite spread gives *Pack DPS
+       (approx.)* = Ignite DPS × (1 + enemies near the target); Shock spread gives the average Shocked enemies near the target,
+       enemies × (1 − e^(−chance × Shocking Hits/s × Shock duration)). Neither changes single-target DPS or the optimizer score.
+     - Not modelled: ailments on you (chill from damage taken, reflected Poison / Ignite, immunity windows, Electrocute immunity), Presence
+       and ground Ignites "as though dealing" (unclear whether the base damage is scaled), Volatility, Rage on Ignite, Shatter,
+       "per Enemy Ignited / Frozen in the last 8 seconds", Withered not expiring, aggravated Ignites, Beasts (no enemy type option).
+     - Census: 1,076 → 1,040; Ailments 98 → 65.
 5. **Guard, block, stun and parry** (60 lines). Moved forward with the defence work. The optimizer
    doesn't score defence yet, which needs a survivability score as well as damage.
 6. **Thorns, ground surfaces, shapeshifting, Presence effects.**
