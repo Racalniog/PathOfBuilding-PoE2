@@ -141,9 +141,17 @@ Progress:
 - Recovery on kill (including "when an Enemy dies in your Presence") is the first approximation.
   Keeper of the Arc's alternating "less Damage from Hits" counts half, as an approximation.
 - Census: 1,391 → 1,352 unreadable lines.
-- Still open, because they need engine work: Guard sources, recoup speed and real recoup for
-  "Physical Damage prevented Recouped" (the existing pseudo-recoup model is regeneration over 4 s and
-  would overstate it), Armour Break, Avoid Death, Dodge Roll, and leech and flask overflow.
+- Second defence pass, with new engine code:
+  - **Recoup:** of damage prevented by armour and physical reduction, of deflected hits, and of damage
+    blocked (as mana); "increased speed of Recoup Effects" applies to every recoup.
+  - **Guard:** a buffer in front of Life and ES, capped at maximum Life (or ES), with a
+    *Do you have Guard?* option. Only the largest source counts, an assumption until tested in the game.
+  - **Approximation-only:** Guard from events, and chance to Avoid Death from Hits (capped at 99%).
+  - Census: 1,352 → 1,309.
+- Optimizer: survivability score (damage^(1−w) × effective HP^w) and an approximations option.
+  Effective HP is a hit pool, so recovery doesn't raise the score yet. That needs its own term.
+- Still open: Armour Break, Dodge Roll, leech and flask overflow, Guard from sacrificed life, and
+  life-flask-based Guard.
 
 - Join modifiers that span two lines before parsing.
 - Accept negative ranges.

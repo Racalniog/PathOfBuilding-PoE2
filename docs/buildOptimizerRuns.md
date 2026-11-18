@@ -13,6 +13,7 @@ How the optimizer works and what it cannot see is described in the [build optimi
 - [What the search options changed](#what-the-search-options-changed)
 - [First batch](#first-batch)
 - [Second batch](#second-batch)
+- [Survivability runs](#survivability-runs)
 - [Caveats](#caveats)
 
 ## Settings
@@ -453,6 +454,34 @@ New combinations, more rounds and the thorough search for the leaders, and every
 | `discipleofvarashta_frostbolt` | Elemental Focus, Rakiata's Flow, Concentrated Area, Inexorable Critical I, Deliberation | Mageblood, Voices (4 Sinister Sockets) | - |
 
 </details>
+
+## Survivability runs
+
+Eight runs with the survivability score (score = damage^(1−w) × effective HP^w) and approximations on
+(1 kill per second), same realistic settings, uniques with all versions. Effective HP is PoB's
+effective hit pool against its default enemy hits. They were run after the Runic Ward fix to the
+effective HP calculation (commit 8efa6ca9d).
+
+| Build | Survivability weight | Approx. | Combined DPS | Effective HP | Life / ES | Resistances |
+|---|---:|:---:|---:|---:|---|---|
+| Blood Mage Hexblast | 0% | on | 164.4M | 1,792 | 1,800 / 0 | −5% |
+| Blood Mage Hexblast | 25% | on | 73.8M | 21,055 | 2,175 / 244 | capped |
+| Blood Mage Hexblast | 50% | off | 18.8M | 144,398 | 3,484 / 1,183 | capped |
+| Blood Mage Hexblast | 50% | on | 21.9M | 75,895 | 3,061 / 1,091 | capped |
+| Titan Hammer of the Gods | 50% | on | 7.9M | 914,468 | 2,709 / 222 | capped |
+| Lich Skeletal Sniper | 50% | on | 3.3M | 230,697 | 2,387 / 0 | capped |
+| Infernalist Comet | 50% | on | 8.5M | 105,137 | 2,406 / 6,905 | 65% |
+| Deadeye Rain of Arrows | 50% | on | 15.2M | 85,212 | 2,616 / 0 | capped |
+
+- At 25% weight Hexblast keeps 45% of its damage and gets about 12 times the effective HP, with
+  capped resistances. At 50% it trades most of its damage for defence.
+- **Approximations** didn't change the damage-only build (164,404,159 both ways). With them on,
+  every survivability build picked the "Legacy of Keeper of the Arc" rune, whose alternating
+  "Take 20% less Damage from Hits" counts half as an approximation. The run with them off didn't.
+- The two Hexblast runs at 50% differ mainly because the search took different paths. One run per
+  setting can't settle which is better.
+- Effective HP is a hit pool, so recovery (regeneration, leech, recovery on kill) doesn't count
+  toward the score. Most builds end with no net life recovery.
 
 ## Caveats
 
