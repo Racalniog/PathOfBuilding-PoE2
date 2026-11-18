@@ -8159,6 +8159,7 @@ minions["Metadata/Monsters/DemonSpiders/SpiderSabre"] = {
 		"MeleeAtAnimationSpeed",
 		"EGSabreSpiderEmerge",
 		"DTTSabreSpiderLeap",
+		"GASabreSpiderLeap",
 	},
 	modList = {
 		mod("StunDuration", "OVERRIDE", 2.466, 0, 0), -- set_base_heavy_stun_duration_ms [set_base_heavy_stun_duration_ms = 2466]

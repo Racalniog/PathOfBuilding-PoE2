@@ -732,6 +732,7 @@ minions["ManifestWeapon"] = {
 		-- hide_buff_visuals [hide_buff_visuals = 1]
 		-- base_hide_mini_life_bar [base_hide_mini_life_bar = 1]
 		-- set_use_melee_pattern_range [set_use_melee_pattern_range = 0]
+		-- set_usable_while_shapeshifted [set_usable_while_shapeshifted = 1]
 	},
 }
 

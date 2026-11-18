@@ -136668,7 +136668,7 @@ return {
 						[2]="#"
 					}
 				},
-				text="Defeating the Arbiter grants completion of a section of the Fortress"
+				text="Defeating the Arbiter of Divinity as the Map Owner twice will complete all uncompleted Map Nodes in the Fortress"
 			}
 		},
 		stats={

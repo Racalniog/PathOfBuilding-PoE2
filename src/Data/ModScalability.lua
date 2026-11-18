@@ -8551,7 +8551,7 @@ return {
 	["Debuffs you inflict have #% reduced Slow Magnitude"] = { { isScalable = true, formats = { "negate" } } },
 	["Decimating Strike"] = {  },
 	["Decoy, Devouring and Rejuvenation Totems Reflect #% of their maximum Life as Fire Damage to nearby Enemies when Hit"] = { { isScalable = true } },
-	["Defeating the Arbiter grants completion of a section of the Fortress"] = {  },
+	["Defeating the Arbiter of Divinity as the Map Owner twice will complete all uncompleted Map Nodes in the Fortress"] = {  },
 	["Defences of Items attached to Animated Guardian also apply to Animated Weapons"] = {  },
 	["Defend against Hits as though you had #% more Armour per 1% current Energy Shield"] = { { isScalable = true } },
 	["Defend with #% of Armour against Critical Hits"] = { { isScalable = true } },

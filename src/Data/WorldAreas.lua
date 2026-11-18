@@ -604,6 +604,18 @@ worldAreas["HideoutArenaSearingExarch"] = {
 	},
 }
 
+worldAreas["HideoutExilecon23"] = {
+	name = "ExileCon 2023 Hideout (Act 1)",
+	baseName = "ExileCon 2023 Hideout",
+	tags = {  },
+	act = 1,
+	level = 65,
+	isMap = false,
+	isHideout = true,
+	monsterVarieties = {
+	},
+}
+
 worldAreas["HideoutBeaconOfSalvation"] = {
 	name = "Beacon of Salvation Hideout (Act 1)",
 	baseName = "Beacon of Salvation Hideout",
@@ -1039,6 +1051,42 @@ worldAreas["HideoutBlankFire"] = {
 worldAreas["HideoutShip"] = {
 	name = "The Sovereign Hideout (Act 1)",
 	baseName = "The Sovereign Hideout",
+	tags = {  },
+	act = 1,
+	level = 65,
+	isMap = false,
+	isHideout = true,
+	monsterVarieties = {
+	},
+}
+
+worldAreas["HideoutMaze"] = {
+	name = "Labyrinth Hideout (Act 1)",
+	baseName = "Labyrinth Hideout",
+	tags = {  },
+	act = 1,
+	level = 65,
+	isMap = false,
+	isHideout = true,
+	monsterVarieties = {
+	},
+}
+
+worldAreas["HideoutDivine"] = {
+	name = "Apex of Divinity Hideout (Act 1)",
+	baseName = "Apex of Divinity Hideout",
+	tags = {  },
+	act = 1,
+	level = 65,
+	isMap = false,
+	isHideout = true,
+	monsterVarieties = {
+	},
+}
+
+worldAreas["HideoutExilecon2026"] = {
+	name = "Exilecon 2026 Hideout (Act 1)",
+	baseName = "Exilecon 2026 Hideout",
 	tags = {  },
 	act = 1,
 	level = 65,
@@ -7390,6 +7438,30 @@ worldAreas["MapUniqueInitialTower"] = {
 	},
 	bossVarieties = {
 		"Karash, The Dune Dweller",
+	},
+}
+
+worldAreas["PlayerAtlasHideout"] = {
+	name = "Player Hideout",
+	baseName = "Player Hideout",
+	tags = {  },
+	act = 10,
+	level = 65,
+	isMap = false,
+	isHideout = false,
+	monsterVarieties = {
+	},
+}
+
+worldAreas["PlayerAtlasHideoutInert"] = {
+	name = "Player Hideout",
+	baseName = "Player Hideout",
+	tags = {  },
+	act = 10,
+	level = 65,
+	isMap = false,
+	isHideout = false,
+	monsterVarieties = {
 	},
 }
 
