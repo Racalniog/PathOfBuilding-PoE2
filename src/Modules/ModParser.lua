@@ -10,6 +10,7 @@ local band = AND64 --bit.band
 local bor = OR64 --bit.bor
 local bnot = NOT64 --bit.bnot
 local m_huge = math.huge
+local chargeTypes = { endurance = "Endurance", frenzy = "Frenzy", power = "Power" }
 local function firstToUpper(str)
 	return (str:gsub("^%l", string.upper))
 end
@@ -5806,6 +5807,24 @@ local specialModList = {
 	["quarterstaff skills that consume power charges count as consuming an additional power charge"] = {
 		mod("Multiplier:ExtraConsumablePowerCharges", "BASE", 1, nil, ModFlag.Attack, 0, { type = "Condition", var = "UsingStaff" })
 	},
+	-- Endurance, Frenzy and Power Charge rules (CalcPerform doActorCharges); stat descriptions attack_consume_endurance_charge_to_always_crit,
+	-- lose_all_power_charges_on_reaching_maximum, keystone_resonance (Resonance), keystone_conduit (Conduit) and their per-charge rune versions
+	["attacks consume an endurance charge to critically hit"] = { mod("CritChance", "OVERRIDE", 100, nil, ModFlag.Attack, { type = "MultiplierThreshold", var = "RemovableEnduranceCharge", threshold = 1 }) },
+	["lose all power charges on reaching maximum power charges"] = { flag("LosePowerChargesOnMax") },
+	["if you would gain an? (%a+) charge, allies in your presence gain that charge instead"] = function(_, charge) return chargeTypes[charge] and { flag(chargeTypes[charge].."ChargesToAllies") } end,
+	["if you would gain a charge, allies in your presence gain that charge instead"] = { flag("EnduranceChargesToAllies"), flag("FrenzyChargesToAllies"), flag("PowerChargesToAllies") },
+	-- Charge generation only feeds the approximation (CalcPerform approxCharges)
+	["gain (%a+) charges instead of (%a+) charges"] = function(_, to, from) return chargeTypes[to] and chargeTypes[from] and { mod("ChargeGainInstead", "LIST", { from = chargeTypes[from], to = chargeTypes[to] }) } end,
+	["(%d+)%% chance to gain an? (%a+) charge on kill"] = function(num, _, charge) return chargeTypes[charge] and { mod(chargeTypes[charge].."ChargeOnKillChance", "BASE", num) } end,
+	["(%d+)%% chance to gain a power, frenzy, or endurance charge on kill"] = function(num) return { mod("RandomChargeOnKillChance", "BASE", num) } end,
+	["(%d+)%% chance to gain an? (%a+) charge on hit"] = function(num, _, charge) return chargeTypes[charge] and { mod(chargeTypes[charge].."ChargeOnHitChance", "BASE", num) } end,
+	["(%d+)%% chance to gain an? (%a+) charge on critical hit"] = function(num, _, charge) return chargeTypes[charge] and { mod(chargeTypes[charge].."ChargeOnCritChance", "BASE", num) } end,
+	["gain an? (%a+) charge on critical hit"] = function(_, charge) return chargeTypes[charge] and { mod(chargeTypes[charge].."ChargeOnCritChance", "BASE", 100) } end,
+	["(%d+)%% chance when you gain an? (%a+) charge to gain an additional %a+ charge"] = function(num, _, charge) return chargeTypes[charge] and { mod("Additional"..chargeTypes[charge].."ChargeChance", "BASE", num) } end,
+	["(%d+)%% chance when you gain a charge to gain an additional charge"] = function(num) return { mod("AdditionalChargeChance", "BASE", num) } end,
+	["gain an additional charge when you gain a charge"] = { mod("AdditionalChargeChance", "BASE", 100) },
+	["(%d+)%% chance that if you would gain (%a+) charges, you instead gain up to .*maximum.* charges"] = function(num, _, charge) return chargeTypes[charge] and { mod(chargeTypes[charge].."ChargeFillChance", "BASE", num) } end,
+	["skills have (%d+)%% chance to not remove charges but still count as consuming them"] = function(num) return { mod("ChargeNotRemovedChance", "BASE", num) } end,
 	["leftmost (%d+) magic utility flasks constantly apply their flask effects to you"] = function(num) return { mod("ActiveMagicUtilityFlasks", "BASE", num) } end,
 	["marauder: melee skills have (%d+)%% increased area of effect"] = function(num) return { mod("AreaOfEffect", "INC", num, { type = "Condition", var = "ConnectedToMarauderStart" }, { type = "SkillType", skillType = SkillType.Melee }) } end,
 	["intelligence provides no bonus to energy shield"] = { flag("NoIntBonusToES") },

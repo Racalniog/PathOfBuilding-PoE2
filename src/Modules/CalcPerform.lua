@@ -941,6 +941,119 @@ local function doActorMisc(env, actor)
 	end
 end
 
+-- Approximation of Endurance, Frenzy and Power Charges (needs Use approximations): charges gained per second from events, and the
+-- expected number of charges. Rules, from the stat descriptions:
+-- - "N% chance to gain a <type> Charge on kill / on Hit / on Critical Hit" per event; "a Power, Frenzy, or Endurance Charge" is one of
+--   the three (ponytail: each a third of the time; upgrade path = the game's rule, if it weighs them).
+-- - Resonance ("Gain <a> Charges instead of <b> Charges", keystone_resonance) swaps all its types at once.
+-- - "chance when you gain a (<type>) Charge to gain an additional ..." adds one charge per gain, each stat capped at 100%
+--   (ponytail: the additional charge doesn't roll again); "chance that if you would gain <type> Charges, you instead gain up to maximum"
+--   (ponytail: counted as maximum - 1 extra charges per gain; upgrade path = fill from the current count).
+-- - Conduit and its rune versions give the charge to allies instead.
+-- - Charges last their duration (15 s base, CalcSetup), so on average min(maximum, gain rate x duration); with Redflare Conduit's
+--   "lose all on reaching maximum" the count cycles from 0 to maximum - 1, about half of that.
+-- - A main skill that consumes the type (skill type SkillConsumes<type>ChargesOnUse) removes all of them on each use, except with
+--   "chance to not remove Charges but still count as consuming them", so a use finds the charges gained since the last removing use.
+--   ponytail: every consuming skill takes all its charges; upgrade path = per-skill consumption counts. Recently = 4 seconds.
+-- Kills come from the configuration; hits, critical hits and uses only after offence (rates.speed), so the charge count only gets the
+-- kill part, and only for a type the main skill doesn't consume (doActorCharges); the full estimate is reported (doChargeApprox).
+-- ponytail: report-only for hit- and use-based rates; upgrade path = these rates before offence (getCachedOutputValue costs a second
+-- calculation) or a second offence pass
+-- ponytail: the count is a fractional average, but per-charge modifiers count whole charges (ModStore floors Multiplier tags), so they
+-- get its integer part; upgrade path = unfloored multipliers for approximated counts
+local function approxCharges(env, charge, rates, key)
+	local modDB, output, breakdown = env.player.modDB, env.player.output, env.player.breakdown
+	local skill = env.player.mainSkill
+	local cfg = skill and skill.skillCfg
+	local function sources(kind)
+		local kill = m_min(modDB:Sum("BASE", nil, kind.."ChargeOnKillChance") + modDB:Sum("BASE", nil, "RandomChargeOnKillChance") / 3, 100) / 100 * rates.kills
+		local hit = m_min(modDB:Sum("BASE", cfg, kind.."ChargeOnHitChance"), 100) / 100 * (rates.hits or 0)
+		local crit = m_min(modDB:Sum("BASE", cfg, kind.."ChargeOnCritChance"), 100) / 100 * (rates.crits or 0)
+		return kill + hit + crit, kill, hit, crit
+	end
+	local own, kill, hit, crit = sources(charge)
+	local swaps = { }
+	for _, swap in ipairs(modDB:List(nil, "ChargeGainInstead")) do
+		swaps[swap.from] = swap.to
+	end
+	local gain = swaps[charge] and 0 or own
+	for from, to in pairs(swaps) do
+		gain = gain + (to == charge and sources(from) or 0)
+	end
+	local max, duration = output[charge.."ChargesMax"], output[charge.."ChargesDuration"]
+	local cap = charge == "Power" and modDB:Flag(nil, "LosePowerChargesOnMax") and m_max(max - 1, 0) or max
+	local perGain = 1 + (m_min(modDB:Sum("BASE", nil, "AdditionalChargeChance"), 100) + m_min(modDB:Sum("BASE", nil, "Additional"..charge.."ChargeChance"), 100)) / 100
+		+ m_min(modDB:Sum("BASE", nil, charge.."ChargeFillChance"), 100) / 100 * m_max(max - 1, 0)
+	local toAllies = modDB:Flag(nil, charge.."ChargesToAllies")
+	local total = toAllies and 0 or gain * perGain
+	local consumes = skill and skill.skillTypes[SkillType["SkillConsumes"..charge.."ChargesOnUse"]] and not skill.skillModList:Flag(cfg, "Condition:CannotConsumeCharges")
+	local average, lifetime, consumedRecently
+	if consumes then
+		if not rates.speed then
+			return
+		end
+		local removing = rates.speed * (1 - m_min(modDB:Sum("BASE", cfg, "ChargeNotRemovedChance"), 100) / 100)
+		lifetime = removing > 0 and m_min(duration, 1 / removing) or duration
+		average = m_min(cap, total * lifetime)
+		consumedRecently = rates.speed * average * 4
+		output[charge.."ChargesConsumedRecentlyApprox"] = not modDB:HasMod("BASE", nil, "Multiplier:"..charge.."ChargesConsumedRecently") and consumedRecently or nil
+	elseif cap < max then
+		average = m_min(total * duration, cap / 2)
+	else
+		average = calcLib.approxAverageStacks(max, total, duration)
+	end
+	if breakdown and total > 0 then
+		local lines = { }
+		for _, part in ipairs({ { kill, "from kills" }, { hit, "from hits" }, { crit, "from critical hits" } }) do
+			if part[1] > 0 then
+				t_insert(lines, s_format("%s%.2f ^8(%s per second)", #lines > 0 and "+ " or "", part[1], part[2]))
+			end
+		end
+		if gain ~= own then
+			t_insert(lines, s_format("= %.2f ^8(Resonance: gained as other types instead)", gain))
+		end
+		if perGain ~= 1 then
+			t_insert(lines, s_format("x %.2f ^8(charges per gain: additional charges, gaining up to maximum)", perGain))
+		end
+		t_insert(lines, s_format("= %.2f ^8(charges gained per second)", total))
+		if consumes then
+			t_insert(lines, s_format("x %.2fs ^8(until the next use removes them, or they expire)", lifetime))
+			t_insert(lines, s_format("= %.2f ^8(charges per use, at most %d, approx.)", average, cap))
+			t_insert(lines, s_format("%.2f ^8(consumed in the past 4 seconds: %.2f uses per second x charges per use x 4)", consumedRecently, rates.speed))
+		elseif cap < max then
+			t_insert(lines, s_format("x %.2fs ^8(duration)", duration))
+			t_insert(lines, s_format("= %.2f ^8(average charges, lost on reaching %d: at most %.1f, approx.)", average, max, cap / 2))
+		else
+			t_insert(lines, s_format("x %.2fs ^8(duration)", duration))
+			t_insert(lines, s_format("= %.2f ^8(average charges, at most %d, approx.)", average, max))
+		end
+		breakdown[key] = lines
+	end
+	return average
+end
+
+-- Report of the full charge approximation after offence (see approxCharges), for types the configuration leaves unused
+local function doChargeApprox(env)
+	local modDB, output = env.player.modDB, env.player.output
+	if not modDB:Flag(nil, "Condition:UseApproximations") or not env.player.mainSkill then
+		return
+	end
+	local speed = output.Speed or 0
+	-- ponytail: hits on the one target PoB calculates, as in doInfusionApprox; upgrade path = targets hit per use
+	-- CritChance already includes the chance to hit
+	local uses = output.HitSpeed or speed
+	local rates = { kills = modDB:GetMultiplier("ApproxKillsPerSecond"), hits = uses * (output.HitChance or 0) / 100, crits = uses * (output.CritChance or 0) / 100, speed = speed }
+	for _, charge in ipairs({ "Endurance", "Frenzy", "Power" }) do
+		if not modDB:Flag(nil, "Condition:Use"..charge.."Charges") then
+			local average = approxCharges(env, charge, rates, charge.."ChargesApprox")
+			if average and average ~= output[charge.."Charges"] then
+				output[charge.."ChargesApprox"] = average
+				output["Use"..charge.."Charges"] = true
+			end
+		end
+	end
+end
+
 -- Process charges
 ---@param env Env
 ---@param actor Actor
@@ -1010,8 +1123,22 @@ local function doActorCharges(env, actor)
 	if modDB:Flag(nil, "MinimumPowerChargesIsMaximumPowerCharges") then
 		output.PowerChargesMin = output.PowerChargesMax
 	end
-	if modDB:Flag(nil, "Condition:UsePowerCharges") then
-		output.PowerCharges = modDB:Override(nil, "PowerCharges") or output.PowerChargesMax
+	-- Charges from the configuration or, for the player with approximations on, their expected number from kills (approxCharges)
+	local approxKills = actor == env.player and modDB:Flag(nil, "Condition:UseApproximations") and { kills = modDB:GetMultiplier("ApproxKillsPerSecond") }
+	for _, charge in ipairs({ "Endurance", "Frenzy", "Power" }) do
+		if modDB:Flag(nil, "Condition:Use"..charge.."Charges") then
+			output[charge.."Charges"] = modDB:Override(nil, charge.."Charges") or output[charge.."ChargesMax"]
+		elseif approxKills then
+			output[charge.."Charges"] = approxCharges(env, charge, approxKills, charge.."Charges") or 0
+		end
+		-- Conduit and its rune versions (keystone_conduit): charges you would gain go to allies; minimum charges aren't gained and stay
+		if modDB:Flag(nil, charge.."ChargesToAllies") then
+			output[charge.."Charges"] = 0
+		end
+	end
+	-- Redflare Conduit (lose_all_power_charges_on_reaching_maximum): reaching the maximum loses them all, so you hold at most one less
+	if modDB:Flag(nil, "LosePowerChargesOnMax") then
+		output.PowerCharges = m_min(output.PowerCharges, m_max(output.PowerChargesMax - 1, 0))
 	end
 	if modDB:Flag(nil, "PowerChargesConvertToAbsorptionCharges") then
 		-- we max with possible Power Charge Override from Config since Absorption Charges won't have their own config entry
@@ -1024,9 +1151,6 @@ local function doActorCharges(env, actor)
 	local removablePowerCharges = m_max(output.PowerCharges - output.PowerChargesMin, 0)
 	local extraConsumablePowerCharges = removablePowerCharges > 0 and modDB:Sum("BASE", actor.mainSkill.skillCfg, "Multiplier:ExtraConsumablePowerCharges") or 0
 	output.RemovablePowerCharges = removablePowerCharges + extraConsumablePowerCharges
-	if modDB:Flag(nil, "Condition:UseFrenzyCharges") then
-		output.FrenzyCharges = modDB:Override(nil, "FrenzyCharges") or output.FrenzyChargesMax
-	end
 	if modDB:Flag(nil, "FrenzyChargesConvertToAfflictionCharges") then
 		-- we max with possible Power Charge Override from Config since Absorption Charges won't have their own config entry
 		-- and are converted from Power Charges
@@ -1036,9 +1160,6 @@ local function doActorCharges(env, actor)
 		output.FrenzyCharges = m_max(output.FrenzyCharges, m_min(output.FrenzyChargesMax, output.FrenzyChargesMin))
 	end
 	output.RemovableFrenzyCharges = m_max(output.FrenzyCharges - output.FrenzyChargesMin, 0)
-	if modDB:Flag(nil, "Condition:UseEnduranceCharges") then
-		output.EnduranceCharges = modDB:Override(nil, "EnduranceCharges") or output.EnduranceChargesMax
-	end
 	if modDB:Flag(nil, "EnduranceChargesConvertToBrutalCharges") then
 		-- we max with possible Endurance Charge Override from Config since Brutal Charges won't have their own config entry
 		-- and are converted from Endurance Charges
@@ -1075,6 +1196,9 @@ local function doActorCharges(env, actor)
 	end
 	if modDB:Flag(nil, "HaveMaximumEnduranceCharges") then
 		output.EnduranceCharges = output.EnduranceChargesMax
+	end
+	for _, charge in ipairs({ "Endurance", "Frenzy", "Power" }) do
+		output["Use"..charge.."Charges"] = (output[charge.."Charges"] > 0 or modDB:Flag(nil, "Condition:Use"..charge.."Charges")) or nil
 	end
 	output.TotalCharges = output.PowerCharges + output.FrenzyCharges + output.EnduranceCharges
 	output.RemovableTotalCharges = output.RemovableEnduranceCharges + output.RemovableFrenzyCharges + output.RemovablePowerCharges
@@ -3714,6 +3838,7 @@ function calcs.perform(env, skipEHP)
 	--if not calcs.mirages(env) then
 		calcs.offence(env, env.player, env.player.mainSkill)
 		doInfusionApprox(env)
+		doChargeApprox(env)
 	--end
 
 	if env.minion then

@@ -229,6 +229,20 @@ Order by the Phase 0 ranking. The census suggests this order:
        from the offence calculation.
      - Census: 1,171 → 1,126; Infusion / Archon 35 → 4 (Infernal Flame, minion Archon, Power Charge on consumption).
 2. **Charges**: generation, consumption and "per charge" effects (113 lines).
+   - Done (November 2026), rules from the stat descriptions:
+     - **Exact, from the configured charges:** Nebuloch's "Attacks consume an Endurance Charge to Critically Hit" (attacks always crit with
+       an Endurance Charge to spend), Redflare Conduit's "lose all Power Charges on reaching maximum" (at most maximum - 1), Conduit and its
+       rune versions (the charges go to allies, so you have none). "Per charge", "while at maximum" and maximum-charge lines were already read.
+     - **Approximation (Use approximations on, "Do you use ... Charges?" left unchecked):** charges gained per second from "chance to gain a
+       ... Charge on kill / Hit / Critical Hit", Resonance's swapped types, additional charges per gain, "instead gain up to maximum", and the
+       main skill's consumption (less "chance to not remove Charges"). Average charges ≈ min(maximum, gain rate × duration); for a consuming
+       main skill, charges per use ≈ min(maximum, gain rate × time between removing uses), and charges consumed Recently (4 s).
+     - The kill-based part feeds the charge count, before offence, for charge types the main skill doesn't consume. Hits, critical hits and
+       uses are only known after offence, so the full estimate is report-only (Calcs tab, Charges: *Estimate (approx.)*, *Consumed Recently*).
+       Per-charge modifiers count whole charges (multipliers are floored), so a fractional average counts its integer part.
+     - Not modelled: charges on Stun, Block, Heavy Stun, Low Life or maximum Rage and from charm use (no event rate), recovery per consumed
+       charge (Phase 3 item 3), Elemental / Chaotic Surge triggers, charge sharing with allies.
+     - Census: 1,126 → 1,076; Charges 105 → 55 (the rest are mostly flask, charm and Energy Shield Recharge lines the group's word match catches).
 3. **Recovery on events**: on kill, in Presence, leech variants (151 lines). Started early, as the
    first user of the approximation model: on-kill recovery uses the kills-per-second rate.
 4. **Ailments**: spread, magnitude and duration interactions (102 lines).

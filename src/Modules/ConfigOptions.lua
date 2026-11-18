@@ -836,19 +836,19 @@ Huge sets the radius to 11.
 	end },
 	-- Section: Combat options
 	{ section = "When In Combat", col = 1 },
-	{ var = "usePowerCharges", type = "check", label = "Do you use Power Charges?", apply = function(val, modList, enemyModList)
+	{ var = "usePowerCharges", type = "check", label = "Do you use Power Charges?", tooltip = "Left unchecked with Use approximations on, your Power Charges are estimated from the charges you gain on kill (Calcs tab, Charges).", apply = function(val, modList, enemyModList)
 		modList:NewMod("Condition:UsePowerCharges", "FLAG", true, "Config")
 	end },
 	{ var = "overridePowerCharges", type = "count", label = "# of Power Charges (if not maximum):", ifOption = "usePowerCharges", apply = function(val, modList, enemyModList)
 		modList:NewMod("PowerCharges", "OVERRIDE", val, "Config", { type = "Condition", var = "Combat" })
 	end },
-	{ var = "useFrenzyCharges", type = "check", label = "Do you use Frenzy Charges?", apply = function(val, modList, enemyModList)
+	{ var = "useFrenzyCharges", type = "check", label = "Do you use Frenzy Charges?", tooltip = "Left unchecked with Use approximations on, your Frenzy Charges are estimated from the charges you gain on kill (Calcs tab, Charges).", apply = function(val, modList, enemyModList)
 		modList:NewMod("Condition:UseFrenzyCharges", "FLAG", true, "Config")
 	end },
 	{ var = "overrideFrenzyCharges", type = "count", label = "# of Frenzy Charges (if not maximum):", ifOption = "useFrenzyCharges", apply = function(val, modList, enemyModList)
 		modList:NewMod("FrenzyCharges", "OVERRIDE", val, "Config", { type = "Condition", var = "Combat" })
 	end },
-	{ var = "useEnduranceCharges", type = "check", label = "Do you use Endurance Charges?", apply = function(val, modList, enemyModList)
+	{ var = "useEnduranceCharges", type = "check", label = "Do you use Endurance Charges?", tooltip = "Left unchecked with Use approximations on, your Endurance Charges are estimated from the charges you gain on kill (Calcs tab, Charges).", apply = function(val, modList, enemyModList)
 		modList:NewMod("Condition:UseEnduranceCharges", "FLAG", true, "Config")
 	end },
 	{ var = "overrideEnduranceCharges", type = "count", label = "# of Endurance Charges (if not maximum):", ifOption = "useEnduranceCharges", apply = function(val, modList, enemyModList)
