@@ -24,6 +24,15 @@ describe("TestDefenceMechanics", function()
 		assert.are.near(expected, actual, tol or 0.01)
 	end
 
+	it("Runic Ward can't stop a lethal hit when life loss prevention clamps the damage", function()
+		local prevention = "25% of Life Loss from Hits is prevented, then that much Life is lost over 4 seconds instead"
+		local without = setup(prevention).NumberOfMitigatedDamagingHits
+		local with = setup(prevention .. "\n+1000 to maximum Runic Ward").NumberOfMitigatedDamagingHits
+		-- 1000 Ward adds about one 1000 damage hit, not one hit per sliver of damage left after the clamp
+		assert.is_true(with > without)
+		assert.is_true(with < without + 2)
+	end)
+
 	it("recoups physical damage prevented by damage reduction", function()
 		-- no armour: 50% additional reduction prevents half of each hit and lets half through
 		local output = setup("50% additional Physical Damage Reduction\n50% of Physical Damage prevented Recouped as Life")

@@ -619,6 +619,9 @@ function calcs.reducePoolsByDamage(poolTable, damageTable, actor)
 			else
 				MoMPoolRemaining = 0
 			end
+			-- Damage beyond what Life can take with loss prevention. It still has to go through Runic Ward,
+			-- which protects at 1 Life, so Ward can't stop a lethal hit with only the clamped remainder
+			local excessOverLife = 0
 			if output.preventedLifeLossTotal > 0 then
 				local halfLife = output.Life * 0.5
 				local lifeOverHalfLife = m_max(life - halfLife, 0)
@@ -627,7 +630,7 @@ function calcs.reducePoolsByDamage(poolTable, damageTable, actor)
 				local preventBelowHalfPercent = lifeLossBelowHalfPrevented / 100
 				local damageThatLifeCanStillTake = poolAboveLow + m_max(m_min(life, halfLife), 0) / (1 - preventBelowHalfPercent) / (1 - output.preventedLifeLoss / 100)
 				if damageThatLifeCanStillTake < damageRemainder  then
-					overkillDamage = overkillDamage + damageRemainder - damageThatLifeCanStillTake
+					excessOverLife = damageRemainder - damageThatLifeCanStillTake
 					damageRemainder = damageThatLifeCanStillTake
 				end
 				if output.preventedLifeLossBelowHalf ~= 0 then
@@ -656,6 +659,7 @@ function calcs.reducePoolsByDamage(poolTable, damageTable, actor)
 					resourcesLostToTypeDamage[damageType].lifeLossPrevented = tempDamage >= 1 and tempDamage or nil
 				end
 			end
+			damageRemainder = damageRemainder + excessOverLife
 			if life > 0 then
 				local tempDamage = m_min(damageRemainder, life - 1)
 				life = life - tempDamage
