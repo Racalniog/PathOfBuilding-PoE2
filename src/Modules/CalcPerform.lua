@@ -1275,7 +1275,7 @@ local function doInfusionApprox(env)
 		if ailment == "Freeze" then
 			-- ponytail: one freeze per 100% average buildup, against a target of Power 1 (a normal monster), and no wait for the freeze to
 			-- end; upgrade path = Power by enemy rarity and the freeze duration
-			rate = (output.FreezeBuildupAvg or 0) / 100 * hitRate
+			rate = m_min((output.FreezeBuildupAvg or 0) / 100, 1) * hitRate
 		else
 			rate = ((output[ailment.."ChanceOnHit"] or 0) * (1 - crit) + (output[ailment.."ChanceOnCrit"] or 0) * crit) / 100 * hitRate
 			rate = calcLib.approxRateWhileUnaffected(rate, output[ailment.."Duration"] or 0)

@@ -165,6 +165,20 @@ Progress:
   - **Data re-export** against the live game (Forbidden Rites): skills, mods, uniques, stat descriptions,
     soul cores and the tree are unchanged.
   - Census: 1,309 → 1,170.
+- Fourth pass: Archon values and Elemental Infusions, from the live game data
+  - **Data:** the exporter writes the Archon Buff templates (10 s duration and each buff's own stats) to
+    `data.archonBuffs`; infusion constants (3 per element, 20 s, remnants 12 s) were already in
+    `data.gameConstants`. The Archon recovery period isn't in the game data and stays a configurable guess.
+  - **Archon Buffs** apply their own stats (25% more spell damage of their element, conversion, more ailment
+    chance, Undeath minion damage, Nature plant damage and duration, Chayula physical and chaos damage),
+    with an *Archon Buff* choice in the configuration.
+  - **Elemental Infusions:** exact counts per element in the configuration, capped at the maximum. With
+    approximations on, the Calcs tab also estimates remnant generation, consumption, infused share and
+    average stacks; the estimate is report-only for now.
+  - **Known limits:** Siphon Elements counts as a buff on you (as in the game). Archon of Undeath's Command
+    cooldown has no effect yet (no Command skill condition). With several Archon sources the first one is
+    used. Whether increased Archon effect scales the conversion is untested.
+  - Census: 1,170 → about 1,126.
 
 - Join modifiers that span two lines before parsing.
 - Accept negative ranges.

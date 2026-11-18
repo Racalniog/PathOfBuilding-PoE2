@@ -5279,7 +5279,12 @@ local specialModList = {
 	["when collecting an elemental infusion, gain an additional elemental infusion of the same type"] = { mod("InfusionGainSameChance", "BASE", 100) },
 	["(%d+)%% chance when collecting an elemental infusion to gain another different elemental infusion"] = function(num) return { mod("InfusionGainOtherChance", "BASE", num) } end,
 	["when collecting an elemental infusion, gain another different elemental infusion"] = { mod("InfusionGainOtherChance", "BASE", 100) },
-	["create (%a+) infusion remnants instead of (%a+)"] = function(_, to, from) return { mod("InfusionRemnantConversion", "LIST", { from = firstToUpper(from), to = firstToUpper(to) }) } end,
+	["create (%a+) infusion remnants instead of (%a+)"] = function(_, to, from)
+		local elements = { fire = true, cold = true, lightning = true }
+		if elements[to] and elements[from] then
+			return { mod("InfusionRemnantConversion", "LIST", { from = firstToUpper(from), to = firstToUpper(to) }) }
+		end
+	end,
 	["every (%d+) seconds, gain a verisium infusion"] = function(num) return { mod("VerisiumInfusionRate", "BASE", 1 / num) } end,
 	["(%d+)%% chance to create an additional remnant"] = function(num) return { mod("ExtraRemnantChance", "BASE", num) } end,
 	["(%d+)%% chance for remnants you pick up to count as picking up an additional remnant"] = function(num) return { mod("RemnantDoublePickupChance", "BASE", num) } end,
