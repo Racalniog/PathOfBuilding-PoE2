@@ -51,7 +51,8 @@ modLib = { }
 -- when the whole isn't understood
 local danglingWords = { an = true, a = true, to = true, of = true, per = true, also = true, when = true, ["and"] = true }
 function modLib.wrapsInto(line, nextLine)
-	if not nextLine then
+	-- Separators and section lines of a pasted item are never part of a modifier
+	if not nextLine or not nextLine:match("%a") or nextLine:match("^%-%-") then
 		return false
 	end
 	if nextLine:match("^%s*%l") then

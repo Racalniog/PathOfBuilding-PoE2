@@ -152,6 +152,20 @@ Progress:
   Effective HP is a hit pool, so recovery doesn't raise the score yet. That needs its own term.
 - Still open: Armour Break, Dodge Roll, leech and flask overflow, Guard from sacrificed life, and
   life-flask-based Guard.
+- Third pass:
+  - **Wrapped modifiers:** modifiers the game wraps over two lines are read as one, on the tree, items
+    and in the census. A line that is understood on its own is never given up for a continuation.
+  - **New patterns:** chain and fork for spells and lightning skills, mana cost efficiency of spells,
+    and "Equipment has no Attribute Requirements".
+  - **Archon Buffs:** effect scaling of "Archon Buffs also grant", "while affected by an Archon Buff",
+    and recovery-period modifiers, with an *Are you affected by an Archon Buff?* option. With
+    approximations on, the uptime is duration / (duration + recovery period). Duration and recovery
+    period default to 10 s each, a guess; the real values come from the buff definitions.
+  - **Elemental Infusion supply** (39 lines) is still open. It needs the rules for how infusions are
+    generated, from the buff definitions and in-game testing.
+  - **Data re-export** against the live game (Forbidden Rites): skills, mods, uniques, stat descriptions,
+    soul cores and the tree are unchanged.
+  - Census: 1,309 → 1,170.
 
 - Join modifiers that span two lines before parsing.
 - Accept negative ranges.

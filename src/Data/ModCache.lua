@@ -7372,7 +7372,7 @@ c["Equipment and Skill Gems have 25% reduced Attribute Requirements"]={{[1]={fla
 c["Equipment and Skill Gems have 4% reduced Attribute Requirements"]={{[1]={flags=0,keywordFlags=0,name="GlobalAttributeRequirements",type="INC",value=-4}},nil}
 c["Equipment and Skill Gems have 50% increased Attribute Requirements"]={{[1]={flags=0,keywordFlags=0,name="GlobalAttributeRequirements",type="INC",value=50}},nil}
 c["Equipment and Skill Gems have 50% reduced Attribute Requirements"]={{[1]={flags=0,keywordFlags=0,name="GlobalAttributeRequirements",type="INC",value=-50}},nil}
-c["Equipment has no Attribute Requirements"]={{[1]={flags=0,keywordFlags=0,name="IgnoreAttributeRequirements",type="FLAG",value=true}},nil}
+c["Equipment has no Attribute Requirements"]={{[1]={flags=0,keywordFlags=0,name="GlobalItemAttributeRequirements",type="MORE",value=-100}},nil}
 c["Eternal Youth"]={{[1]={flags=0,keywordFlags=0,name="Keystone",type="LIST",value="Eternal Youth"},[2]={flags=0,keywordFlags=0,name="Condition:HaveEternalYouth",type="FLAG",value=true}},nil}
 c["Evasion Rating from Equipped Body Armour is halved"]={{[1]={[1]={slotName="Body Armour",type="SlotName"},flags=0,keywordFlags=0,name="Evasion",type="MORE",value=-50}},nil}
 c["Evasion Rating from Equipped Helmet, Gloves and Boots is doubled"]={{[1]={[1]={slotNameList={[1]="Helmet",[2]="Boots",[3]="Gloves"},type="SlotName"},flags=0,keywordFlags=0,name="Evasion",type="MORE",value=100}},nil}
@@ -8194,8 +8194,9 @@ c["Hit damage is taken from Mana before Life if your current Mana is higher than
 c["Hit damage is taken from Mana before Life if your current Mana is higher than your current Life 15% less maximum Life"]={nil,"Hit damage is taken from Mana before Life if your current Mana is higher than your current Life 15% less maximum Life "}
 c["Hit damage is taken from Mana before Life if your current Mana is higher than your current Life 15% less maximum Life 15% less maximum Mana"]={nil,"Hit damage is taken from Mana before Life if your current Mana is higher than your current Life 15% less maximum Life 15% less maximum Mana "}
 c["Hits Break 30% increased Armour on targets with Ailments"]={{[1]={[1]={actor="enemy",type="ActorCondition",varList={[1]="Frozen",[2]="Chilled",[3]="Shocked",[4]="Electrocuted",[5]="Ignited",[6]="Poisoned",[7]="Bleeding"}},flags=0,keywordFlags=0,name="ArmourBreakPerHit",type="INC",value=30}},nil}
-c["Hits Break 40 Armour"]={{[1]={flags=0,keywordFlags=0,name="ArmourBreakPerHit",type="BASE",value=40},[2]={[1]={effectName="ArmourBreak",effectType="Buff",type="GlobalEffect"},flags=0,keywordFlags=0,name="Condition:CanArmourBreak",type="FLAG",value=true}},nil}
-c["Hits Break 50 Armour"]={{[1]={flags=0,keywordFlags=0,name="ArmourBreakPerHit",type="BASE",value=50},[2]={[1]={effectName="ArmourBreak",effectType="Buff",type="GlobalEffect"},flags=0,keywordFlags=0,name="Condition:CanArmourBreak",type="FLAG",value=true}},nil}
+c["Hits Break 40 Armour"]={nil,"Hits Break 40 Armour "}
+c["Hits Break 50 Armour"]={nil,"Hits Break 50 Armour "}
+c["Hits Break 50 Armour Inflicts Elemental Exposure when this Weapon Fully Breaks Armour"]={nil,"Hits Break 50 Armour Inflicts Elemental Exposure when this Weapon Fully Breaks Armour "}
 c["Hits Break 50% increased Armour on targets with Ailments"]={{[1]={[1]={actor="enemy",type="ActorCondition",varList={[1]="Frozen",[2]="Chilled",[3]="Shocked",[4]="Electrocuted",[5]="Ignited",[6]="Poisoned",[7]="Bleeding"}},flags=0,keywordFlags=0,name="ArmourBreakPerHit",type="INC",value=50}},nil}
 c["Hits against you have 12% reduced Critical Damage Bonus"]={{[1]={flags=0,keywordFlags=0,name="EnemyModifier",type="LIST",value={mod={flags=4,keywordFlags=0,name="CritMultiplier",type="INC",value=-12}}}},nil}
 c["Hits against you have 15% reduced Critical Damage Bonus per Socket filled"]={{[1]={flags=0,keywordFlags=0,name="EnemyModifier",type="LIST",value={mod={[1]={type="Multiplier",var="RunesSocketedIn{SlotName}"},flags=4,keywordFlags=0,name="CritMultiplier",type="INC",value=-15}}}},nil}
@@ -9969,6 +9970,7 @@ c["the enemy's Power for 20 seconds, up to a total of 500"]={nil,"the enemy's Po
 c["their Explicit Modifiers are transformed into more powerful related Modifiers"]={nil,"their Explicit Modifiers are transformed into more powerful related Modifiers "}
 c["until you take no Damage to Life for 3 seconds"]={nil,"until you take no Damage to Life for 3 seconds "}
 c["until you take no Damage to Life for 5 seconds"]={nil,"until you take no Damage to Life for 5 seconds "}
+c["until you take no Damage to Life for 5 seconds Life that would be lost by taking Damage is instead Reserved"]={nil,"until you take no Damage to Life for 5 seconds Life that would be lost by taking Damage is instead Reserved "}
 c["you Shapeshift to an Animal form"]={nil,"you Shapeshift to an Animal form "}
 c["your maximum number of Power Charges"]={nil,"your maximum number of Power Charges "}
 end)();

@@ -2596,7 +2596,7 @@ local specialModList = {
 	["critical hits inflict scorch, brittle and sapped"] = { flag("CritAlwaysAltAilments") },
 	["you take (%d+)%% of damage from blocked hits"] = function(num) return { mod("BlockEffect", "BASE", num) } end,
 	["ignore attribute requirements"] = { flag("IgnoreAttributeRequirements") },
-	["equipment has no attribute requirements"] = { flag("IgnoreAttributeRequirements") },
+	["equipment has no attribute requirements"] = { mod("GlobalItemAttributeRequirements", "MORE", -100) },
 	["gain no inherent bonuses from attributes"] = { flag("NoAttributeBonuses") },
 	["gain no inherent bonuses from strength"] = { flag("NoStrengthAttributeBonuses") },
 	["gain no inherent bonuses from dexterity"] = { flag("NoDexterityAttributeBonuses") },
@@ -4404,7 +4404,6 @@ local specialModList = {
 	["elemental damage with hits is lucky while you are shocked"] = { flag("ElementalLuckHits", { type = "Condition", var = "Shocked" }) },
 	["break (%d+)%% of armour on heavy stunning an enemy"] = { flag("Condition:CanArmourBreak", { type = "GlobalEffect", effectType = "Buff", effectName = "ArmourBreak" }) },
 	["break (%d+)%% increased armour"] = function(num) return { mod("ArmourBreakPerHit", "INC", num)} end,
-	["hits break (%d+) armour"] = function(num) return { mod("ArmourBreakPerHit", "BASE", num), flag("Condition:CanArmourBreak", { type = "GlobalEffect", effectType = "Buff", effectName = "ArmourBreak" }) } end,
 	["break (%d+)%% increased armour on enemies affected by ailments"] = function(num) return {
 		mod("ArmourBreakPerHit", "INC", num, { type = "ActorCondition", actor = "enemy", varList = { "Frozen","Chilled","Shocked","Electrocuted","Ignited","Poisoned","Bleeding" } } )
 	} end,

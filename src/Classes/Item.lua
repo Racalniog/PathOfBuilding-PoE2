@@ -1237,18 +1237,17 @@ function ItemClass:ParseRaw(raw, rarity, highQuality)
 				end
 				local rangedLine = itemLib.applyRange(line, 1, catalystScalar, modLine.corruptedRange)
 				local modList, extra = modLib.parseMod(rangedLine)
-				if self.rawLines[l+1] and (not modList or extra or modLib.wrapsInto(line, (self.rawLines[l+1]:gsub("%b{}", "")))) then
+				local nextLine = self.rawLines[l+1] and self.rawLines[l+1]:gsub("%b{}", ""):gsub(" ?%(%l+%)","")
+				local headParsed = modList and not extra
+				if nextLine and (not headParsed or modLib.wrapsInto(line, nextLine)) then
 					-- Try to combine it with the next line
-					local nextLine = self.rawLines[l+1]:gsub("%b{}", ""):gsub(" ?%(%l+%)","")
-					local combLine = line.." "..nextLine
-					rangedLine = itemLib.applyRange(combLine, 1, catalystScalar, modLine.corruptedRange)
-					modList, extra = modLib.parseMod(rangedLine, true)
-					if modList and not extra or modLib.wrapsInto(line, nextLine) then
-						-- Also joins a wrapped modifier that isn't understood, so it reads as one line
+					local combList, combExtra = modLib.parseMod(itemLib.applyRange(line.." "..nextLine, 1, catalystScalar, modLine.corruptedRange), true)
+					-- A wrapped modifier that isn't understood is also joined, so it reads as one line, but
+					-- never at the cost of a line that is understood on its own
+					if combList and not combExtra or (not headParsed and modLib.wrapsInto(line, nextLine)) then
 						line = line.."\n"..nextLine
 						l = l + 1
-					else
-						modList, extra = modLib.parseMod(rangedLine)
+						modList, extra = combList, combExtra
 					end
 				end
 

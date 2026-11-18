@@ -725,7 +725,7 @@ local function doActorMisc(env, actor)
 			archonUptime = duration > 0 and duration / (duration + recovery) or 0
 		end
 		if archonUptime > 0 then
-			local effect = calcLib.mod(modDB, nil, "ArchonEffect", "BuffEffectOnSelf")
+			local effect = m_max(calcLib.mod(modDB, nil, "ArchonEffect", "BuffEffectOnSelf"), 0)
 			output.ArchonEffectMod = effect * archonUptime * 100
 			if actor.breakdown then
 				actor.breakdown.ArchonEffectMod = {
@@ -734,7 +734,10 @@ local function doActorMisc(env, actor)
 				}
 			end
 			for _, value in ipairs(modDB:List(nil, "ArchonBuff")) do
-				modDB:ScaleAddMod(value.mod, effect * archonUptime)
+				-- A flag can't be scaled, so it only counts when the buff is known to be up
+				if value.mod.type ~= "FLAG" or archonUptime >= 1 then
+					modDB:ScaleAddMod(value.mod, effect * archonUptime)
+				end
 			end
 		end
 		if modDB:Max(nil, "WitherEffectStack") then
