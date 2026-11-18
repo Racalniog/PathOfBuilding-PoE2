@@ -140,6 +140,17 @@ data.gameConstants = {
 	["ExpeditionMonsterModRuneOpulentMoreIIROfRuneMods"] = 400,
 	["ExpeditionMonsterModRuneOpulentPowerMoreIIROfRuneMods"] = 400,
 }
+-- From BuffTemplates.dat: Archon Buffs, their duration in seconds and the values of their own stats
+data.archonBuffs = {
+	["ArchonCold"] = { buff = "archon_cold", duration = 10, stats = { ["archon_elemental_damage_with_spells_%_to_convert_to_cold"] = 100, ["archon_spells_hit_damage_freeze_multiplier_+%_final"] = 100, ["cold_damage_with_spell_skills_+%_final_from_archon_buff"] = 25 } },
+	["ArchonElemental"] = { buff = "archon_elemental", duration = 10, stats = { ["archon_spells_hit_damage_freeze_multiplier_+%_final"] = 100, ["archon_spells_ignite_chance_+%_final"] = 100, ["archon_spells_shock_chance_+%_final"] = 100, ["elemental_damage_with_spell_skills_+%_final_from_archon_buff"] = 25 } },
+	["ArchonElementalNoFlying"] = { buff = "archon_elemental", duration = 10, stats = { ["archon_spells_hit_damage_freeze_multiplier_+%_final"] = 100, ["archon_spells_ignite_chance_+%_final"] = 100, ["archon_spells_shock_chance_+%_final"] = 100, ["elemental_damage_with_spell_skills_+%_final_from_archon_buff"] = 25 } },
+	["ArchonFire"] = { buff = "archon_fire", duration = 10, stats = { ["archon_elemental_damage_with_spells_%_to_convert_to_fire"] = 100, ["archon_spells_ignite_chance_+%_final"] = 100, ["fire_damage_with_spell_skills_+%_final_from_archon_buff"] = 25 } },
+	["ArchonLightning"] = { buff = "archon_lightning", duration = 10, stats = { ["archon_elemental_damage_with_spells_%_to_convert_to_lightning"] = 100, ["archon_spells_shock_chance_+%_final"] = 100, ["lightning_damage_with_spell_skills_+%_final_from_archon_buff"] = 25 } },
+	["ArchonNature"] = { buff = "archon_nature", duration = 10, stats = { ["chance_for_plants_to_be_overgrown_%"] = 100, ["plant_skill_damage_+%"] = 25, ["plant_skill_effect_duration_+%_final_from_archon_of_nature"] = 200, ["plant_skill_limit_+"] = 2 } },
+	["ArchonOfChayula"] = { buff = "archon_of_chayula", duration = 10, stats = { } },
+	["ArchonUndeath"] = { buff = "archon_undeath", duration = 10, stats = { ["archon_of_undeath_minion_damage_+%_final"] = 25, ["minion_command_skill_cooldown_speed_+%_final_from_archon_of_undeath"] = 200, ["temporary_minion_limit_+%_final_from_archon_of_undeath"] = 100 } },
+}
 -- From Metadata/Characters/Character.ot
 data.characterConstants = {
 	["level"] = 1,

@@ -22,13 +22,14 @@ describe("TestParserGaps", function()
 	end)
 
 	it("keeps the halves of a wrapped passive tree line together", function()
+		-- a wrapped modifier the parser doesn't understand
 		local node = { id = "t", dn = "t", type = "Notable", sd = {
-			"5% chance when collecting an Elemental Infusion to gain an",
-			"additional Elemental Infusion of the same type",
+			"Gain a Power Charge when you consume an",
+			"Elemental Infusion",
 			"+10 to Strength",
 		} }
 		build.spec.tree:ProcessStats(node)
-		assert.are.equals("5% chance when collecting an Elemental Infusion to gain an additional Elemental Infusion of the same type", node.mods[1].text)
+		assert.are.equals("Gain a Power Charge when you consume an Elemental Infusion", node.mods[1].text)
 		assert.is_true(node.mods[2].combined)
 		assert.are.equals(1, #node.mods[3].list)
 		assert.is_nil(node.mods[3].text)

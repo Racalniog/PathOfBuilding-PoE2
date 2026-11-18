@@ -2621,6 +2621,9 @@ skills["SupportChargeInhibitionPlayer"] = {
 					mod("Damage", "MORE", nil, 0, 0, { type = "MultiplierThreshold", var = "FrenzyCharge", threshold = 1 }),
 					mod("Damage", "MORE", nil, 0, 0, { type = "MultiplierThreshold", var = "PowerCharge", threshold = 1 }),
 					mod("Damage", "MORE", nil, 0, 0, { type = "MultiplierThreshold", var = "EnduranceCharge", threshold = 1 }),
+					mod("Damage", "MORE", nil, 0, 0, { type = "MultiplierThreshold", var = "FireInfusion", threshold = 1 }),
+					mod("Damage", "MORE", nil, 0, 0, { type = "MultiplierThreshold", var = "ColdInfusion", threshold = 1 }),
+					mod("Damage", "MORE", nil, 0, 0, { type = "MultiplierThreshold", var = "LightningInfusion", threshold = 1 }),
 				},
 			},
 			baseFlags = {

@@ -161,8 +161,7 @@ Progress:
     and recovery-period modifiers, with an *Are you affected by an Archon Buff?* option. With
     approximations on, the uptime is duration / (duration + recovery period). Duration and recovery
     period default to 10 s each, a guess; the real values come from the buff definitions.
-  - **Elemental Infusion supply** (39 lines) is still open. It needs the rules for how infusions are
-    generated, from the buff definitions and in-game testing.
+  - **Elemental Infusion supply**: see Phase 3.
   - **Data re-export** against the live game (Forbidden Rites): skills, mods, uniques, stat descriptions,
     soul cores and the tree are unchanged.
   - Census: 1,309 → 1,170.
@@ -195,10 +194,26 @@ Order by the Phase 0 ranking. The census suggests this order:
      approximations on, an Archon source gives the "also grant" part an uptime of duration / (duration + recovery
      period), from *Archon Buff duration* and *Archon recovery period* inputs (10 s each, a guess: the base values
      and what each Archon Buff grants by itself aren't exported yet, see Phase 5).
-   - Still open: the infusion supply lines (maximum infusions, infusion duration, extra infusions on collection,
-     not removing infusions, Elemental Equilibrium, Verisium every 5 s). They need the remnant generation rules
-     and a share of infused casts, which the engine doesn't have.
    - Census: 1,309 → 1,261; Infusion / Archon 87 → 39.
+   - Archon Buffs' own effects and Elemental Infusion (November 2026), from the exported buff templates and game
+     constants (Phase 5):
+     - An *Archon Buff* choice (Elemental, Flame, Ice, Lightning, Undeath, Nature, Chayula; by default the one your
+       Archon source grants) applies the buff's own stats: more spell damage of its element and conversion to it, more
+       ignite / shock chance and freeze buildup with spells, more minion damage and Command cooldown recovery (Undeath),
+       plant damage and duration (Nature), more physical and chaos damage and Wither (Chayula). The effect of Archon
+       Buffs scales them, an assumption from the wording. The base duration (10 s) comes from the data; the recovery
+       period isn't in the data and stays a 10 s input. Not modelled: Overgrown chance, plant and temporary minion
+       limits, Chayula's tornado.
+     - *# of Fire / Cold / Lightning Infusions* set `Multiplier:<Element>Infusion`, capped at 3 per element plus
+       "maximum ... Infusions" (each infusion buff has its own maximum); the Inhibitor support counts infusion types.
+       Infusion duration is 20 s, raised by "Elemental Infusion duration".
+     - With approximations on and a count left empty, the average infusions and the share of infused casts of the main
+       skill are estimated from Remnant generation (Siphon Elements' chance on ignite / freeze / shock, a per-element
+       *Infusion Remnants/s, other* input, remnant conversion keystones, extra remnants and infusions on pickup,
+       Verisium every N s) and consumption (casts of a skill that consumes the infusion, less the chance to not remove
+       it). The estimate is reported in the calcs tab but doesn't feed the multipliers yet, because the rates come
+       from the offence calculation.
+     - Census: 1,171 → 1,126; Infusion / Archon 35 → 4 (Infernal Flame, minion Archon, Power Charge on consumption).
 2. **Charges**: generation, consumption and "per charge" effects (113 lines).
 3. **Recovery on events**: on kill, in Presence, leech variants (151 lines). Started early, as the
    first user of the approximation model: on-kill recovery uses the kills-per-second rate.
@@ -225,6 +240,10 @@ infusion numbers):
 - find the table with dat-schema or poe-dat-viewer,
 - add it to `src/Export/spec.lua` and an export script, and
 - regenerate `src/Data`.
+
+Done: Archon Buff templates (duration and own stats) in `data.archonBuffs`, written by `Export/Scripts/miscdata.lua`
+to `src/Data/Misc.lua`. The infusion constants (BaseMaximumInfusionCount, BaseInfusionDurationMs,
+InfusionRemnantBaseDuration) were already in `data.gameConstants`.
 
 ### Phase 6: Measurement in the game (ongoing)
 

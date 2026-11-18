@@ -56,6 +56,21 @@ function calcLib.val(modStore, name, cfg)
 	end
 end
 
+-- Expected-value helpers of the approximation model (docs/calculationGapsPlan.md, "The approximation model")
+-- Events that each happen once per target until an effect of the given duration on it ends ("on igniting a non-Ignited target"):
+-- each cycle is the effect's duration plus the wait 1 / rate for the next application
+function calcLib.approxRateWhileUnaffected(rate, duration)
+	return rate > 0 and rate / (1 + rate * duration) or 0
+end
+-- Stacks gained at a rate, each lasting a duration, up to a maximum
+function calcLib.approxAverageStacks(max, rate, duration)
+	return m_min(max, rate * duration)
+end
+-- Share of uses that find a resource, supplied at one rate and used up at another (all of them if nothing uses it up)
+function calcLib.approxSupplyShare(supply, demand)
+	return demand > 0 and m_min(1, supply / demand) or supply > 0 and 1 or 0
+end
+
 -- Validate the level of the given gem
 function calcLib.validateGemLevel(gemInstance)
 	local grantedEffect = gemInstance.grantedEffect or gemInstance.gemData.grantedEffect

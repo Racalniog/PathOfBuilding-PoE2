@@ -3136,6 +3136,81 @@ return function(mod, flag, skill)
 ["breach_flame_chaos_addition_%"] = {
 	mod("BreachFlameChaosGain", "BASE", nil),
 },
+-- Elemental Infusion (CalcPerform doInfusions): Siphon Elements' remnant chances, and the infusions a skill consumes
+["infusion_remnants_%_chance_to_spawn_fire_infusion_on_igniting_an_enemy"] = {
+	mod("FireInfusionRemnantChance", "BASE", nil, 0, 0, { type = "GlobalEffect", effectType = "Buff", unscalable = true }),
+},
+["infusion_remnants_%_chance_to_spawn_cold_infusion_on_freezing_an_enemy"] = {
+	mod("ColdInfusionRemnantChance", "BASE", nil, 0, 0, { type = "GlobalEffect", effectType = "Buff", unscalable = true }),
+},
+["infusion_remnants_%_chance_to_spawn_lightning_infusion_on_shocking_an_enemy"] = {
+	mod("LightningInfusionRemnantChance", "BASE", nil, 0, 0, { type = "GlobalEffect", effectType = "Buff", unscalable = true }),
+},
+["active_skill_consumes_a_fire_infusion"] = {
+	flag("ConsumesFireInfusion"),
+},
+["active_skill_consumes_a_cold_infusion"] = {
+	flag("ConsumesColdInfusion"),
+},
+["active_skill_consumes_a_lightning_infusion"] = {
+	flag("ConsumesLightningInfusion"),
+},
+["chance_to_not_consume_infusion_%"] = {
+	mod("InfusionNotConsumedChance", "BASE", nil),
+},
+-- Archon Buffs' own stats (data.archonBuffs, Archon of Chayula's from its skill), applied by CalcPerform doActorMisc
+["elemental_damage_with_spell_skills_+%_final_from_archon_buff"] = {
+	mod("ElementalDamage", "MORE", nil, 0, KeywordFlag.Spell),
+},
+["fire_damage_with_spell_skills_+%_final_from_archon_buff"] = {
+	mod("FireDamage", "MORE", nil, 0, KeywordFlag.Spell),
+},
+["cold_damage_with_spell_skills_+%_final_from_archon_buff"] = {
+	mod("ColdDamage", "MORE", nil, 0, KeywordFlag.Spell),
+},
+["lightning_damage_with_spell_skills_+%_final_from_archon_buff"] = {
+	mod("LightningDamage", "MORE", nil, 0, KeywordFlag.Spell),
+},
+["archon_elemental_damage_with_spells_%_to_convert_to_fire"] = {
+	mod("ColdDamageConvertToFire", "BASE", nil, 0, KeywordFlag.Spell),
+	mod("LightningDamageConvertToFire", "BASE", nil, 0, KeywordFlag.Spell),
+},
+["archon_elemental_damage_with_spells_%_to_convert_to_cold"] = {
+	mod("FireDamageConvertToCold", "BASE", nil, 0, KeywordFlag.Spell),
+	mod("LightningDamageConvertToCold", "BASE", nil, 0, KeywordFlag.Spell),
+},
+["archon_elemental_damage_with_spells_%_to_convert_to_lightning"] = {
+	mod("FireDamageConvertToLightning", "BASE", nil, 0, KeywordFlag.Spell),
+	mod("ColdDamageConvertToLightning", "BASE", nil, 0, KeywordFlag.Spell),
+},
+["archon_spells_ignite_chance_+%_final"] = {
+	mod("EnemyIgniteChance", "MORE", nil, 0, KeywordFlag.Spell),
+},
+["archon_spells_shock_chance_+%_final"] = {
+	mod("EnemyShockChance", "MORE", nil, 0, KeywordFlag.Spell),
+},
+["archon_spells_hit_damage_freeze_multiplier_+%_final"] = {
+	mod("EnemyFreezeBuildup", "MORE", nil, 0, KeywordFlag.Spell),
+},
+["archon_of_undeath_minion_damage_+%_final"] = {
+	mod("MinionModifier", "LIST", { mod = mod("Damage", "MORE", nil) }),
+},
+["minion_command_skill_cooldown_speed_+%_final_from_archon_of_undeath"] = {
+	mod("MinionModifier", "LIST", { mod = mod("CooldownRecovery", "MORE", nil, 0, 0, { type = "Condition", var = "CommandableSkill" }) }),
+},
+["plant_skill_damage_+%"] = {
+	mod("Damage", "INC", nil, 0, 0, { type = "SkillType", skillType = SkillType.Plant }),
+},
+["plant_skill_effect_duration_+%_final_from_archon_of_nature"] = {
+	mod("Duration", "MORE", nil, 0, 0, { type = "SkillType", skillType = SkillType.Plant }),
+},
+["archon_of_chayula_physical_and_chaos_damage_+%_final"] = {
+	mod("PhysicalDamage", "MORE", nil),
+	mod("ChaosDamage", "MORE", nil),
+},
+["archon_of_chayula_withered_on_hit_for_4_seconds_%_chance"] = {
+	flag("Condition:CanWither"),
+},
 -- Display only
 ["quality_display_base_additional_arrows_is_gem"] = {
 	-- Display only

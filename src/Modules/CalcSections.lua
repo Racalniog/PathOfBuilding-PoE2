@@ -2028,6 +2028,15 @@ return {
 		{ label = "Spendable", { format = "{0:output:RemovablePowerCharges}", }, },
 		{ label = "Duration", { format = "{0:output:PowerChargesDuration}s", { modName = { "PowerChargesDuration", "ChargeDuration" } } }, },
 	} },
+	{ defaultCollapsed = true, label = "Elemental Infusions", haveOutput = "HaveInfusions", data = {
+		{ label = "Fire Infusions", { format = "{2:output:FireInfusions} / {0:output:FireInfusionsMax}", { breakdown = "FireInfusions" }, { modName = { "FireInfusions", "InfusionsMax", "FireInfusionsMax", "FireInfusionRemnantChance", "ColdInfusionRemnantChance", "LightningInfusionRemnantChance", "InfusionRemnantConversion", "ExtraRemnantChance", "RemnantDoublePickupChance", "InfusionGainSameChance", "InfusionGainOtherChance", "VerisiumInfusionRate" } }, }, },
+		{ label = "Cold Infusions", { format = "{2:output:ColdInfusions} / {0:output:ColdInfusionsMax}", { breakdown = "ColdInfusions" }, { modName = { "ColdInfusions", "InfusionsMax", "ColdInfusionsMax", "FireInfusionRemnantChance", "ColdInfusionRemnantChance", "LightningInfusionRemnantChance", "InfusionRemnantConversion", "ExtraRemnantChance", "RemnantDoublePickupChance", "InfusionGainSameChance", "InfusionGainOtherChance", "VerisiumInfusionRate" } }, }, },
+		{ label = "Lightning Infusions", { format = "{2:output:LightningInfusions} / {0:output:LightningInfusionsMax}", { breakdown = "LightningInfusions" }, { modName = { "LightningInfusions", "InfusionsMax", "LightningInfusionsMax", "FireInfusionRemnantChance", "ColdInfusionRemnantChance", "LightningInfusionRemnantChance", "InfusionRemnantConversion", "ExtraRemnantChance", "RemnantDoublePickupChance", "InfusionGainSameChance", "InfusionGainOtherChance", "VerisiumInfusionRate" } }, }, },
+		{ label = "Duration", { format = "{1:output:FireInfusionDuration}s", { modName = "InfusionDuration" }, }, },
+		{ label = "Fire-Infused casts", haveOutput = "FireInfusedShare", { format = "{0:output:FireInfusedShare}%", { breakdown = "FireInfusedShare" }, { modName = "InfusionNotConsumedChance", cfg = "skill" }, }, },
+		{ label = "Cold-Infused casts", haveOutput = "ColdInfusedShare", { format = "{0:output:ColdInfusedShare}%", { breakdown = "ColdInfusedShare" }, { modName = "InfusionNotConsumedChance", cfg = "skill" }, }, },
+		{ label = "Lightning-Infused casts", haveOutput = "LightningInfusedShare", { format = "{0:output:LightningInfusedShare}%", { breakdown = "LightningInfusedShare" }, { modName = "InfusionNotConsumedChance", cfg = "skill" }, }, },
+	} },
 } },
 -- misc defense
 { 1, "MiscDefences", 3, colorCodes.DEFENCE, {{ defaultCollapsed = false, label = "Other Defences", data = {

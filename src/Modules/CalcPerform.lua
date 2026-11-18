@@ -711,32 +711,88 @@ local function doActorMisc(env, actor)
 			modDB:NewMod("AvoidAllDamageFromHitsChance", "BASE", m_floor(15 * effect), "Elusive")
 			modDB:NewMod("MovementSpeed", "INC", m_floor(30 * effect), "Elusive")
 		end
-		-- Archon Buffs (stat descriptions archon_*): "Archon Buffs also grant ..." is part of every Archon Buff, so
-		-- "increased effect of Archon Buffs on you" scales it, and so does buff effect on you as for Onslaught and Elusive.
-		-- What each Archon Buff grants by itself (Elemental Archon, Archon of Undeath, ...) isn't in the exported data.
+		-- Archon Buffs (data.archonBuffs, from BuffTemplates.dat; stat descriptions archon_*). The buff's own stats and "Archon Buffs
+		-- also grant ..." are scaled by "increased effect of Archon Buffs on you", and by buff effect on you as for Onslaught and Elusive.
+		-- ponytail: that this effect also scales the buff's own stats (25% more Spell damage, conversion, ...) is read from the wording,
+		-- which names the whole buff like "effect of Onslaught on you"; upgrade path = check Elemental Archon's damage bonus in the game
 		local archonUptime = modDB:Flag(nil, "Condition:AffectedByArchon") and 1 or 0
-		if archonUptime == 0 and modDB:Flag(nil, "ArchonSource") then
-			-- Approximation (ArchonSource needs Use approximations): the buff lasts its duration, then can't be gained again
-			-- until its recovery period has expired, so uptime = duration / (duration + recovery period).
+		local archonSource = modDB:List(nil, "ArchonSource")[1]
+		local archonId = archonUptime == 1 and env.configInput.archonBuff ~= "SOURCE" and env.configInput.archonBuff or archonSource or "ArchonElemental"
+		local archon = data.archonBuffs[archonId] or data.archonBuffs.ArchonElemental
+		if archonUptime == 0 and archonSource and modDB:Flag(nil, "Condition:UseApproximations") then
+			-- Approximation: the buff lasts its duration, then can't be gained again until its recovery period has expired,
+			-- so uptime = duration / (duration + recovery period).
 			-- ponytail: assumes the gain event comes as soon as the recovery period ends; upgrade path = add the wait 1 / (event rate)
-			local duration = modDB:GetMultiplier("ApproxArchonDuration") * calcLib.mod(modDB, nil, "ArchonDuration")
+			local duration = archon.duration * calcLib.mod(modDB, nil, "ArchonDuration")
 			local recoveryRate = calcLib.mod(modDB, nil, "ArchonRecoveryRate")
 			local recovery = modDB:Flag(nil, "ArchonNoRecoveryPeriod") and 0 or recoveryRate > 0 and modDB:GetMultiplier("ApproxArchonRecovery") / recoveryRate or m_huge
 			archonUptime = duration > 0 and duration / (duration + recovery) or 0
 		end
 		if archonUptime > 0 then
 			local effect = m_max(calcLib.mod(modDB, nil, "ArchonEffect", "BuffEffectOnSelf"), 0)
-			output.ArchonEffectMod = effect * archonUptime * 100
+			local scale = effect * archonUptime
+			output.ArchonEffectMod = scale * 100
 			if actor.breakdown then
 				actor.breakdown.ArchonEffectMod = {
+					s_format("%s", archonId),
 					s_format("%.2f ^8(effect of Archon Buffs)", effect),
 					s_format("x %.2f ^8(uptime%s)", archonUptime, archonUptime < 1 and ", approx." or ""),
 				}
 			end
-			for _, value in ipairs(modDB:List(nil, "ArchonBuff")) do
+			local function addArchonMod(mod)
 				-- A flag can't be scaled, so it only counts when the buff is known to be up
-				if value.mod.type ~= "FLAG" or archonUptime >= 1 then
-					modDB:ScaleAddMod(value.mod, effect * archonUptime)
+				if mod.type ~= "FLAG" or archonUptime >= 1 then
+					if mod.name == "MinionModifier" then
+						-- Minion modifiers of the main skill's minion were collected before this point
+						if env.minion then
+							env.minion.modDB:ScaleAddMod(mod.value.mod, scale)
+						end
+					else
+						modDB:ScaleAddMod(mod, scale)
+					end
+				end
+			end
+			local stats = archon.stats
+			if archonId == "ArchonOfChayula" and data.skills.ArchonOfChayulaPlayer then
+				-- This template's stats refer to the stats of the skill that grants it
+				-- ponytail: the skill's quality (more damage per quality) is ignored; upgrade path = read the socketed skill's stats
+				stats = { }
+				for _, stat in ipairs(data.skills.ArchonOfChayulaPlayer.statSets[1].constantStats) do
+					if stat[1]:match("^archon_of_chayula_") then
+						stats[stat[1]] = stat[2]
+					end
+				end
+			end
+			-- Skipped, not modelled: Nature's Archon's Overgrown chance and plant limit, Archon of Undeath's temporary minion limit,
+			-- Archon of Chayula's tornado (Chayula's Will is its own skill)
+			for stat, value in pairs(stats) do
+				for _, statMod in ipairs(data.skillStatMap[stat] or { }) do
+					local mod = copyTable(statMod)
+					local target = type(mod.value) == "table" and mod.value.mod or mod
+					if target.type ~= "FLAG" then
+						target.value = value
+					end
+					mod.source, target.source = "Archon Buff", "Archon Buff"
+					addArchonMod(mod)
+				end
+			end
+			for _, value in ipairs(modDB:List(nil, "ArchonBuff")) do
+				addArchonMod(value.mod)
+			end
+		end
+		if actor == env.player then
+			-- Elemental Infusions. The maximum is per element: each infusion buff has its own maximum stat
+			-- (virtual_maximum_<element>_infusion_stacks in BuffDefinitions), starting at the BaseMaximumInfusionCount game constant;
+			-- "maximum number of Elemental Infusions" raises each of them. Duration: BaseInfusionDurationMs game constant.
+			for _, element in ipairs({ "Fire", "Cold", "Lightning" }) do
+				local max = m_max(data.gameConstants["BaseMaximumInfusionCount"] + modDB:Sum("BASE", nil, "InfusionsMax", element.."InfusionsMax"), 0)
+				output[element.."InfusionsMax"] = max
+				output[element.."InfusionDuration"] = data.gameConstants["BaseInfusionDurationMs"] / 1000 * calcLib.mod(modDB, nil, "InfusionDuration")
+				local count = modDB:Override(nil, element.."Infusions")
+				if count then
+					output[element.."Infusions"] = m_min(count, max)
+					modDB.multipliers[element.."Infusion"] = output[element.."Infusions"]
+					output.HaveInfusions = true
 				end
 			end
 		end
@@ -1191,6 +1247,117 @@ local function addMinionModifiers(modList, skillCfg, minion)
 	for _, value in ipairs(modList:List(skillCfg, "MinionModifier")) do
 		if not value.type or minion.type == value.type then
 			minion.modDB:AddMod(value.mod)
+		end
+	end
+end
+
+-- Approximation of Elemental Infusions (needs Use approximations): average infusions per element from Remnant generation and
+-- the main skill's consumption, and the share of the main skill's casts that find an infusion. It needs the main skill's hit and
+-- ailment rates, so it runs after its offence calculation.
+-- ponytail: report only, the estimate doesn't feed Multiplier:<Element>Infusion (offence has used it already, and ailment rates
+-- depend on damage); upgrade path = estimate the rates before offence, or a second pass
+local function doInfusionApprox(env)
+	local modDB, output, breakdown = env.player.modDB, env.player.output, env.player.breakdown
+	local skill = env.player.mainSkill
+	if not modDB:Flag(nil, "Condition:UseApproximations") or not skill then
+		return
+	end
+	local speed = output.Speed or 0
+	-- ponytail: hits on the one target PoB calculates, one per cast unless the skill has its own hit rate; upgrade path = targets hit per cast
+	local hitRate = (output.HitSpeed or speed) * (output.HitChance or 0) / 100
+	local crit = (output.CritChance or 0) / 100
+	-- Siphon Elements (stat descriptions infusion_remnants_%_chance_to_spawn_*): a chance to create a Remnant on igniting a non-Ignited
+	-- target, on shocking a non-Shocked target, and per Power on freezing a target
+	local remnants = { }
+	for _, element in ipairs({ "Fire", "Cold", "Lightning" }) do
+		local ailment = element == "Fire" and "Ignite" or element == "Cold" and "Freeze" or "Shock"
+		local rate
+		if ailment == "Freeze" then
+			-- ponytail: one freeze per 100% average buildup, against a target of Power 1 (a normal monster), and no wait for the freeze to
+			-- end; upgrade path = Power by enemy rarity and the freeze duration
+			rate = (output.FreezeBuildupAvg or 0) / 100 * hitRate
+		else
+			rate = ((output[ailment.."ChanceOnHit"] or 0) * (1 - crit) + (output[ailment.."ChanceOnCrit"] or 0) * crit) / 100 * hitRate
+			rate = calcLib.approxRateWhileUnaffected(rate, output[ailment.."Duration"] or 0)
+		end
+		remnants[element] = rate * modDB:Sum("BASE", nil, element.."InfusionRemnantChance") / 100 + modDB:GetMultiplier("Approx"..element.."RemnantsPerSecond")
+	end
+	-- "Create <element> Infusion Remnants instead of <element>", all at once
+	local converted = copyTable(remnants)
+	local conversions = { }
+	for _, conversion in ipairs(modDB:List(nil, "InfusionRemnantConversion")) do
+		conversions[conversion.from] = conversion.to
+	end
+	for from, to in pairs(conversions) do
+		converted[to] = converted[to] + remnants[from]
+		converted[from] = converted[from] - remnants[from]
+	end
+	local totalRemnants = converted.Fire + converted.Cold + converted.Lightning
+	-- Infusions per Remnant: chance to create an additional Remnant, for a pickup to count twice, and for an additional infusion of the
+	-- same type (additional_infusion_gain_chance_%); "another different" infusion (chance_%_for_extra_infusion_on_infused_remnant_pickup)
+	-- ponytail: the different infusion is split evenly between the other two elements; upgrade path = the game's rule, if it has one
+	local perRemnant = (1 + m_min(modDB:Sum("BASE", nil, "ExtraRemnantChance"), 100) / 100) * (1 + m_min(modDB:Sum("BASE", nil, "RemnantDoublePickupChance"), 100) / 100)
+	local same = 1 + m_min(modDB:Sum("BASE", nil, "InfusionGainSameChance"), 100) / 100
+	local other = m_min(modDB:Sum("BASE", nil, "InfusionGainOtherChance"), 100) / 100
+	local consumes, consumedCount = { }, 0
+	for _, element in ipairs({ "Fire", "Cold", "Lightning" }) do
+		consumes[element] = skill.skillModList:Flag(skill.skillCfg, "Consumes"..element.."Infusion") and not skill.skillModList:Flag(skill.skillCfg, "Condition:CannotConsumeInfusion")
+		consumedCount = consumedCount + (consumes[element] and 1 or 0)
+	end
+	-- Verisium Infusions can be used in place of any Elemental Infusion
+	-- ponytail: they count only for the infusions the main skill consumes, split evenly; upgrade path = model their own stacks
+	local verisium = modDB:Sum("BASE", nil, "VerisiumInfusionRate")
+	local notConsumed = m_min(skill.skillModList:Sum("BASE", skill.skillCfg, "InfusionNotConsumedChance"), 100) / 100
+	for _, element in ipairs({ "Fire", "Cold", "Lightning" }) do
+		local generation = perRemnant * (converted[element] * same + other * (totalRemnants - converted[element]) / 2) + (consumes[element] and verisium / consumedCount or 0)
+		local max, duration = output[element.."InfusionsMax"] or 0, output[element.."InfusionDuration"] or 0
+		local average = calcLib.approxAverageStacks(max, generation, duration)
+		local removed, removedLifetime = 0, 0
+		if consumes[element] then
+			-- Each cast removes an infusion unless it doesn't (chance to not remove ... but still count as consuming)
+			local consumption = speed * (1 - notConsumed)
+			output[element.."InfusedShare"] = calcLib.approxSupplyShare(generation, consumption) * 100
+			if consumption > 0 then
+				-- The infusions casts remove last until the next cast, on average 1 / consumption (or expire before); the surplus
+				-- stays until it expires
+				removed, removedLifetime = m_min(generation, consumption), m_min(duration, 1 / consumption)
+				average = m_min(max, removed * removedLifetime + calcLib.approxAverageStacks(m_huge, generation - removed, duration))
+			end
+			if breakdown then
+				breakdown[element.."InfusedShare"] = {
+					s_format("%.2f ^8(infusions gained per second)", generation),
+					s_format("/ %.2f ^8(casts per second)", speed),
+					s_format("/ %.2f ^8(share of casts that remove it)", 1 - notConsumed),
+					s_format("= %.0f%% ^8(of casts infused, at most 100%%, approx.)", output[element.."InfusedShare"]),
+				}
+			end
+		end
+		output[element.."InfusionGeneration"] = generation
+		if generation > 0 or consumes[element] then
+			output.HaveInfusions = true
+		end
+		if not output[element.."Infusions"] and generation > 0 then
+			output[element.."Infusions"] = average
+			if breakdown then
+				breakdown[element.."Infusions"] = {
+					s_format("%.2f ^8(remnants per second: ailments, other sources and remnant conversion)", converted[element]),
+					s_format("x %.2f ^8(additional remnants and pickups counting twice)", perRemnant),
+					s_format("x %.2f ^8(additional infusion of the same type)", same),
+				}
+				if other > 0 then
+					t_insert(breakdown[element.."Infusions"], s_format("+ %.2f ^8(another different infusion from the other elements' remnants)", perRemnant * other * (totalRemnants - converted[element]) / 2))
+				end
+				if consumes[element] and verisium > 0 then
+					t_insert(breakdown[element.."Infusions"], s_format("+ %.2f ^8(Verisium Infusions)", verisium / consumedCount))
+				end
+				t_insert(breakdown[element.."Infusions"], s_format("= %.2f ^8(infusions per second)", generation))
+				if removed > 0 then
+					t_insert(breakdown[element.."Infusions"], s_format("%.2f x %.2fs + %.2f x %.2fs ^8(removed by the next cast, the rest until they expire)", removed, removedLifetime, generation - removed, duration))
+				else
+					t_insert(breakdown[element.."Infusions"], s_format("x %.2fs ^8(duration)", duration))
+				end
+				t_insert(breakdown[element.."Infusions"], s_format("= %.2f ^8(average infusions, at most %d, approx.)", output[element.."Infusions"], max))
+			end
 		end
 	end
 end
@@ -3546,6 +3713,7 @@ function calcs.perform(env, skipEHP)
 	--calcs.triggers(env, env.player)
 	--if not calcs.mirages(env) then
 		calcs.offence(env, env.player, env.player.mainSkill)
+		doInfusionApprox(env)
 	--end
 
 	if env.minion then
