@@ -33,6 +33,96 @@ def lua_string(text):
     return "[" + "=" * level + "[" + text + "]" + "=" * level + "]"
 
 
+NUMBER = r"[+-]?\d+(?:\.\d+)?"
+RANGE = re.compile(r"[+-]?\(?" + NUMBER + r"(?:%?\s*[-–]\s*" + NUMBER + r")?\)?")
+
+
+def normalise(text):
+    """Numbers and ranges become #, so "(10-20)%", "15%" and "10% - 20%" all read "#%"."""
+    return " ".join(RANGE.sub("#", text).lower().split())
+
+
+def summary_lines(path):
+    """Yields (kind, text, pct): kind is "seen" for the 'does not calculate' section, "strong" for the
+    strong-options section; pct is that option's readable-part percentage (strong only)."""
+    section, pct = None, None
+    for raw in open(path, encoding="utf-8", errors="replace"):
+        line = raw.rstrip("\n")
+        if line.startswith("== "):
+            section = "strong" if "Strong options" in line else "seen" if "does not calculate" in line else None
+        elif not section or not line.strip():
+            continue
+        elif section == "strong" and not line.startswith(" "):
+            found = re.search(r"readable part(?: alone)?: ([+-]?\d+(?:\.\d+)?)%", line)
+            pct = float(found.group(1)) if found else None
+        elif section == "strong":
+            yield "strong", line.strip(), pct
+        else:
+            # "Slot (item, base): text" or "Passive Name: text"; gems only name stat ids, which never match
+            found = re.match(r"(?:Passive [^:]+|[^:(]+ \([^)]*\)): (.*)", line)
+            if found:
+                yield "seen", found.group(1), None
+
+
+def rank(tsv, folders):
+    rows = [r.split("	", 2) for r in open(tsv, encoding="utf-8").read().splitlines() if r]
+    freq = {}
+    for source, _, text in rows:
+        key = normalise(text)
+        freq[key] = freq.get(key, 0) + (5 if source in ("notable", "keystone") else 1)
+    seen, strong, best = {}, {}, {}
+    for folder in folders:
+        for root, _, names in os.walk(folder):
+            for name in names:
+                if name.endswith(".txt") and not name.endswith(".code.txt"):
+                    once = set()  # a line counts once per summary
+                    for kind, text, pct in summary_lines(os.path.join(root, name)):
+                        key = normalise(text)
+                        if (kind, key) not in once:
+                            once.add((kind, key))
+                            counter = seen if kind == "seen" else strong
+                            counter[key] = counter.get(key, 0) + 1
+                        if pct is not None:
+                            best[key] = max(best.get(key, pct), pct)
+    out = []
+    for source, group, text in rows:
+        key = normalise(text)
+        score = seen.get(key, 0) * 3 + strong.get(key, 0) + freq[key] / 10
+        out.append((score, source, group, text, seen.get(key, 0), strong.get(key, 0), best.get(key), freq[key]))
+    out.sort(key=lambda r: (-r[0], r[3]))
+    with open(tsv, "w", encoding="utf-8", newline="\n") as f:
+        for score, source, group, text, n_seen, n_strong, pct, n_freq in out:
+            f.write("%s	%s	%s	%d	%d	%s	%d	%.1f\n" % (source, group, text, n_seen, n_strong, "" if pct is None else "%+.1f" % pct, n_freq, score))
+    print("\n== Top 30 unreadable lines by impact (score, seen in builds, strong option, group, line) ==")
+    done = set()
+    for score, source, group, text, n_seen, n_strong, _, _ in out:
+        if normalise(text) not in done and len(done) < 30:
+            done.add(normalise(text))
+            print("%6.1f %4d %4d  %-34s %s" % (score, n_seen, n_strong, group, text))
+
+
+def selftest():
+    assert normalise("+(10-20)% increased Damage") == normalise("15% increased damage") == "#% increased damage"
+    assert normalise("Gain Thorns equal to 8% - 12% of maximum Life") == normalise("Gain Thorns equal to (8-12)% of maximum Life")
+    assert normalise("+(-30-30)% to Fire Resistance") == "#% to fire resistance"
+    import tempfile
+    with tempfile.TemporaryDirectory() as folder:
+        with open(os.path.join(folder, "a.txt"), "w", encoding="utf-8") as f:
+            f.write("== Strong options the engine could not fully evaluate ==\nBelt: X, Y — readable part alone: -3.6% vs current\n      Gain 8% - 12% of Life\n"
+                    "N (Notable, 2 points away) — readable part: +1.5%\n      Gain 9% - 12% of Life\n\n"
+                    "== Parts of this build the engine does not calculate ==\nBelt (X, Y): Bonded: Gain 10% of Life\nPassive P: Gain 5% of Life\nGem G: 1 stats\n")
+        tsv = os.path.join(folder, "l.tsv")
+        with open(tsv, "w", encoding="utf-8") as f:
+            f.write("unique	Other	Gain (8-12)% of Life\nnotable	Other	Bonded: Gain (5-10)% of Life\nnotable	Other	Gain 7% of Mana\n")
+        rank(tsv, [folder])
+        got = [r.split("	") for r in open(tsv, encoding="utf-8").read().splitlines()]
+    assert [(r[2], *r[3:]) for r in got] == [
+        ("Gain (8-12)% of Life", "1", "1", "+1.5", "1", "4.1"),
+        ("Bonded: Gain (5-10)% of Life", "1", "0", "", "5", "3.5"),
+        ("Gain 7% of Mana", "0", "0", "", "5", "0.5")], got
+    print("selftest ok")
+
+
 def run(script, args):
     if hasattr(os, "add_dll_directory"):
         os.add_dll_directory(RUNTIME)
@@ -160,7 +250,19 @@ def main():
             return argv[argv.index(name) + 1] if name in argv else default
         sys.exit(run_batch(option("--batch"), int(option("--parallel", 0)), option("--out", os.path.join(SRC, "..", "optimizer-batch"))))
     if "--gaps" in sys.argv[1:2]:
-        sys.exit(run("CalcGaps.lua", [os.path.abspath(p) for p in sys.argv[2:3]]))
+        if "--selftest" in sys.argv:
+            selftest()
+            sys.exit(0)
+        import tempfile
+        argv = sys.argv[2:]
+        folders = [os.path.abspath(p) for p in argv[argv.index("--rank") + 1:]] if "--rank" in argv else []
+        paths = [os.path.abspath(p) for p in argv[:argv.index("--rank") if folders else None][:1]]
+        if folders and not paths:
+            paths = [os.path.join(tempfile.gettempdir(), "gap-lines.tsv")]
+        code = run("CalcGaps.lua", paths)
+        if folders and not code:
+            rank(paths[0], folders)
+        sys.exit(code)
     if "--run" in sys.argv[1:2]:
         # Child mode: Lua writes straight to the inherited stdout
         sys.exit(run("OptimizeBuild.lua", sys.argv[2:]))
