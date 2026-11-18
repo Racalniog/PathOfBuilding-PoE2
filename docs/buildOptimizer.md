@@ -63,6 +63,7 @@ Every setting of the Optimizer tab has a command-line equivalent (see [Command l
 | Character level | `--level` | Level of the character (default 100); limits gem levels, items and passive points |
 | Passive points | `--points` | Points to spend; empty = everything available at the level |
 | Maximise | `--metric` | Calculation output to maximise: `CombinedDPS` (default; includes damage over time and minions), `TotalDPS`, `FullDPS`, ... |
+| Survivability | `--survivability <0..1>` | Weight of survivability against damage. The score becomes `metric ^ (1 - w) * EHP ^ w`, with EHP the effective hit pool of the Calcs tab; 0 (default) is damage only, 50% / `0.5` weighs both alike |
 | Roll quality | `--roll <0..1>` | Roll of crafted affixes and unique modifiers; 100% / `1` is a perfect roll, 50% / `0.5` an average one |
 | Max affix level | `--item-level` | Highest affix tier level that may be crafted (default 82) |
 | Support gems | `--supports` | Number of supports linked to the skill (default 5) |
@@ -78,6 +79,7 @@ Every setting of the Optimizer tab has a command-line equivalent (see [Command l
 | Thorough uniques | `--thorough` | Try every unique as one half of a unique pair (adds several minutes) |
 | Legacy uniques | `--legacy-uniques` | Also try older versions of uniques ("Pre 0.4.0") and uniques that are no longer obtainable |
 | Unique versions | `--unique-variants` | Also try every version of uniques that come in several, e.g. Cursecarver's curse, From Nothing's keystone or Darkness Enthroned's slot (slower, see below) |
+| Use approximations | `--approx [kills/s]` | Switch on the Configuration tab's *Use approximations* in the build (recovery on kill and the like from a kill rate, default 1 per second) |
 | Assume sustained | `--assume sustained` | Switch on the Configuration conditions the build keeps up by itself (see [Configuration](#configuration)) |
 
 **Which uniques take part.** By default the unique search only uses what can be found in the game
@@ -365,6 +367,10 @@ those are offered to the search as a single candidate. This is done for
 * affixes on every crafted item and jewel (after first re-testing each idle affix next to the ones
   already chosen),
 * passive nodes, at every step of the tree allocation, including the ascendancy.
+  With *Survivability* above 0 the idle passives almost always move the build as a group (Evasion,
+  Life and Mana are whole numbers, so many small nodes are worth nothing alone), and the part
+  responsible is large. The cut-down then gets 100 calculations; when they run out, the group test
+  is skipped for the rest of that tree.
 
 Uniques can't be applied all at once, so pairs of uniques are searched directly: for the leading
 rejected uniques of every slot (`--thorough`: every unique), the unique is put on and every unique in
@@ -441,9 +447,12 @@ triggers and Invocation, Concentration, charge generation) rather than missing p
   choice (supports, affixes of one item, passives, pairs of uniques). A combination of two things
   of different kinds that are both worthless alone, or of three or more uniques, can still be missed,
   as can a keystone that hurts on its own and only pays off after the build is changed around it.
-* Only damage is optimised. Slots that can't add damage are left as an item base without
-  modifiers, and life, resistances and other defences are ignored; treat those slots as free room
-  for defensive stats.
+* By default only damage is optimised. Slots that can't add damage are left as an item base without
+  modifiers, and life, resistances and other defences are ignored. With *Survivability* above 0 the
+  effective hit pool counts too: life, energy shield, armour, evasion, block and resistances up to
+  their maximum all raise it, and every search step weighs them against damage. Recovery (regeneration,
+  leech, recovery on kill) is not part of the effective hit pool and is still worth nothing to the
+  search; the summary's *Survivability* section shows it.
 * Damage depends on the Configuration tab (enemy type, charges, conditions such as "enemy is
   shocked"). The defaults of a new build are used unless `--config` says otherwise.
 * Buffs, curses, marks, flasks and charms are counted as permanently active, the way the engine

@@ -179,6 +179,40 @@ describe("BuildOptimizer", function()
 		assert.is_truthy(optimizer.BlindSpotReport(build, options):match("== Strong options the engine could not fully evaluate =="))
 	end)
 
+	it("weighs survivability into the score and switches on approximations", function()
+		local setup = { class = "Sorceress", ascendancy = "Stormweaver", skill = "Spark" }
+		assert.is_true(optimizer.SetupCharacter(build, setup))
+		-- Resistances below the cap cost effective hit pool, so the blend has a reason to cap them:
+		-- without the endgame penalty (-60% by default) they are higher, and so is the EHP
+		local penalised = build.calcsTab.mainOutput.TotalEHP
+		local penalty = build.configTab.input.resistancePenalty
+		build.configTab.input.resistancePenalty = 0
+		build.configTab:BuildModList()
+		runCallback("OnFrame")
+		assert.is_true(build.calcsTab.mainOutput.TotalEHP > penalised)
+		build.configTab.input.resistancePenalty = penalty
+		build.configTab:BuildModList()
+
+		optimizer.Optimize(build, quickOptions)
+		local damageOnlyEHP = build.calcsTab.mainOutput.TotalEHP
+		assert.is_nil(build.configTab.input.useApproximations)
+
+		newBuild()
+		assert.is_true(optimizer.SetupCharacter(build, setup))
+		local options = copyTable(quickOptions)
+		options.survivability = 0.5
+		options.approximations = true
+		local result = optimizer.Optimize(build, options)
+		local output = build.calcsTab.mainOutput
+		assert.is_true(output.TotalEHP > damageOnlyEHP)
+		local expected = score() ^ 0.5 * output.TotalEHP ^ 0.5
+		assert.is_true(math.abs(result.score - expected) <= expected * 1e-6)
+		assert.is_true(build.configTab.input.useApproximations)
+		assert.are.equals(1, build.configTab.input.approxKillsPerSecond)
+		assert.is_truthy(optimizer.ConfigReport(build, options):match("Approximations: on, 1 kills per second"))
+		assert.is_truthy(optimizer.Describe(build):match("== Survivability ==\nSurvivability score %(effective hit pool%): %d+"))
+	end)
+
 	it("survives a save and reload with the same result", function()
 		assert.is_true(optimizer.SetupCharacter(build, { class = "Monk", ascendancy = "Invoker", skill = "Ice Strike" }))
 		local result = optimizer.Optimize(build, quickOptions)

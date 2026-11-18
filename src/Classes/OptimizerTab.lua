@@ -97,7 +97,7 @@ function OptimizerTabClass:OptimizerTab(build)
 	self.controls.fromBuild.tooltipText = "Take class, ascendancy, main skill and level from the build that is open."
 
 	-- Search
-	local search = new("SectionControl"):SectionControl({ "TOPLEFT", char, "BOTTOMLEFT" }, { 0, 20, 350, 168 }, "Search")
+	local search = new("SectionControl"):SectionControl({ "TOPLEFT", char, "BOTTOMLEFT" }, { 0, 20, 350, 194 }, "Search")
 	self.controls.searchSection = search
 	self.controls.metricLabel = label(search, 14, "Maximise:")
 	self.controls.metric = new("DropDownControl"):DropDownControl({ "TOPLEFT", search, "TOPLEFT" }, { 120, 14, 220, 20 }, metrics,
@@ -121,6 +121,12 @@ function OptimizerTabClass:OptimizerTab(build)
 	self.controls.treeWidth = new("DropDownControl"):DropDownControl({ "TOPLEFT", search, "TOPLEFT" }, { 120, 144, 80, 20 }, { "1", "2", "3", "4" },
 		nil, "Number of differently-minded passive trees that are built and compared. Each one adds to the run time.")
 	self.controls.treeWidth:SetSel(4)
+	self.controls.survivabilityLabel = label(search, 170, "Survivability:")
+	self.controls.survivability = new("SliderControl"):SliderControl({ "TOPLEFT", search, "TOPLEFT" }, { 120, 172, 160, 16 })
+	self.controls.survivabilityValue = new("LabelControl"):LabelControl({ "LEFT", self.controls.survivability, "RIGHT" }, { 8, 0, 0, 16 }, function()
+		return s_format("^7%d%%", m_floor(self.controls.survivability.val * 100 + 0.5))
+	end)
+	self.controls.survivability.tooltipText = "Weight of survivability (effective hit pool) against damage in the score.\n0% maximises damage only, 50% weighs both alike, 100% only survivability."
 
 	-- Include
 	local include = new("SectionControl"):SectionControl({ "TOPLEFT", search, "BOTTOMLEFT" }, { 0, 20, 350, 160 }, "Include")
@@ -137,6 +143,7 @@ function OptimizerTabClass:OptimizerTab(build)
 		{ "legacyUniques", "Legacy uniques", false, "Also try older versions of uniques and uniques that are no longer obtainable." },
 		{ "uniqueVariants", "Unique versions", false, "Also try every version of uniques that come in several (Cursecarver's curse, Darkness Enthroned's slot, ...). Slower." },
 		{ "sustained", "Assume sustained", false, "Switch on the Configuration conditions the build keeps up by itself (enemy shocked, crit recently, ...)." },
+		{ "approximations", "Use approximations", false, "Switch on the Configuration tab's approximations in the build: recovery on kill and the like are estimated from 1 kill per second." },
 	}
 	self.checks = { }
 	for index, info in ipairs(checks) do
@@ -295,6 +302,7 @@ function OptimizerTabClass:ApplySettings(settings)
 	end
 	self.controls.metric:SelByValue(settings.metric)
 	self.controls.roll:SetVal(settings.roll)
+	self.controls.survivability:SetVal(settings.survivability)
 	self.controls.treeWidth:SetSel(settings.treeWidth)
 	for key, state in pairs(settings.checks) do
 		self.checks[key].state = state
@@ -334,6 +342,7 @@ function OptimizerTabClass:Launch()
 		points = num(self.controls.points, 0, 200),
 		rounds = num(self.controls.rounds, 1, 9),
 		affixRoll = self.controls.roll.val,
+		survivability = self.controls.survivability.val,
 		itemLevel = num(self.controls.itemLevel, 1, 100),
 		maxSupports = num(self.controls.supports, 0, 9),
 		metric = self.controls.metric:GetSelValue(),
@@ -356,7 +365,7 @@ function OptimizerTabClass:Launch()
 
 	lastSettings = {
 		class = class.label, ascendancy = setup.ascendancy, skill = skill, metric = options.metric,
-		roll = self.controls.roll.val, treeWidth = options.treeWidth, checks = { },
+		roll = self.controls.roll.val, survivability = options.survivability, treeWidth = options.treeWidth, checks = { },
 	}
 	for _, key in ipairs({ "level", "points", "itemLevel", "supports", "rounds" }) do
 		lastSettings[key] = self.controls[key].buf
@@ -371,7 +380,8 @@ function OptimizerTabClass:Launch()
 		token = jobCount,
 		status = "running",
 		name = setup.name,
-		metric = options.metric,
+		-- What the reported score measures
+		metric = options.survivability > 0 and (options.metric .. " x EHP score") or options.metric,
 		options = options,
 		startTime = startTime,
 		log = { },

@@ -26,6 +26,13 @@ optimizer.defaultOptions = {
 	-- Output stat to maximise. A string (field of the calc output; the minion's value of the same
 	-- field is added when present) or a function(output) returning a number
 	metric = "CombinedDPS",
+	-- Weight w (0..1) of survivability, PoB's effective hit pool (output.TotalEHP), in the score:
+	-- score = metric ^ (1 - w) * TotalEHP ^ w. 0 = damage only, 0.5 weighs both alike
+	survivability = 0,
+	-- Switch on the Configuration tab's approximations in the build (recovery on kill from a kill
+	-- rate, ...) with this many kills per second
+	approximations = false,
+	killsPerSecond = 1,
 	level = 100,
 	-- Passive points to spend; nil = (level - 1) + quest points available at that level
 	points = nil,
@@ -124,13 +131,13 @@ local function calcOutput(ctx, override)
 		local env = ctx.calcs.initEnv(build, "CALCULATOR", override, { cachedPlayerDB = base.player, cachedEnemyDB = base.enemy, cachedMinionDB = base.minion })
 		-- A minion that appeared after the cache was built has no base database; rebuild it then
 		if not (env.minion and not base.minion) then
-			ctx.calcs.perform(env, true)
+			ctx.calcs.perform(env, ctx.skipEHP)
 			return env.player.output, env
 		end
 	end
 	local env, player, enemy, minion = ctx.calcs.initEnv(build, "CALCULATOR", override)
 	ctx.baseDB = { signature = signature, player = player, enemy = enemy, minion = minion }
-	ctx.calcs.perform(env, true)
+	ctx.calcs.perform(env, ctx.skipEHP)
 	return env.player.output, env
 end
 
@@ -183,6 +190,13 @@ local function scoreOutput(ctx, output, env)
 			value = value + output.Minion[metric] * minions
 		end
 	end
+	local weight = ctx.opts.survivability
+	if weight > 0 and type(value) == "number" and value > 0 then
+		-- No (or a broken) hit pool counts as 1, which leaves the damage part alone
+		-- ponytail: a hit pool the engine thinks is endless is capped at 1e12, so such builds rank highest instead of scoring 0
+		local ehp = m_min(tonumber(output.TotalEHP) or 1, 1e12)
+		value = value ^ (1 - weight) * (ehp >= 1 and ehp or 1) ^ weight
+	end
 	if type(value) ~= "number" or value ~= value or value == m_huge or value == -m_huge then
 		return 0
 	end
@@ -206,8 +220,9 @@ local function better(ctx, new, old)
 end
 
 -- Reduce a list to a small sub-list for which keeps(list) still holds (delta debugging). Used to
--- pin down which members of a large group are responsible for an effect the group has as a whole
-local function shrink(items, keeps)
+-- pin down which members of a large group are responsible for an effect the group has as a whole.
+-- With a budget, returns nil once keeps() has been called that many times
+local function shrink(items, keeps, budget)
 	local parts = 2
 	while #items >= 2 do
 		local chunk = math.ceil(#items / parts)
@@ -217,6 +232,12 @@ local function shrink(items, keeps)
 			for index, entry in ipairs(items) do
 				if index < start or index >= start + chunk then
 					t_insert(rest, entry)
+				end
+			end
+			if budget then
+				budget = budget - 1
+				if budget < 0 then
+					return nil
 				end
 			end
 			if #rest > 0 and keeps(rest) then
@@ -1747,7 +1768,7 @@ local function growTree(ctx, ascendancy)
 		end
 		-- Passives that do nothing alone are tested as one group. If the group does something, the
 		-- few nodes responsible are pinned down and offered, with the travel they need, as a candidate
-		if ctx.opts.combos then
+		if ctx.opts.combos and not ctx.treeComboFailed then
 			local idle = { }
 			for _, node in ipairs(nodes) do
 				if value[node] == 0 and node.modKey and node.modKey ~= "" and node.type ~= "Socket" then
@@ -1780,7 +1801,18 @@ local function growTree(ctx, ascendancy)
 					end
 				end
 				if not combo then
-					combo = shrink(idle, function(list) return gainOf(list) >= all * 0.5 end)
+					-- With survivability in the score the idle passives nearly always move the build as a
+					-- group: Evasion, Life, Mana and the like are whole numbers, so many small nodes are worth
+					-- nothing alone and something together (and +Mana pays off with Mana before Life, ...).
+					-- The part responsible is then large and pinning it down takes a quadratic number of
+					-- calculations, so it gets a budget, and the group test is left out for the rest of this
+					-- tree when that runs out.
+					-- ponytail: fixed budget of 100 calculations; upgrade path = test idle nodes in groups of one stat
+					combo = shrink(idle, function(list) return gainOf(list) >= all * 0.5 end, not ctx.skipEHP and 100 or nil)
+					if not combo then
+						ctx.treeComboFailed = true
+						combo = { }
+					end
 					ctx.treeCombo = { }
 					for _, node in ipairs(combo) do
 						t_insert(ctx.treeCombo, node.id)
@@ -1795,7 +1827,7 @@ local function growTree(ctx, ascendancy)
 						end
 					end
 				end
-				if #list <= remaining then
+				if #list > 0 and #list <= remaining then
 					t_sort(combo, function(a, b)
 						if a.pathDist ~= b.pathDist then
 							return a.pathDist < b.pathDist
@@ -1950,7 +1982,7 @@ local function searchTree(ctx)
 		spec:RestoreUndoState(base)
 		sync(ctx)
 		ctx.treeExponent = exponent
-		ctx.treeCombo = nil
+		ctx.treeCombo, ctx.treeComboFailed = nil, nil
 		growTree(ctx, false)
 		sync(ctx)
 		local score = refineTree(ctx)
@@ -2937,6 +2969,11 @@ function optimizer.BlindSpotReport(build, options)
 
 	-- A line is worth showing if it reads like it concerns damage or the main skill
 	local words = { "damage", "critical", "speed", "penetrat", "more ", "exposure", "extra" }
+	if ctx.opts.survivability > 0 then
+		for _, word in ipairs({ "life", "energy shield", "armour", "evasion", "resist", "block", "taken", "recover", "regenerat", "leech" }) do
+			t_insert(words, word)
+		end
+	end
 	local mainGem = ctx.group.gemList[1].gemData
 	for tag in pairs(mainGem and mainGem.tags or { }) do
 		if type(tag) == "string" and #tag >= 4 and tag ~= "grants_active_skill" and tag ~= "support" then
@@ -3086,7 +3123,11 @@ function optimizer.ConfigReport(build, options)
 		t_insert(lines, s_format(fmt, ...))
 	end
 	local sensitivity = configSensitivity(ctx)
+	local input = build.configTab.input
+	-- With survivability in the score, a condition is worth what it does to damage and EHP together
+	local what = ctx.opts.survivability > 0 and "score" or "damage"
 	add("== Configuration ==")
+	add("Approximations: %s   [useApproximations]", input.useApproximations and s_format("on, %s kills per second [approxKillsPerSecond]", tostring(input.approxKillsPerSecond or 1)) or "off")
 	local on = { }
 	for _, entry in ipairs(sensitivity) do
 		if entry.enabled then
@@ -3094,7 +3135,7 @@ function optimizer.ConfigReport(build, options)
 		end
 	end
 	if #on > 0 then
-		add("Assumed conditions (the build was scored with these on; without one, the damage changes by):")
+		add("Assumed conditions (the build was scored with these on; without one, the %s changes by):", what)
 		for _, entry in ipairs(on) do
 			add("  %-52s %+6.1f%%   [%s]", entry.label, entry.change * 100, entry.var)
 		end
@@ -3105,7 +3146,7 @@ function optimizer.ConfigReport(build, options)
 	for _, entry in ipairs(sensitivity) do
 		if not entry.enabled and entry.change > 0 then
 			if shown == 0 then
-				add("Conditions that would raise the damage if you can keep them up (--config <name>=true, or <name>=<number> for counts):")
+				add("Conditions that would raise the %s if you can keep them up (--config <name>=true, or <name>=<number> for counts):", what)
 			end
 			shown = shown + 1
 			if shown <= 15 then
@@ -3132,6 +3173,7 @@ local function newContext(build, options)
 	for key, value in pairs(options or { }) do
 		opts[key] = value
 	end
+	opts.survivability = m_max(0, m_min(1, tonumber(opts.survivability) or 0))
 	local group = build.skillsTab.socketGroupList[build.mainSocketGroup]
 	if not group or not group.gemList[1] then
 		return nil, "The build has no main skill"
@@ -3145,6 +3187,8 @@ local function newContext(build, options)
 		errors = 0,
 		uniqueCount = { },
 		assumed = { },
+		-- The effective hit pool is only calculated when it is part of the score
+		skipEHP = not (opts.survivability > 0),
 	}
 end
 optimizer.NewContext = newContext
@@ -3183,6 +3227,7 @@ local function runRound(ctx, round, allowUniques)
 	if spec.curAscendClassId == 0 and ctx.autoAscendancy and used == 0 then
 		chooseAscendancy(ctx)
 	end
+	ctx.treeComboFailed = nil
 	optimizeAscendancy(ctx)
 	placeTemplateJewels(ctx)
 	if used == 0 then
@@ -3223,6 +3268,11 @@ function optimizer.Optimize(build, options)
 		return nil, errMsg
 	end
 	ctx.autoAscendancy = options and options.autoAscendancy
+	if ctx.opts.approximations then
+		-- Set in the build's Configuration tab, so the saved build is calculated the same way
+		build.configTab.input.useApproximations = true
+		setConfig(ctx, "approxKillsPerSecond", ctx.opts.killsPerSecond)
+	end
 	ctx.allowUniques = options and options.allowUniques or false
 	local allowUniques = options and options.allowUniques or false
 	for _, item in pairs(build.itemsTab.items) do
@@ -3279,6 +3329,23 @@ function optimizer.Describe(build)
 		end
 	end
 	add("Attributes: Str %d, Dex %d, Int %d%s", output.Str or 0, output.Dex or 0, output.Int or 0, #unmet > 0 and ("   UNMET REQUIREMENTS: " .. t_concat(unmet, ", ")) or "")
+
+	add("")
+	add("== Survivability ==")
+	add("Survivability score (effective hit pool): %.0f", output.TotalEHP or 0)
+	add("Life %d, Energy Shield %d, Armour %d, Evasion %d, Block %d%% (spells %d%%)", output.Life or 0, output.EnergyShield or 0, output.Armour or 0, output.Evasion or 0, output.BlockChance or 0, output.SpellBlockChance or 0)
+	local resists, maxHits = { }, { }
+	for _, damageType in ipairs({ "Fire", "Cold", "Lightning", "Chaos" }) do
+		local missing = output["Missing" .. damageType .. "Resist"] or 0
+		t_insert(resists, s_format("%s %d%%%s", damageType, output[damageType .. "Resist"] or 0, missing > 0 and s_format(" (%d below max)", missing) or ""))
+	end
+	for _, damageType in ipairs({ "Physical", "Fire", "Cold", "Lightning", "Chaos" }) do
+		t_insert(maxHits, s_format("%s %.0f", damageType, output[damageType .. "MaximumHitTaken"] or 0))
+	end
+	add("Resistances: %s", t_concat(resists, ", "))
+	add("Maximum hit taken: %s", t_concat(maxHits, ", "))
+	-- NetLifeRegen only exists when something degenerates Life; otherwise it is the plain recovery
+	add("Net Life recovery: %.1f per second", output.NetLifeRegen or output.LifeRegenRecovery or 0)
 
 	add("")
 	add("== Skill links ==")

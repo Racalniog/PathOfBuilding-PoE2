@@ -55,6 +55,8 @@ describe("OptimizerTab", function()
 		tab.controls.rounds:SetText("0")
 		tab.checks.combos.state = false
 		tab.checks.sustained.state = true
+		tab.checks.approximations.state = true
+		tab.controls.survivability:SetVal(0.5)
 		local launched = start()
 
 		assert.are.equal("OptimizerProgress", launched.subList)
@@ -75,6 +77,13 @@ describe("OptimizerTab", function()
 		assert.is_false(options.legacyUniques)
 		assert.is_false(options.uniqueVariants)
 		assert.is_nil(options.points)
+		-- --survivability 0.5 --approx: the kill rate is left to the optimizer's default of 1, as on the command line
+		assert.are.equal(0.5, options.survivability)
+		assert.is_true(options.approximations)
+		assert.is_nil(options.killsPerSecond)
+		-- The form still fits a 1280x720 window (the tab gets the height below the 32 pixel top bar)
+		local _, noteY = tab.controls.note:GetPos()
+		assert.is_true(noteY + 28 <= 720 - 32)
 	end)
 
 	it("collects progress and results from the background job", function()

@@ -21,6 +21,10 @@ Usage: OptimizeBuild.lua --class <name> --skill <gem name> [options]
   --item-level <n>       Highest affix tier level allowed on crafted items (default 82)
   --supports <n>         Number of support gems (default 5)
   --metric <stat>        Calc output to maximise (default CombinedDPS; e.g. TotalDPS, FullDPS)
+  --survivability <0..1> Weight of survivability (effective hit pool) in the score, default 0 = damage
+                         only: score = metric ^ (1 - w) * EHP ^ w, 0.5 weighs both alike
+  --approx [kills/s]     Switch on the Configuration tab's approximations (recovery on kill and the
+                         like, from a kill rate; default 1 kill per second) in the build
   --config <key=value>   Set a Configuration tab option, may be repeated (e.g. --config enemyIsBoss=Pinnacle)
   --assume <what>        Conditions to switch on: "sustained" = the ones the build keeps up by itself
                          (enemy shocked with enough shock chance, crit recently, ...), or a comma
@@ -58,6 +62,12 @@ do
 		end
 		if flags[key] then
 			args[key] = true
+		elseif key == "approx" then
+			-- The kill rate is optional
+			args.approx = tonumber(arg[index + 1]) or 1
+			if tonumber(arg[index + 1]) then
+				index = index + 1
+			end
 		else
 			index = index + 1
 			local value = arg[index]
@@ -89,6 +99,10 @@ end
 if args.help or ((not args.class or not args.skill) and not args.coverage and not args.worker) then
 	io.stderr:write(usage)
 	os.exit(args.help and 0 or 2)
+end
+if args.survivability and not tonumber(args.survivability) then
+	io.stderr:write("--survivability expects a number from 0 to 1\n")
+	os.exit(2)
 end
 
 -- Safety net: stop with a stack dump instead of running away if the search stops reporting
@@ -194,6 +208,9 @@ local options = {
 	itemLevel = tonumber(args["item-level"]),
 	maxSupports = tonumber(args.supports),
 	metric = args.metric,
+	survivability = tonumber(args.survivability),
+	approximations = args.approx ~= nil,
+	killsPerSecond = args.approx,
 	lineage = not args["no-lineage"],
 	runes = not args["no-runes"],
 	auxSkills = not args["no-aux"],
