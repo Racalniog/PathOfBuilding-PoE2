@@ -2756,7 +2756,7 @@ c["20% chance to Trigger Level 20 Summon Volatile Anomaly on Kill"]={{},nil}
 c["20% chance to Trigger Level 20 Tentacle Whip on Kill"]={{},nil}
 c["20% chance to Trigger Level 25 Summon Spectral Wolf on Critical Hit with this Weapon"]={{[1]={[1]={type="SkillId"},flags=0,keywordFlags=0,name="ExtraSkillMod",type="LIST",value={mod={flags=0,keywordFlags=0,name="SkillData",type="LIST",value={key="triggerOnCrit",value=true}}}}},nil}
 c["20% chance to cause Bleeding on Hit"]={{[1]={flags=0,keywordFlags=0,name="BleedChance",type="BASE",value=20}},nil}
-c["20% chance to deal your Thorns Damage to Enemies you Hit with Melee Attacks"]={{[1]={flags=288,keywordFlags=0,name="Damage",type="BASE",value=20}}," to deal your  to Enemies you Hit  "}
+c["20% chance to deal your Thorns Damage to Enemies you Hit with Melee Attacks"]={{[1]={flags=256,keywordFlags=0,name="ThornsOnHitChance",type="BASE",value=20}},nil}
 c["20% chance to gain Onslaught for 3 seconds when you kill an"]={{[1]={flags=0,keywordFlags=0,name="Condition:Onslaught",type="FLAG",value=true}},"  when you kill an "}
 c["20% chance to gain Onslaught for 3 seconds when you kill an  enemy affected by Abyssal Wasting"]={{[1]={flags=0,keywordFlags=0,name="Condition:Onslaught",type="FLAG",value=true}},"  when you kill an  enemy affected by Abyssal Wasting "}
 c["20% chance to gain a Frenzy Charge on killing a Frozen enemy"]={nil,"a Frenzy Charge ing a Frozen enemy "}
@@ -3188,8 +3188,7 @@ c["25% chance to Trigger Level 10 Summon Raging Spirit on Kill"]={{},nil}
 c["25% chance to be inflicted with Bleeding when Hit"]={{}," to be inflicted  when Hit "}
 c["25% chance to cause Bleeding on Hit"]={{[1]={flags=0,keywordFlags=0,name="BleedChance",type="BASE",value=25}},nil}
 c["25% chance to create a Smoke Cloud when Hit"]={{}," to create a Smoke Cloud when Hit "}
-c["25% chance to deal your Thorns Damage to Enemies you Hit with Melee Attacks"]={{[1]={flags=288,keywordFlags=0,name="Damage",type="BASE",value=25}}," to deal your  to Enemies you Hit  "}
-c["25% chance to deal your Thorns Damage to Enemies you Hit with Melee Attacks 50% chance to deal your Thorns Damage to Enemies you Hit with Melee Attacks"]={{[1]={flags=288,keywordFlags=0,name="Damage",type="BASE",value=25}}," to deal your  to Enemies you Hit  50% chance to deal your Thorns Damage to Enemies you Hit with Melee Attacks "}
+c["25% chance to deal your Thorns Damage to Enemies you Hit with Melee Attacks"]={{[1]={flags=256,keywordFlags=0,name="ThornsOnHitChance",type="BASE",value=25}},nil}
 c["25% chance to double Stun Duration"]={{[1]={flags=0,keywordFlags=0,name="DoubleEnemyStunDurationChance",type="BASE",value=25}},nil}
 c["25% chance to gain a Frenzy Charge on kill"]={{[1]={flags=0,keywordFlags=0,name="FrenzyChargeOnKillChance",type="BASE",value=25}},nil}
 c["25% chance to gain a Power Charge on Critical Hit"]={{[1]={flags=0,keywordFlags=0,name="PowerChargeOnCritChance",type="BASE",value=25}},nil}
@@ -4273,7 +4272,7 @@ c["43% reduced Magnitude of Ignite on you"]={{[1]={flags=0,keywordFlags=0,name="
 c["43% reduced effect of Shock on you"]={{[1]={flags=0,keywordFlags=0,name="SelfShockEffect",type="INC",value=-43}},nil}
 c["43% to gain Archon of Undeath when you create an Offering"]={{[1]={flags=0,keywordFlags=0,name="ArchonSource",type="LIST",value="ArchonUndeath"}},nil}
 c["45 Life Regeneration per second"]={{[1]={flags=0,keywordFlags=0,name="LifeRegen",type="BASE",value=45}},nil}
-c["45 to 90 added Physical Thorns damage per Runic Plate"]={{[1]={flags=32,keywordFlags=0,name="Damage",type="BASE",value=45}}," to 90 added Physical  per Runic Plate "}
+c["45 to 90 added Physical Thorns damage per Runic Plate"]={{[1]={[1]={type="Multiplier",var="RunicPlate"},flags=32,keywordFlags=0,name="PhysicalMin",type="BASE",value=45},[2]={[1]={type="Multiplier",var="RunicPlate"},flags=32,keywordFlags=0,name="PhysicalMax",type="BASE",value=90}},nil}
 c["45% Surpassing Chance to gain a Puppet Master stack whenever you use a Command Skill"]={{},"% Surpassing Chance to gain a Puppet Master stack whenever you use a Command Skill "}
 c["45% additional Physical Damage Reduction during Effect"]={{[1]={[1]={type="Condition",var="UsingFlask"},flags=0,keywordFlags=0,name="PhysicalDamageReduction",type="BASE",value=45}},nil}
 c["45% chance to Blind Enemies on Critical Hit"]={{}," to Blind Enemies "}
@@ -4443,7 +4442,7 @@ c["5% reduced Slowing Potency of Debuffs on You"]={{}," Slowing Potency of Debuf
 c["5% reduced effect of Curses on you"]={{[1]={flags=0,keywordFlags=0,name="CurseEffectOnSelf",type="INC",value=-5}},nil}
 c["5% reduced maximum Life"]={{[1]={flags=0,keywordFlags=0,name="Life",type="INC",value=-5}},nil}
 c["50 Chaos Damage taken per second"]={{[1]={flags=0,keywordFlags=0,name="ChaosDegen",type="BASE",value=50}},nil}
-c["50 to 100 added Physical Thorns damage per Runic Plate"]={{[1]={flags=32,keywordFlags=0,name="Damage",type="BASE",value=50}}," to 100 added Physical  per Runic Plate "}
+c["50 to 100 added Physical Thorns damage per Runic Plate"]={{[1]={[1]={type="Multiplier",var="RunicPlate"},flags=32,keywordFlags=0,name="PhysicalMin",type="BASE",value=50},[2]={[1]={type="Multiplier",var="RunicPlate"},flags=32,keywordFlags=0,name="PhysicalMax",type="BASE",value=100}},nil}
 c["50% chance for Projectiles to Pierce Enemies within 3m distance of you"]={{[1]={flags=0,keywordFlags=0,name="ProjectileCount",type="BASE",value=50}}," for  to Pierce Enemies within 3m distance of you "}
 c["50% chance to Avoid Death from Hits"]={{[1]={[1]={type="Condition",var="UseApproximations"},flags=0,keywordFlags=0,name="AvoidDeathFromHitsChance",type="BASE",value=50}},nil}
 c["50% chance to Avoid being Chilled"]={{[1]={flags=0,keywordFlags=0,name="AvoidChill",type="BASE",value=50}},nil}
@@ -4458,8 +4457,7 @@ c["50% chance to Trigger Socketed Spells when you Spend at least 100 Mana on an 
 c["50% chance to be inflicted with Bleeding when Hit"]={{}," to be inflicted  when Hit "}
 c["50% chance to cause Bleeding on Critical Hit"]={{[1]={[1]={type="Condition",var="CriticalStrike"},flags=0,keywordFlags=0,name="BleedChance",type="BASE",value=50}},nil}
 c["50% chance to cause Bleeding on Hit"]={{[1]={flags=0,keywordFlags=0,name="BleedChance",type="BASE",value=50}},nil}
-c["50% chance to deal your Thorns Damage to Enemies you Hit with Melee Attacks"]={{[1]={flags=288,keywordFlags=0,name="Damage",type="BASE",value=50}}," to deal your  to Enemies you Hit  "}
-c["50% chance to deal your Thorns Damage to Enemies you Hit with Melee Attacks 30% chance for Spell Damage with Critical Hits to be Lucky"]={{[1]={[1]={type="Condition",var="CriticalStrike"},flags=288,keywordFlags=0,name="Damage",type="BASE",value=50}}," to deal your  to Enemies you Hit  30% chance for Spell Damage  to be Lucky "}
+c["50% chance to deal your Thorns Damage to Enemies you Hit with Melee Attacks"]={{[1]={flags=256,keywordFlags=0,name="ThornsOnHitChance",type="BASE",value=50}},nil}
 c["50% chance to double Stun Duration"]={{[1]={flags=0,keywordFlags=0,name="DoubleEnemyStunDurationChance",type="BASE",value=50}},nil}
 c["50% chance to gain Onslaught on Killing Blow with Axes"]={{[1]={[1]={type="Condition",var="KilledRecently"},flags=65540,keywordFlags=0,name="Condition:Onslaught",type="FLAG",value=true}}," ing Blow  "}
 c["50% chance to gain Volatility when you are Stunned"]={nil,"Volatility when you are Stunned "}
@@ -5001,9 +4999,9 @@ c["8% chance for Spell Skills to fire 8 additional Projectiles in a circle"]={{[
 c["8% chance to Aggravate Bleeding on targets you Hit with Attacks"]={{[1]={flags=1,keywordFlags=0,name="AggravateBleedOnHitChance",type="BASE",value=8}},nil}
 c["8% chance to Blind Enemies on Hit with Attacks"]={{[1]={flags=0,keywordFlags=65536,name="BlindChance",type="BASE",value=8}},nil}
 c["8% chance to Blind Enemies on hit"]={{[1]={flags=0,keywordFlags=0,name="BlindChance",type="BASE",value=8}},nil}
-end)();(function()
 c["8% chance to Daze on Hit"]={{[1]={flags=4,keywordFlags=0,name="DazeChance",type="BASE",value=8}},nil}
 c["8% chance to Freeze"]={{[1]={flags=0,keywordFlags=0,name="EnemyFreezeChance",type="BASE",value=8}},nil}
+end)();(function()
 c["8% chance to Poison on Hit"]={{[1]={flags=0,keywordFlags=0,name="PoisonChance",type="BASE",value=8}},nil}
 c["8% chance to Shock"]={{[1]={flags=0,keywordFlags=0,name="EnemyShockChance",type="BASE",value=8}},nil}
 c["8% chance to grant a Endurance Charge to Allies in your Presence on Hit"]={{}," to grant a Endurance Charge to  "}
@@ -7111,7 +7109,7 @@ c["Darkness Reservation lasts for 5 seconds"]={nil,"Darkness Reservation lasts f
 c["Darkness Reservation lasts for 5 seconds +10 to Maximum Darkness per Level"]={nil,"Darkness Reservation lasts for 5 seconds +10 to Maximum Darkness per Level "}
 c["Dazes on Hit"]={{[1]={[1]={type="Condition",var="{Hand}Attack"},flags=0,keywordFlags=0,name="DazeChance",type="BASE",value=100}},nil}
 c["Deal 1 to 1000 Lightning Damage to nearby Enemies when you lose a Power, Frenzy, or Endurance Charge"]={{[1]={flags=0,keywordFlags=0,name="LightningMin",type="BASE",value=1},[2]={flags=0,keywordFlags=0,name="LightningMax",type="BASE",value=1000}}," to nearby Enemies when you lose a Power, Frenzy, or Endurance Charge "}
-c["Deal 30% of Overkill damage to enemies within 2 metres of the enemy killed"]={{[1]={flags=0,keywordFlags=0,name="Damage",type="BASE",value=30}}," Overkill  to enemies within 2 metres of the enemy killed "}
+c["Deal 30% of Overkill damage to enemies within 2 metres of the enemy killed"]={{[1]={flags=0,keywordFlags=0,name="OverkillToNearbyPercent",type="BASE",value=30}},nil}
 c["Deal 4% increased Damage with Hits to Rare or Unique Enemies for each second they've ever been in your Presence, up to a maximum of 200%"]={{[1]={[1]={actor="enemy",limit=200,limitTotal=true,type="Multiplier",var="EnemyPresenceSeconds"},[2]={actor="enemy",type="ActorCondition",var="RareOrUnique"},flags=0,keywordFlags=262144,name="Damage",type="INC",value=4}},nil}
 c["Deal Double Damage to Enemies that are on Full Life"]={{[1]={[1]={actor="enemy",type="ActorCondition",var="FullLife"},[2]={globalLimit=100,globalLimitKey="DamageDoubledLimit",type="Multiplier",var="DamageDoubled"},flags=0,keywordFlags=0,name="Damage",type="MORE",value=100},[2]={[1]={actor="enemy",type="ActorCondition",var="FullLife"},flags=0,keywordFlags=0,name="Multiplier:DamageDoubled",type="OVERRIDE",value=1}},"  to Enemies  "}
 c["Deal no Elemental Damage"]={{[1]={flags=0,keywordFlags=0,name="DealNoLightning",type="FLAG",value=true},[2]={flags=0,keywordFlags=0,name="DealNoCold",type="FLAG",value=true},[3]={flags=0,keywordFlags=0,name="DealNoFire",type="FLAG",value=true}},nil}
@@ -7122,7 +7120,7 @@ c["Deal no Physical Damage"]={{[1]={flags=0,keywordFlags=0,name="DealNoPhysical"
 c["Deal up to 40% more Damage to Enemies based on their missing Concentration"]={nil,"up to 40% more Damage to Enemies based on their missing Concentration "}
 c["Deal your Thorns Damage to Enemies you Stun with Melee Attacks"]={nil,"your Thorns Damage to Enemies you Stun with Melee Attacks "}
 c["Deal your Thorns Damage to Enemies you Stun with Melee Attacks 35 to 53 Physical Thorns damage"]={{[1]={flags=256,keywordFlags=0,name="PhysicalMin",type="BASE",value=35},[2]={flags=256,keywordFlags=0,name="PhysicalMax",type="BASE",value=53}},"your  to Enemies you Stun   "}
-c["Deal your Thorns damage to enemies you Critically Hit with Melee Attacks"]={nil,"your Thorns damage to enemies you Critically Hit with Melee Attacks "}
+c["Deal your Thorns damage to enemies you Critically Hit with Melee Attacks"]={{[1]={flags=256,keywordFlags=0,name="ThornsOnCritChance",type="BASE",value=100}},nil}
 c["Deals 25% of current Mana as Chaos Damage to you when Effect ends"]={nil,"Deals 25% of current Mana as Chaos Damage to you when Effect ends "}
 c["Deals 450 Chaos Damage per second to nearby Enemies"]={nil,"Deals 450 Chaos Damage per second to nearby Enemies "}
 c["Deals 50 Chaos Damage per second to nearby Enemies"]={nil,"Deals 50 Chaos Damage per second to nearby Enemies "}
@@ -7188,7 +7186,7 @@ c["Double Activation Delay of Curses"]={{[1]={flags=0,keywordFlags=0,name="Curse
 c["Double Adaptation Effect"]={{[1]={[1]={globalLimit=100,globalLimitKey="LocalEffectDoubledLimit",type="Multiplier",var="LocalEffectDoubled"},flags=0,keywordFlags=0,name="LocalEffect",type="MORE",value=100},[2]={flags=0,keywordFlags=0,name="Multiplier:LocalEffectDoubled",type="OVERRIDE",value=1}}," Adaptation  "}
 c["Double Stun Threshold while Shield is Raised"]={{[1]={[1]={type="Condition",var="ShieldRaised"},[2]={globalLimit=100,globalLimitKey="StunThresholdDoubledLimit",type="Multiplier",var="StunThresholdDoubled"},flags=0,keywordFlags=0,name="StunThreshold",type="MORE",value=100},[2]={[1]={type="Condition",var="ShieldRaised"},flags=0,keywordFlags=0,name="Multiplier:StunThresholdDoubled",type="OVERRIDE",value=1}},nil}
 c["Double the number of your Poisons that targets can be affected by at the same time"]={{[1]={flags=0,keywordFlags=0,name="PoisonCanStack",type="FLAG",value=true},[2]={flags=0,keywordFlags=0,name="PoisonStacks",type="MORE",value=100}},nil}
-c["Drop Ignited Ground while moving, which lasts 8 seconds and Ignites as though dealing Fire Damage equal to 10% of your maximum Life"]={nil,"Drop Ignited Ground while moving, which lasts 8 seconds and Ignites as though dealing Fire Damage equal to 10% of your maximum Life "}
+c["Drop Ignited Ground while moving, which lasts 8 seconds and Ignites as though dealing Fire Damage equal to 10% of your maximum Life"]={{[1]={[1]={percent=10,stat="Life",type="PercentStat"},flags=0,keywordFlags=0,name="GroundIgniteBaseDamage",type="MAX",value=1}},nil}
 c["Drop Shocked Ground while moving, lasting 8 seconds"]={nil,"Drop Shocked Ground while moving, lasting 8 seconds "}
 c["During Effect, 6% reduced Damage taken of each Element for which your Uncapped Elemental Resistance is lowest"]={{[1]={[1]={stat="LightningResistTotal",thresholdStat="ColdResistTotal",type="StatThreshold",upper=true},[2]={stat="LightningResistTotal",thresholdStat="FireResistTotal",type="StatThreshold",upper=true},flags=0,keywordFlags=0,name="LightningDamageTaken",type="INC",value=-6},[2]={[1]={stat="ColdResistTotal",thresholdStat="LightningResistTotal",type="StatThreshold",upper=true},[2]={stat="ColdResistTotal",thresholdStat="FireResistTotal",type="StatThreshold",upper=true},flags=0,keywordFlags=0,name="ColdDamageTaken",type="INC",value=-6},[3]={[1]={stat="FireResistTotal",thresholdStat="LightningResistTotal",type="StatThreshold",upper=true},[2]={stat="FireResistTotal",thresholdStat="ColdResistTotal",type="StatThreshold",upper=true},flags=0,keywordFlags=0,name="FireDamageTaken",type="INC",value=-6}},nil}
 c["During Effect, Damage Penetrates 7% Resistance of each Element for which your Uncapped Elemental Resistance is highest"]={{[1]={[1]={stat="LightningResistTotal",thresholdStat="ColdResistTotal",type="StatThreshold"},[2]={stat="LightningResistTotal",thresholdStat="FireResistTotal",type="StatThreshold"},flags=0,keywordFlags=0,name="LightningPenetration",type="BASE",value=7},[2]={[1]={stat="ColdResistTotal",thresholdStat="LightningResistTotal",type="StatThreshold"},[2]={stat="ColdResistTotal",thresholdStat="FireResistTotal",type="StatThreshold"},flags=0,keywordFlags=0,name="ColdPenetration",type="BASE",value=7},[3]={[1]={stat="FireResistTotal",thresholdStat="LightningResistTotal",type="StatThreshold"},[2]={stat="FireResistTotal",thresholdStat="ColdResistTotal",type="StatThreshold"},flags=0,keywordFlags=0,name="FirePenetration",type="BASE",value=7}},nil}
@@ -7266,9 +7264,8 @@ c["Enemies in your Presence Gain 9% of Damage as Extra Chaos Damage"]={{[1]={fla
 c["Enemies in your Presence Resist Elemental Damage based on their Lowest Resistance"]={{[1]={[1]={type="Condition",var="EnemyInPresence"},flags=0,keywordFlags=0,name="ElementalDamageUsesLowestResistance",type="FLAG",value=true}},nil}
 c["Enemies in your Presence are Blinded"]={{[1]={flags=0,keywordFlags=0,name="EnemyModifier",type="LIST",value={mod={[1]={actor="enemy",type="ActorCondition",var="EnemyInPresence"},flags=0,keywordFlags=0,name="Condition:Blinded",type="FLAG",value=true}}}},nil}
 c["Enemies in your Presence are Hindered"]={{[1]={[1]={type="Condition",var="EnemyInPresence"},flags=0,keywordFlags=0,name="EnemyModifier",type="LIST",value={mod={flags=0,keywordFlags=0,name="Condition:Hindered",type="FLAG",value=true}}}},nil}
-c["Enemies in your Presence are Ignited as though dealt 100 Base Fire Damage"]={nil,"Ignited as though dealt 100 Base Fire Damage "}
-c["Enemies in your Presence are Ignited as though dealt 100 Base Fire Damage Enemies in your Presence are Ignited as though dealt 200 Base Fire Damage"]={nil,"Ignited as though dealt 100 Base Fire Damage Enemies in your Presence are Ignited as though dealt 200 Base Fire Damage "}
-c["Enemies in your Presence are Ignited as though dealt 200 Base Fire Damage"]={nil,"Ignited as though dealt 200 Base Fire Damage "}
+c["Enemies in your Presence are Ignited as though dealt 100 Base Fire Damage"]={{[1]={flags=0,keywordFlags=0,name="PresenceIgniteBaseDamage",type="MAX",value=100}},nil}
+c["Enemies in your Presence are Ignited as though dealt 200 Base Fire Damage"]={{[1]={flags=0,keywordFlags=0,name="PresenceIgniteBaseDamage",type="MAX",value=200}},nil}
 c["Enemies in your Presence are Intimidated"]={{[1]={flags=0,keywordFlags=0,name="EnemyModifier",type="LIST",value={mod={[1]={actor="enemy",type="ActorCondition",var="EnemyInPresence"},flags=0,keywordFlags=0,name="Condition:Intimidated",type="FLAG",value=true}}}},nil}
 c["Enemies in your Presence are Slowed by 20%"]={{[1]={[1]={type="Condition",var="EnemyInPresence"},flags=0,keywordFlags=0,name="EnemyModifier",type="LIST",value={mod={flags=0,keywordFlags=0,name="ActionSpeed",type="INC",value=-20}}}},nil}
 c["Enemies in your Presence count as being on Low Life"]={{[1]={[1]={type="Condition",var="EnemyInPresence"},flags=0,keywordFlags=0,name="EnemyModifier",type="LIST",value={mod={flags=0,keywordFlags=0,name="Condition:LowLife",type="FLAG",value=true}}}},nil}
@@ -7741,11 +7738,11 @@ c["Gain Onslaught for 4 seconds when a Minion Dies You and Allies in your Presen
 c["Gain Overencumbrance for 4 seconds when you Dodge Roll"]={nil,"Overencumbrance  when you Dodge Roll "}
 c["Gain Overencumbrance for 4 seconds when you Dodge Roll Your speed is Unaffected by Slows while Sprinting"]={nil,"Overencumbrance  when you Dodge Roll Your speed is Unaffected by Slows  "}
 c["Gain Owl Feathers 50% faster"]={nil,"Owl Feathers 50% faster "}
-c["Gain Physical Thorns damage equal to 0.08% of Item Armour on Equipped Body Armour"]={{[1]={flags=32,keywordFlags=0,name="PhysicalMin",type="BASE",value=1},[2]={flags=32,keywordFlags=0,name="PhysicalMax",type="BASE",value=1}}," equal to 0.08% of Item  on Equipped Body Armour "}
+c["Gain Physical Thorns damage equal to 0.08% of Item Armour on Equipped Body Armour"]={{[1]={[1]={percent=0.08,stat="ArmourOnBody Armour",type="PercentStat"},flags=32,keywordFlags=0,name="PhysicalMin",type="BASE",value=1},[2]={[1]={percent=0.08,stat="ArmourOnBody Armour",type="PercentStat"},flags=32,keywordFlags=0,name="PhysicalMax",type="BASE",value=1}},nil}
 c["Gain Physical Thorns damage equal to 10% of Item Armour on Equipped Body Armour"]={{[1]={[1]={percent=10,stat="ArmourOnBody Armour",type="PercentStat"},flags=32,keywordFlags=0,name="PhysicalMin",type="BASE",value=1},[2]={[1]={percent=10,stat="ArmourOnBody Armour",type="PercentStat"},flags=32,keywordFlags=0,name="PhysicalMax",type="BASE",value=1}},nil}
 c["Gain Physical Thorns damage equal to 5% of Item Armour on Equipped Body Armour"]={{[1]={[1]={percent=5,stat="ArmourOnBody Armour",type="PercentStat"},flags=32,keywordFlags=0,name="PhysicalMin",type="BASE",value=1},[2]={[1]={percent=5,stat="ArmourOnBody Armour",type="PercentStat"},flags=32,keywordFlags=0,name="PhysicalMax",type="BASE",value=1}},nil}
 c["Gain Physical Thorns damage equal to 6% of Item Armour on Equipped Body Armour"]={{[1]={[1]={percent=6,stat="ArmourOnBody Armour",type="PercentStat"},flags=32,keywordFlags=0,name="PhysicalMin",type="BASE",value=1},[2]={[1]={percent=6,stat="ArmourOnBody Armour",type="PercentStat"},flags=32,keywordFlags=0,name="PhysicalMax",type="BASE",value=1}},nil}
-c["Gain Physical Thorns damage equal to 8% - 12% of maximum Life"]={{[1]={flags=32,keywordFlags=0,name="PhysicalMin",type="BASE",value=1},[2]={flags=32,keywordFlags=0,name="PhysicalMax",type="BASE",value=1}}," equal to 8% - 12% of  "}
+c["Gain Physical Thorns damage equal to 8% - 12% of maximum Life"]={{[1]={[1]={percent=8,stat="Life",type="PercentStat"},flags=32,keywordFlags=0,name="PhysicalMin",type="BASE",value=1},[2]={[1]={percent=12,stat="Life",type="PercentStat"},flags=32,keywordFlags=0,name="PhysicalMax",type="BASE",value=1}},nil}
 c["Gain Physical Thorns damage equal to 8% of maximum Life while Shapeshifted"]={{[1]={[1]={type="Condition",var="Shapeshifted"},[2]={percent=8,stat="Life",type="PercentStat"},flags=32,keywordFlags=0,name="PhysicalMin",type="BASE",value=1},[2]={[1]={type="Condition",var="Shapeshifted"},[2]={percent=8,stat="Life",type="PercentStat"},flags=32,keywordFlags=0,name="PhysicalMax",type="BASE",value=1}},nil}
 c["Gain Power Charges instead of Frenzy Charges"]={{[1]={flags=0,keywordFlags=0,name="ChargeGainInstead",type="LIST",value={from="Frenzy",to="Power"}}},nil}
 c["Gain Soul Eater during any Flask Effect"]={{[1]={[1]={type="Condition",var="UsingFlask"},flags=0,keywordFlags=0,name="Condition:CanHaveSoulEater",type="FLAG",value=true}},nil}
@@ -9565,7 +9562,7 @@ c["This item gains bonuses from Socketed Soul Cores as though it was also a Helm
 c["This item gains bonuses from Socketed Soul Cores as though it was also a Shield"]={{},nil}
 c["Thorns Damage has 25% chance to ignore Enemy Armour"]={{[1]={flags=32,keywordFlags=0,name="ChanceToIgnoreEnemyArmour",type="BASE",value=25}},nil}
 c["Thorns Damage has 50% chance to ignore Enemy Armour"]={{[1]={flags=32,keywordFlags=0,name="ChanceToIgnoreEnemyArmour",type="BASE",value=50}},nil}
-c["Thorns can Retaliate against all Hits"]={nil,"Thorns can Retaliate against all Hits "}
+c["Thorns can Retaliate against all Hits"]={{[1]={flags=0,keywordFlags=0,name="ThornsRetaliateAllHits",type="FLAG",value=true}},nil}
 c["Totems Reflect 25% of their maximum Life as Fire Damage to nearby Enemies when Hit"]={nil,"Totems Reflect 25% of their maximum Life as Fire Damage to nearby Enemies when Hit "}
 c["Totems Regenerate 3% of maximum Life per second"]={nil,"Totems Regenerate 3% of maximum Life per second "}
 c["Totems cannot be Stunned"]={nil,"Totems cannot be Stunned "}

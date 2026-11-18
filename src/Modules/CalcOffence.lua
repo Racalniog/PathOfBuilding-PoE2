@@ -2868,6 +2868,12 @@ function calcs.offence(env, actor, activeSkill)
 			output.TriggerTime = output.Time
 			output.Speed = skillData.triggerRate
 			skillData.showAverage = false
+		elseif skillFlags.thorns and skillModList:Flag(nil, "Condition:UseApproximations") then
+			-- Thorns retaliate against the enemy Melee Hits you take, or every Hit with "Thorns can Retaliate against all Hits". How often
+			-- enemies hit you depends on play, so this needs approximations; without them PoB keeps its 1 hit per second placeholder.
+			-- ponytail: half of the enemy Hits are Melee and each one retaliates (no cooldown); upgrade path = in-game measurement
+			output.Speed = skillModList:GetMultiplier("ApproxEnemyHitsOnYouPerSecond") * (skillModList:Flag(nil, "ThornsRetaliateAllHits") and 1 or 0.5)
+			output.Time = output.Speed > 0 and 1 / output.Speed or 0
 		else
 			local baseTime
 			if isAttack then
@@ -6479,6 +6485,81 @@ function calcs.offence(env, actor, activeSkill)
 			t_insert(breakdown.ImpaleDPS, s_format("x %g ^8(quantity multiplier for this skill)", quantityMultiplier))
 		end
 		t_insert(breakdown.ImpaleDPS, s_format("= %.1f", output.ImpaleDPS))
+		end
+	end
+
+	-- Thorns damage per hit is the hidden Thorns skill's Average Damage (CalcSetup adds it when you have Thorns damage), from a calculation
+	-- with that skill as the main skill. Rules from the stat descriptions:
+	-- - "N% chance to deal your Thorns Damage to Enemies you Hit with Melee Attacks" (melee_attack_deal_thorns_damage_chance_%_on_hit), "Deal
+	--   your Thorns damage to enemies you Critically Hit with Melee Attacks" (deal_thorns_damage_on_melee_crit): each such Hit of this skill
+	--   deals one Thorns hit to its target. That is damage of this skill's Hits on the target, exact like Impale, so it adds to CombinedDPS.
+	-- - Thorns retaliating against Hits you take: the Thorns skill's DPS at the approximated retaliation rate (see its speed). Only with
+	--   approximations, and only in ThornsDPS, never in CombinedDPS: it doesn't come from this skill.
+	if actor == env.player and skillFlags.hit and not skillFlags.thorns and not skillData.showAverage then
+		local onHit = m_min(skillModList:Sum("BASE", skillCfg, "ThornsOnHitChance"), 100) / 100
+		local onCrit = m_min(skillModList:Sum("BASE", skillCfg, "ThornsOnCritChance"), 100) / 100
+		local approx = skillModList:Flag(nil, "Condition:UseApproximations")
+		local thorns
+		if onHit > 0 or onCrit > 0 or approx then
+			for _, skill in ipairs(actor.activeSkillList) do
+				if skill.activeEffect.grantedEffect.id == "ThornsPlayer" then
+					thorns = skill
+					break
+				end
+			end
+		end
+		if thorns then
+			local thornsHit, retaliation = calcs.getCachedOutputValue(env, thorns, "AverageDamage", "TotalDPS")
+			-- CritChance includes the chance to hit in the effective mode only (as in doChargeApprox)
+			local accuracy = env.mode_effective and (output.AccuracyHitChance or 100) or 100
+			local perHit = 1 - (1 - onHit) * (1 - onCrit * (accuracy > 0 and m_min(output.CritChance / accuracy, 1) or 0))
+			-- landed hits per second on the target, as for ailments
+			local hits = (output.HitSpeed or output.Speed) * output.HitChance / 100 * output.DpsMultiplier
+			output.ThornsOnHitDPS = (thornsHit or 0) * perHit * hits
+			retaliation = approx and retaliation or 0
+			output.ThornsDPS = output.ThornsOnHitDPS + retaliation
+			output.CombinedDPS = output.CombinedDPS + output.ThornsOnHitDPS
+			if breakdown then
+				breakdown.ThornsDPS = {
+					s_format("%.1f ^8(Thorns damage per hit)", thornsHit or 0),
+					s_format("x %.3f ^8(chance a Hit deals your Thorns damage)", perHit),
+					s_format("x %.2f ^8(Hits per second on the target)", hits),
+					s_format("= %.1f ^8(Thorns DPS on Hit, in Combined DPS)", output.ThornsOnHitDPS),
+					s_format("+ %.1f ^8(Thorns retaliating against Hits you take, approx.)", retaliation),
+					s_format("= %.1f", output.ThornsDPS),
+				}
+			end
+		end
+	end
+
+	-- Ignites that don't come from this skill's Hits. Rules from the stat descriptions: "Enemies in your Presence are Ignited as though dealt
+	-- N Base Fire Damage" (ignite_as_though_dealing_X_damage_in_your_presence), and the Ignited Ground that "Drop Ignited Ground while moving,
+	-- which ... Ignites as though dealing Fire Damage equal to N% of your maximum Life" leaves (unique_boots_secondary_ground_ignite_while_
+	-- moving_base_fire_damage_%_of_life). PoB's Ignite formula: damage x IgnitePercentBase (IgniteHitDamagePercentPerMinute / 60 per second)
+	-- x Ignite Magnitude, then the enemy's Fire resistance and damage taken. Reported per affected enemy and not in CombinedDPS: an enemy has
+	-- one Ignite (the strongest), so they don't add to this skill's Ignite, and whether an enemy is in your Presence or on the ground depends
+	-- on play.
+	-- ponytail: the damage isn't scaled by your damage modifiers (the texts don't say), and only Ignite Magnitude modifiers without skill
+	-- conditions apply; upgrade path = in-game measurement
+	if actor == env.player then
+		local igniteCfg = { flags = bor(ModFlag.Dot, ModFlag.Ailment), keywordFlags = bor(KeywordFlag.Ignite, KeywordFlag.Ailment, KeywordFlag.FireDot) }
+		for _, source in ipairs({ "Presence", "Ground" }) do
+			local base = modDB:Max(nil, source.."IgniteBaseDamage")
+			if base then
+				local effMult = env.mode_effective and (1 - calcResistForType("Fire", igniteCfg) / 100)
+					* calcLib.mod(enemyDB, igniteCfg, "DamageTaken", "DamageTakenOverTime", "FireDamageTaken", "FireDamageTakenOverTime", "ElementalDamageTaken") or 1
+				local magnitude = calcLib.mod(modDB, igniteCfg, "AilmentMagnitude")
+				output[source.."IgniteDPS"] = base * data.misc.IgnitePercentBase * magnitude * effMult
+				if breakdown then
+					breakdown[source.."IgniteDPS"] = {
+						s_format("%.1f ^8(Ignites as though dealing this Fire damage)", base),
+						s_format("x %.2f ^8(Ignite deals this share of it per second)", data.misc.IgnitePercentBase),
+						s_format("x %.2f ^8(Ignite Magnitude)", magnitude),
+						s_format("x %.3f ^8(effective DPS modifier)", effMult),
+						s_format("= %.1f ^8(Ignite DPS on each enemy %s)", output[source.."IgniteDPS"], source == "Presence" and "in your Presence" or "on the Ignited Ground"),
+					}
+				end
+			end
 		end
 	end
 

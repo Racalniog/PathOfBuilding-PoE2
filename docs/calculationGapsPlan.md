@@ -305,13 +305,31 @@ Order by the Phase 0 ranking. The census suggests this order:
      - **Pack only (Use approximations on, new *Enemies near the target* input, 3 by default, a guess):** Ignite spread gives *Pack DPS
        (approx.)* = Ignite DPS × (1 + enemies near the target); Shock spread gives the average Shocked enemies near the target,
        enemies × (1 − e^(−chance × Shocking Hits/s × Shock duration)). Neither changes single-target DPS or the optimizer score.
-     - Not modelled: ailments on you (chill from damage taken, reflected Poison / Ignite, immunity windows, Electrocute immunity), Presence
-       and ground Ignites "as though dealing" (unclear whether the base damage is scaled), Volatility, Rage on Ignite, Shatter,
+     - Not modelled: ailments on you (chill from damage taken, reflected Poison / Ignite, immunity windows, Electrocute immunity), Volatility,
+       Rage on Ignite, Shatter,
        "per Enemy Ignited / Frozen in the last 8 seconds", Withered not expiring, aggravated Ignites, Beasts (no enemy type option).
      - Census: 1,076 → 1,040; Ailments 98 → 65.
 5. **Guard, block, stun and parry** (60 lines). Moved forward with the defence work. The optimizer
    doesn't score defence yet, which needs a survivability score as well as damage.
 6. **Thorns, ground surfaces, shapeshifting, Presence effects.**
+   - Thorns, Overkill and Ignites not caused by your Hits done (November 2026), rules from the stat descriptions:
+     - **Exact:** Physical Thorns damage equal to 8% - 12% of maximum Life, per Runic Plate (new *# of Runic Plates* option, at most 4
+       from Runic Tempering's `runic_tempering_max_runes`), Lucky Thorns against Fully Broken Armour, and Thorns on melee Hits ("N% chance
+       to deal your Thorns Damage to Enemies you Hit with Melee Attacks", "... you Critically Hit with Melee Attacks"). A Thorns hit is the
+       hidden Thorns skill's Average Damage; on-hit Thorns DPS = chance per landed Hit x Hits per second x that damage. It is damage of the
+       main skill's Hits on the target, like Impale, so it is added to Combined DPS (and so to the optimizer's score). Also fixed: Thorns from
+       "0.08% of Item Armour on Equipped Body Armour" (decimal percentages).
+     - **Approximation (Use approximations on):** Thorns retaliating against Hits you take, at *Enemy hits on you per second* (2 by default,
+       a guess) x 1/2 (assumed Melee share; every Hit with "Thorns can Retaliate against all Hits"). This sets the Thorns skill's rate (without
+       approximations it keeps PoB's 1 hit/s placeholder) and is reported in *Thorns DPS* (Calcs tab, Other Effects; sidebar), never in Combined DPS.
+     - **Pack only (approximations on):** "Deal N% of Overkill damage to enemies within 2 metres of the enemy killed": *Overkill Pack DPS
+       (approx.)* = kills/s x half an average landed Hit x N% x enemies near the target.
+     - **Per affected enemy, outside Combined DPS:** "Enemies in your Presence are Ignited as though dealt N Base Fire Damage" and the Ignited
+       Ground of "Drop Ignited Ground while moving ... equal to N% of your maximum Life": N x 20%/s (IgniteHitDamagePercentPerMinute) x Ignite
+       Magnitude x the enemy's Fire resistance and damage taken. The base isn't scaled by your damage modifiers (unclear from the texts). An
+       enemy has one Ignite, the strongest, so these don't add to the main skill's Ignite.
+     - Not modelled: Thorns on Stun (no stun rate), Thorns retaliation cooldowns, Overkill's armour mitigation, charm-created Ignited Ground.
+     - Census: 1,040 → 1,028; Thorns 8 → 1, Ailments 65 → 62, Other 467 → 465.
 
 For each mechanic:
 - Write the rule down with its source (patch note, help text or wiki test), in a comment next to

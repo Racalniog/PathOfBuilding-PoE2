@@ -121,6 +121,11 @@ local configSettings = {
 	{ var = "approxEnemiesNearTarget", type = "count", label = "Enemies near the target:", ifOption = "useApproximations", defaultState = 3, tooltip = "Other enemies close to the one you hit, used for effects that spread to them\n(Ignite and Shock spread). These are reported as pack values and never change single-target DPS.", apply = function(val, modList, enemyModList)
 		modList:NewMod("Multiplier:ApproxEnemiesNearTarget", "BASE", m_max(val, 0), "Config", { type = "Condition", var = "UseApproximations" })
 	end },
+	-- ponytail: 2 hits/s is a guess (with half of them Melee it keeps the 1 Thorns retaliation per second PoB assumes without approximations);
+	-- upgrade path = scenario defaults calibrated by in-game measurement (plan Phase 6)
+	{ var = "approxEnemyHitsOnYouPerSecond", type = "float", label = "Enemy hits on you per second:", ifOption = "useApproximations", defaultState = 2, tooltip = "Enemy Hits you take per second, used for the damage your Thorns retaliate with.\nThorns retaliate against Melee Hits, assumed to be half of them, unless they can retaliate against all Hits.\nReported as Thorns DPS, never in the main skill's Combined DPS.", apply = function(val, modList, enemyModList)
+		modList:NewMod("Multiplier:ApproxEnemyHitsOnYouPerSecond", "BASE", m_max(val, 0), "Config", { type = "Condition", var = "UseApproximations" })
+	end },
 	-- ponytail: the Archon recovery period isn't in the game data (the Archon Buff durations are, data.archonBuffs), 10 s is a guess;
 	-- upgrade path = measure it in the game
 	{ var = "approxArchonRecovery", type = "float", label = "Archon recovery period (s):", ifOption = "useApproximations", defaultState = 10, tooltip = "Base time after losing an Archon Buff before you can gain one again.\nNot in the game data: 10 seconds is a guess.", apply = function(val, modList, enemyModList)
@@ -614,6 +619,11 @@ local configSettings = {
 	end },
 	{ var = "risingTempestFire", type = "check", label = "Fire Skill used Recently:", ifSkill = "Rising Tempest", apply = function(val, modList, enemyModList)
 		modList:NewMod("Multiplier:DifferentElementalSkillUsedRecently", "BASE", 1, "Config")
+	end },
+	{ label = "Runic Tempering:", ifMult = "RunicPlate" },
+	-- runic_tempering_max_runes = 4 (Runic Tempering's constant stats)
+	{ var = "multiplierRunicPlate", type = "count", label = "# of Runic Plates:", ifMult = "RunicPlate", tooltip = "Runic Plates from channelling Runic Tempering, at most 4.", apply = function(val, modList, enemyModList)
+		modList:NewMod("Multiplier:RunicPlate", "BASE", m_min(val, 4), "Config")
 	end },
 	{ label = "Scavenged Plating:", ifSkill = "Scavenged Plating" },
 	{ var = "scavengedPlatingStacks", type = "count", label = "# of Scavenged Plating Stacks:", ifSkill = "Scavenged Plating", apply = function(val, modList, enemyModList)

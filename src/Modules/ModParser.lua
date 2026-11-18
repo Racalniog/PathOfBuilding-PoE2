@@ -1653,7 +1653,7 @@ local modTagList = {
 	["per (%d+) maximum mana, up to a maximum of (%d+)%%"] = function(num, _, limit) return { tag = { type = "PerStat", stat = "Mana", div = num, limit = tonumber(limit), limitTotal = true } } end,
 	["equal to (%d+)%% of maximum life"] = function(num) return { tag = { type = "PercentStat", stat = "Life", percent = num } } end,
 	["equal to (%d+)%% of (y?o?u?r? ?) maximum mana"] = function(num) return { tag = { type = "PercentStat", stat = "Mana", percent = num } } end,
-	["equal to (%d+)%% of (i?t?e?m? ?)armour on equipped body armour"] = function(num) return { tag = { type = "PercentStat", stat = "ArmourOnBody Armour", percent = num } } end,
+	["equal to ([%d%.]+)%% of (i?t?e?m? ?)armour on equipped body armour"] = function(num) return { tag = { type = "PercentStat", stat = "ArmourOnBody Armour", percent = num } } end,
 	["per (%d+) spirit"] = function(num) return { tag = { type = "PerStat", stat = "Spirit", div = num } } end,
 	["per (%d+) spirit, up to a maximum of (%d+)%%"] = function(num, _, limit) return { tag = { type = "PerStat", stat = "Spirit", div = num, limit = tonumber(limit), limitTotal = true } } end,
 	["per (%d+) unreserved darkness"] = function(num) return { tag = { type = "PerStat", stat = "UnreservedDarkness", div = num } } end,
@@ -2600,6 +2600,28 @@ local specialModList = {
 	-- Spread to other enemies: pack-only, reported with Use approximations (CalcPerform doAilmentApprox), never in single-target DPS
 	["ignites you inflict spread to other enemies that stay within ([%d%.]+) metres? for 1 second"] = { flag("IgniteSpreads") },
 	["shocking hits have a (%d+)%% chance to also shock enemies in a 1%.5 metre radius"] = function(num) return { mod("ShockSpreadChance", "BASE", num) } end,
+	-- overkill_damage_%_as_physical_to_nearby_enemies: pack-only, like the spreads above
+	["deal (%d+)%% of overkill damage to enemies within 2 metres of the enemy killed"] = function(num) return { mod("OverkillToNearbyPercent", "BASE", num) } end,
+	-- Ignites not caused by your Hits (CalcOffence, reported per affected enemy): ignite_as_though_dealing_X_damage_in_your_presence,
+	-- unique_boots_secondary_ground_ignite_while_moving_base_fire_damage_%_of_life
+	["enemies in your presence are ignited as though dealt (%d+) base fire damage"] = function(num) return { mod("PresenceIgniteBaseDamage", "MAX", num) } end,
+	["drop ignited ground while moving, which lasts %d+ seconds and ignites as though dealing fire damage equal to (%d+)%% of your maximum life"] = function(num) return { mod("GroundIgniteBaseDamage", "MAX", 1, { type = "PercentStat", stat = "Life", percent = num }) } end,
+	-- Thorns (CalcOffence). gain_minimum/maximum_physical_thorns_damage_equal_to_x%_of_maximum_life; gain_min/max_physical_thorns_damage_equal_to_
+	-- x_times_your_runic_tempering_stacks (Runic Plates are the Runic Tempering skill's stacks); thorns_damage_is_lucky_against_enemies_with_fully_
+	-- broken_armour; deal_thorns_damage_on_melee_crit and melee_attack_deal_thorns_damage_chance_%_on_hit (on Hit: damage of the Hit's skill);
+	-- thorns_proc_off_any_hit ("Thorns can Retaliate against all Hits", not only Melee Hits)
+	["gain physical thorns damage equal to (%d+)%% %- (%d+)%% of maximum life"] = function(min, _, max) return {
+		mod("PhysicalMin", "BASE", 1, nil, ModFlag.Thorns, 0, { type = "PercentStat", stat = "Life", percent = min }),
+		mod("PhysicalMax", "BASE", 1, nil, ModFlag.Thorns, 0, { type = "PercentStat", stat = "Life", percent = tonumber(max) }),
+	} end,
+	["(%d+) to (%d+) added physical thorns damage per runic plate"] = function(min, _, max) return {
+		mod("PhysicalMin", "BASE", min, nil, ModFlag.Thorns, 0, { type = "Multiplier", var = "RunicPlate" }),
+		mod("PhysicalMax", "BASE", tonumber(max), nil, ModFlag.Thorns, 0, { type = "Multiplier", var = "RunicPlate" }),
+	} end,
+	["thorns damage is lucky against targets with fully broken armour"] = { flag("LuckyHits", nil, ModFlag.Thorns, 0, { type = "ActorCondition", actor = "enemy", var = "ArmourFullyBroken" }) },
+	["(%d+)%% chance to deal your thorns damage to enemies you hit with melee attacks"] = function(num) return { mod("ThornsOnHitChance", "BASE", num, nil, ModFlag.Melee) } end,
+	["deal your thorns damage to enemies you critically hit with melee attacks"] = { mod("ThornsOnCritChance", "BASE", 100, nil, ModFlag.Melee) },
+	["thorns can retaliate against all hits"] = { flag("ThornsRetaliateAllHits") },
 	-- Magnitude of Elemental Ailments (Ignite, Chill, Shock; Freeze and Electrocute have buildup, no magnitude) with Spells: Ignite needs both
 	-- keywords (MatchAll), the non-damaging ones read the hit's keywords
 	["(%d+)%% increased magnitude of elemental ailments you inflict with spells"] = function(num) return {

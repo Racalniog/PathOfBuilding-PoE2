@@ -37,6 +37,7 @@ local function getCachedOutputValue(env, activeSkill, ...)
 	end
 	return unpack(tempValues)
 end
+calcs.getCachedOutputValue = getCachedOutputValue -- for CalcOffence (Thorns damage per hit)
 
 -- Merge an instance of a buff, taking the highest value of each modifier
 local function mergeBuff(src, destTable, destKey)
@@ -1072,7 +1073,7 @@ local function doChargeApprox(env)
 	end
 end
 
--- Spread of ailments to other enemies (needs Use approximations). It only adds damage to the enemies near the target, so it is reported as
+-- Spread of ailments and Overkill damage to other enemies (needs Use approximations). It only adds damage to the enemies near the target, so it is reported as
 -- a pack value and never feeds the single-target DPS. Rules, from the stat descriptions:
 -- - "Ignites you inflict spread to other Enemies that stay within 1.5 metres for 1 second" (ignite_proliferation_radius_15,
 --   passive_notable_ignite_proliferation_radius): the enemies near the target get its Ignite.
@@ -1095,6 +1096,26 @@ local function doAilmentApprox(env)
 				s_format("%.1f ^8(Ignite DPS on the target)", output.IgniteDPS),
 				s_format("x %d ^8(the target and %d enemies near it, which the Ignite spreads to)", 1 + nearby, nearby),
 				s_format("= %.1f ^8(Ignite DPS on the pack, approx.)", output.IgnitePackDPSApprox),
+			}
+		end
+	end
+	-- "Deal N% of Overkill damage to enemies within 2 metres of the enemy killed" (overkill_damage_%_as_physical_to_nearby_enemies): each
+	-- kill deals N% of the killing Hit's damage beyond the enemy's remaining Life to every enemy near it.
+	-- ponytail: the remaining Life before the killing Hit is spread evenly over 0 to one average Hit, so a kill overkills by half an average
+	-- Hit, and the enemies near it don't mitigate it (it is Physical); upgrade path = enemy Life and hit size distributions
+	local overkill = modDB:Sum("BASE", nil, "OverkillToNearbyPercent")
+	-- the average landed Hit (attacks keep AverageHit per hand only)
+	local hit = (output.HitChance or 0) > 0 and (output.AverageDamage or 0) * 100 / output.HitChance or 0
+	if overkill > 0 and nearby > 0 and hit > 0 then
+		local kills = modDB:GetMultiplier("ApproxKillsPerSecond")
+		output.OverkillPackDPSApprox = kills * hit / 2 * overkill / 100 * nearby
+		if breakdown then
+			breakdown.OverkillPackDPSApprox = {
+				s_format("%.2f ^8(kills per second)", kills),
+				s_format("x %.1f ^8(overkill per kill: half an average Hit)", hit / 2),
+				s_format("x %.2f ^8(share of Overkill damage dealt)", overkill / 100),
+				s_format("x %d ^8(enemies near the killed one)", nearby),
+				s_format("= %.1f ^8(Overkill DPS on the pack, approx.)", output.OverkillPackDPSApprox),
 			}
 		end
 	end
