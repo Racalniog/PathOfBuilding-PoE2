@@ -1024,7 +1024,8 @@ function main:OpenOptionsPopup(savedState)
 		self:OpenOptionsPopup(savedState)
 	end)
 	controls.dpiScaleOverrideLabel = new("LabelControl"):LabelControl({ "RIGHT", controls.dpiScaleOverride, "LEFT" }, { defaultLabelSpacingPx, 0, 0, 16 }, "^7UI scaling override:")
-	controls.dpiScaleOverride.tooltipText = "Overrides Windows DPI scaling inside Path of Building.\nChoose a percentage between 100% and 250% or revert to the system default."
+	controls.dpiScaleOverride.tooltipText = "Overrides Windows DPI scaling inside Path of Building.\nChoose a percentage between 100% and 250% or revert to the system default.
+Ctrl + mouse wheel also changes it."
 	controls.dpiScaleOverride:SelByValue(self.dpiScaleOverridePercent, "percent")
 
 	nextRow()
