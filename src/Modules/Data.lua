@@ -910,6 +910,7 @@ end
 -- Load skills
 data.skills = { }
 data.skillStatMap = LoadModule("Data/SkillStatMap")(makeSkillMod, makeFlagMod, makeSkillDataMod)
+data.skillStatNoCalc = LoadModule("Data/SkillStatNoCalc")
 data.skillStatMapMeta = {
 	__index = function(t, key)
 		local map = data.skillStatMap[key]

@@ -3136,6 +3136,31 @@ return function(mod, flag, skill)
 ["breach_flame_chaos_addition_%"] = {
 	mod("BreachFlameChaosGain", "BASE", nil),
 },
+-- Support gem multipliers
+["support_echoing_cry_damage_+%_final"] = {
+	mod("Damage", "MORE", nil),
+},
+["support_echoing_cry_area_of_effect_+%_final"] = {
+	mod("AreaOfEffect", "MORE", nil),
+},
+["support_combo_finisher_damage_+%_final"] = {
+	mod("Damage", "MORE", nil),
+},
+["support_long_fuse_detonation_damage_+%_final"] = {
+	mod("Damage", "MORE", nil),
+},
+["support_increased_armour_break_armour_break_amount_+%_final"] = {
+	mod("ArmourBreakPerHit", "MORE", nil),
+},
+["active_skill_impale_magnitude_+%_final"] = {
+	mod("ImpaleEffect", "MORE", nil),
+},
+["attacks_chance_to_blind_on_hit_%"] = {
+	mod("BlindChance", "BASE", nil, ModFlag.Attack),
+},
+["base_chance_to_daze_%"] = {
+	mod("DazeChance", "BASE", nil),
+},
 -- Display only
 ["quality_display_base_additional_arrows_is_gem"] = {
 	-- Display only

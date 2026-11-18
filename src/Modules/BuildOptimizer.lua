@@ -2792,7 +2792,7 @@ local function unmappedGemStats(grantedEffect)
 	local seen = { }
 	for _, statSet in ipairs(grantedEffect.statSets or { }) do
 		local function check(name)
-			if type(name) == "string" and not seen[name] and not (statSet.statMap and statSet.statMap[name]) and not (data.skillStatMap and data.skillStatMap[name]) then
+			if type(name) == "string" and not seen[name] and not (statSet.statMap and statSet.statMap[name]) and not (data.skillStatMap and data.skillStatMap[name]) and not (data.skillStatNoCalc and data.skillStatNoCalc[name]) then
 				seen[name] = true
 				t_insert(missing, name)
 			end
@@ -2801,7 +2801,10 @@ local function unmappedGemStats(grantedEffect)
 			check(name)
 		end
 		for _, entry in ipairs(statSet.constantStats or { }) do
-			check(entry[1])
+			-- A constant of 0 changes nothing, mapped or not
+			if entry[2] ~= 0 then
+				check(entry[1])
+			end
 		end
 	end
 	t_sort(missing)
