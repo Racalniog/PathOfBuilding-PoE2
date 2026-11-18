@@ -745,23 +745,27 @@ function calcs.buildOutput(build, mode)
 		local buffList = { }
 		local combatList = { }
 		local curseList = { }
+		-- approximated charge counts are averages: one decimal when fractional
+		local function count(n)
+			return n % 1 == 0 and s_format("%d", n) or s_format("%.1f", n)
+		end
 		if output.PowerCharges > 0 then
-			t_insert(combatList, s_format("%d Power Charges", output.PowerCharges))
+			t_insert(combatList, count(output.PowerCharges).." Power Charges")
 		end
 		if output.AbsorptionCharges > 0 then
-			t_insert(combatList, s_format("%d Absorption Charges", output.AbsorptionCharges))
+			t_insert(combatList, count(output.AbsorptionCharges).." Absorption Charges")
 		end
 		if output.FrenzyCharges > 0 then
-			t_insert(combatList, s_format("%d Frenzy Charges", output.FrenzyCharges))
+			t_insert(combatList, count(output.FrenzyCharges).." Frenzy Charges")
 		end
 		if output.AfflictionCharges > 0 then
-			t_insert(combatList, s_format("%d Affliction Charges", output.AfflictionCharges))
+			t_insert(combatList, count(output.AfflictionCharges).." Affliction Charges")
 		end
 		if output.EnduranceCharges > 0 then
-			t_insert(combatList, s_format("%d Endurance Charges", output.EnduranceCharges))
+			t_insert(combatList, count(output.EnduranceCharges).." Endurance Charges")
 		end
 		if output.BrutalCharges > 0 then
-			t_insert(combatList, s_format("%d Brutal Charges", output.BrutalCharges))
+			t_insert(combatList, count(output.BrutalCharges).." Brutal Charges")
 		end
 		if output.SiphoningCharges > 0 then
 			t_insert(combatList, s_format("%d Siphoning Charges", output.SiphoningCharges))

@@ -952,6 +952,10 @@ end
 -- - Conduit and its rune versions give the charge to allies instead.
 -- - Charges last their duration (15 s base, CalcSetup), so on average min(maximum, gain rate x duration); with Redflare Conduit's
 --   "lose all on reaching maximum" the count cycles from 0 to maximum - 1, about half of that.
+--   ponytail: each charge expires on its own; if PoE2 refreshes all charges of a type on gain (as PoE1 does) the average is higher;
+--   upgrade path = the average of a renewal process (charges drop only after a gap longer than the duration).
+-- - Nebuloch ("Attacks consume an Endurance Charge to Critically Hit"): an attack main skill spends one Endurance Charge per attack
+--   that finds one, so the share of attacks that crit is min(1, gain rate / removing attacks per second).
 -- - A main skill that consumes the type (skill type SkillConsumes<type>ChargesOnUse) removes all of them on each use, except with
 --   "chance to not remove Charges but still count as consuming them", so a use finds the charges gained since the last removing use.
 --   ponytail: every consuming skill takes all its charges; upgrade path = per-skill consumption counts. Recently = 4 seconds.
@@ -987,14 +991,20 @@ local function approxCharges(env, charge, rates, key)
 	local toAllies = modDB:Flag(nil, charge.."ChargesToAllies")
 	local total = toAllies and 0 or gain * perGain
 	local consumes = skill and skill.skillTypes[SkillType["SkillConsumes"..charge.."ChargesOnUse"]] and not skill.skillModList:Flag(cfg, "Condition:CannotConsumeCharges")
+	local critConsumes = not consumes and charge == "Endurance" and skill and skill.skillTypes[SkillType.Attack] and modDB:Flag(nil, "AttacksConsumeEnduranceChargeToCrit")
 	local average, lifetime, consumedRecently
-	if consumes then
+	if consumes or critConsumes then
 		if not rates.speed then
 			return
 		end
 		local removing = rates.speed * (1 - m_min(modDB:Sum("BASE", cfg, "ChargeNotRemovedChance"), 100) / 100)
-		lifetime = removing > 0 and m_min(duration, 1 / removing) or duration
-		average = m_min(cap, total * lifetime)
+		if critConsumes then
+			average = calcLib.approxSupplyShare(total, removing)
+			output.EnduranceCritShareApprox = average * 100
+		else
+			lifetime = removing > 0 and m_min(duration, 1 / removing) or duration
+			average = m_min(cap, total * lifetime)
+		end
 		consumedRecently = rates.speed * average * 4
 		output[charge.."ChargesConsumedRecentlyApprox"] = not modDB:HasMod("BASE", nil, "Multiplier:"..charge.."ChargesConsumedRecently") and consumedRecently or nil
 	elseif cap < max then
@@ -1016,7 +1026,11 @@ local function approxCharges(env, charge, rates, key)
 			t_insert(lines, s_format("x %.2f ^8(charges per gain: additional charges, gaining up to maximum)", perGain))
 		end
 		t_insert(lines, s_format("= %.2f ^8(charges gained per second)", total))
-		if consumes then
+		if critConsumes then
+			t_insert(lines, s_format("/ %.2f ^8(attacks per second that remove one)", rates.speed * (1 - m_min(modDB:Sum("BASE", cfg, "ChargeNotRemovedChance"), 100) / 100)))
+			t_insert(lines, s_format("= %.0f%% ^8(of attacks find an Endurance Charge and crit, at most 100%%, approx.; report only)", average * 100))
+			t_insert(lines, s_format("%.2f ^8(consumed in the past 4 seconds: %.2f attacks per second x share x 4)", consumedRecently, rates.speed))
+		elseif consumes then
 			t_insert(lines, s_format("x %.2fs ^8(until the next use removes them, or they expire)", lifetime))
 			t_insert(lines, s_format("= %.2f ^8(charges per use, at most %d, approx.)", average, cap))
 			t_insert(lines, s_format("%.2f ^8(consumed in the past 4 seconds: %.2f uses per second x charges per use x 4)", consumedRecently, rates.speed))
@@ -1040,13 +1054,17 @@ local function doChargeApprox(env)
 	end
 	local speed = output.Speed or 0
 	-- ponytail: hits on the one target PoB calculates, as in doInfusionApprox; upgrade path = targets hit per use
-	-- CritChance already includes the chance to hit
-	local uses = output.HitSpeed or speed
-	local rates = { kills = modDB:GetMultiplier("ApproxKillsPerSecond"), hits = uses * (output.HitChance or 0) / 100, crits = uses * (output.CritChance or 0) / 100, speed = speed }
+	local hits = (output.HitSpeed or speed) * (output.HitChance or 0) / 100
+	-- CritChance includes the chance to hit in the effective mode only (as in doInfusionApprox)
+	local accuracy = env.mode_effective and (output.AccuracyHitChance or 100) or 100
+	local crits = accuracy > 0 and hits * m_min((output.CritChance or 0) / accuracy, 1) or 0
+	local rates = { kills = modDB:GetMultiplier("ApproxKillsPerSecond"), hits = hits, crits = crits, speed = speed }
+	local converts = { Endurance = "EnduranceChargesConvertToBrutalCharges", Frenzy = "FrenzyChargesConvertToAfflictionCharges", Power = "PowerChargesConvertToAbsorptionCharges" }
 	for _, charge in ipairs({ "Endurance", "Frenzy", "Power" }) do
-		if not modDB:Flag(nil, "Condition:Use"..charge.."Charges") then
+		if not modDB:Flag(nil, "Condition:Use"..charge.."Charges") and not modDB:Flag(nil, converts[charge]) then
 			local average = approxCharges(env, charge, rates, charge.."ChargesApprox")
-			if average and average ~= output[charge.."Charges"] then
+			-- only when it differs from the estimate the charge count got before offence
+			if average and average ~= (output[charge.."ChargesApproxKills"] or 0) then
 				output[charge.."ChargesApprox"] = average
 				output["Use"..charge.."Charges"] = true
 			end
@@ -1129,7 +1147,8 @@ local function doActorCharges(env, actor)
 		if modDB:Flag(nil, "Condition:Use"..charge.."Charges") then
 			output[charge.."Charges"] = modDB:Override(nil, charge.."Charges") or output[charge.."ChargesMax"]
 		elseif approxKills then
-			output[charge.."Charges"] = approxCharges(env, charge, approxKills, charge.."Charges") or 0
+			output[charge.."ChargesApproxKills"] = approxCharges(env, charge, approxKills, charge.."Charges")
+			output[charge.."Charges"] = output[charge.."ChargesApproxKills"] or 0
 		end
 		-- Conduit and its rune versions (keystone_conduit): charges you would gain go to allies; minimum charges aren't gained and stay
 		if modDB:Flag(nil, charge.."ChargesToAllies") then
@@ -1390,7 +1409,8 @@ local function doInfusionApprox(env)
 	-- ponytail: hits on the one target PoB calculates, one per cast unless the skill has its own hit rate; upgrade path = targets hit per cast
 	local hitRate = (output.HitSpeed or speed) * (output.HitChance or 0) / 100
 	-- CritChance already includes the chance to hit (its confirmation roll); per landed hit it is CritChance / AccuracyHitChance
-	local accuracy = output.AccuracyHitChance or 100
+	-- (only in the effective mode, the other modes have no accuracy factor)
+	local accuracy = env.mode_effective and (output.AccuracyHitChance or 100) or 100
 	local crit = accuracy > 0 and m_min((output.CritChance or 0) / accuracy, 1) or 0
 	-- Siphon Elements (stat descriptions infusion_remnants_%_chance_to_spawn_*): a chance to create a Remnant on igniting a non-Ignited
 	-- target, on shocking a non-Shocked target, and per Power on freezing a target

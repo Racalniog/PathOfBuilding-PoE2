@@ -6604,7 +6604,7 @@ c["Attacks Gain 6% of Damage as Extra Cold Damage"]={{[1]={flags=1,keywordFlags=
 c["Attacks Gain 6% of Damage as Extra Fire Damage"]={{[1]={flags=1,keywordFlags=0,name="DamageGainAsFire",type="BASE",value=6}},nil}
 c["Attacks Gain 8% of Damage as Extra Cold Damage"]={{[1]={flags=1,keywordFlags=0,name="DamageGainAsCold",type="BASE",value=8}},nil}
 c["Attacks Gain 8% of Damage as Extra Fire Damage"]={{[1]={flags=1,keywordFlags=0,name="DamageGainAsFire",type="BASE",value=8}},nil}
-c["Attacks consume an Endurance Charge to Critically Hit"]={{[1]={[1]={threshold=1,type="MultiplierThreshold",var="RemovableEnduranceCharge"},flags=1,keywordFlags=0,name="CritChance",type="OVERRIDE",value=100}},nil}
+c["Attacks consume an Endurance Charge to Critically Hit"]={{[1]={[1]={threshold=1,type="MultiplierThreshold",var="RemovableEnduranceCharge"},flags=1,keywordFlags=0,name="CritChance",type="OVERRIDE",value=100},[2]={flags=0,keywordFlags=0,name="AttacksConsumeEnduranceChargeToCrit",type="FLAG",value=true}},nil}
 c["Attacks cost an additional 6% of your maximum Mana"]={{[1]={[1]={floor=true,percent=6,stat="Mana",type="PercentStat"},flags=0,keywordFlags=65536,name="ManaCostBase",type="BASE",value=1}},nil}
 c["Attacks deal no Physical Damage"]={nil,"no Physical Damage "}
 c["Attacks fire an additional Projectile"]={{[1]={flags=1,keywordFlags=0,name="ProjectileCount",type="BASE",value=1}},nil}

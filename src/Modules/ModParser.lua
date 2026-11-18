@@ -5809,7 +5809,7 @@ local specialModList = {
 	},
 	-- Endurance, Frenzy and Power Charge rules (CalcPerform doActorCharges); stat descriptions attack_consume_endurance_charge_to_always_crit,
 	-- lose_all_power_charges_on_reaching_maximum, keystone_resonance (Resonance), keystone_conduit (Conduit) and their per-charge rune versions
-	["attacks consume an endurance charge to critically hit"] = { mod("CritChance", "OVERRIDE", 100, nil, ModFlag.Attack, { type = "MultiplierThreshold", var = "RemovableEnduranceCharge", threshold = 1 }) },
+	["attacks consume an endurance charge to critically hit"] = { mod("CritChance", "OVERRIDE", 100, nil, ModFlag.Attack, { type = "MultiplierThreshold", var = "RemovableEnduranceCharge", threshold = 1 }), flag("AttacksConsumeEnduranceChargeToCrit") },
 	["lose all power charges on reaching maximum power charges"] = { flag("LosePowerChargesOnMax") },
 	["if you would gain an? (%a+) charge, allies in your presence gain that charge instead"] = function(_, charge) return chargeTypes[charge] and { flag(chargeTypes[charge].."ChargesToAllies") } end,
 	["if you would gain a charge, allies in your presence gain that charge instead"] = { flag("EnduranceChargesToAllies"), flag("FrenzyChargesToAllies"), flag("PowerChargesToAllies") },

@@ -40,6 +40,17 @@ describe("TestCharges", function()
 		assert.are.equals(100, setup(nebuloch, { useEnduranceCharges = true, overrideEnduranceCharges = 1 }).CritChance)
 	end)
 
+	it("with approximations on, Nebuloch's crits spend the estimated Endurance Charges instead of always critting", function()
+		local output = setup(nebuloch.."\n30% chance to gain an Endurance Charge on kill", { useApproximations = true, approxKillsPerSecond = 1 })
+		-- the unarmed attack consumes them, so the kill estimate (4.5 capped at 3) doesn't become the charge count
+		assert.are.equals(0, output.EnduranceCharges)
+		assert.is_true(output.CritChance < 100)
+		-- 0.3 charges/s over the attack rate, at most 100%
+		assert.are.near(math.min(1, 0.3 / output.Speed) * 100, output.EnduranceCritShareApprox, 1e-9)
+		-- the configured count keeps the exact rule
+		assert.are.equals(100, setup(nebuloch, { useEnduranceCharges = true, overrideEnduranceCharges = 1 }).CritChance)
+	end)
+
 	it("Spells don't consume Endurance Charges to Critically Hit", function()
 		assert.is_true(setup(nebuloch, { useEnduranceCharges = true }, "Fireball").CritChance < 100)
 	end)
@@ -95,6 +106,17 @@ describe("TestCharges", function()
 		-- hits are only known after offence: the count stays 0 and the estimate is reported
 		assert.are.equals(0, output.PowerCharges)
 		assert.are.near(math.min(3, 0.05 * output.Speed * 15), output.PowerChargesApprox, 1e-9)
+		-- critical hits: the spell always hits, so crits per second = casts x crit chance
+		output = setup("10% chance to gain a Power Charge on Critical Hit", approx)
+		assert.are.near(math.min(3, 0.1 * output.Speed * output.CritChance / 100 * 15), output.PowerChargesApprox, 1e-9)
+	end)
+
+	it("doesn't report an estimate for minimum charges or converted charge types", function()
+		local approx = { useApproximations = true, approxKillsPerSecond = 1 }
+		local output = setup("+1 to Minimum Endurance Charges", approx, "Fireball")
+		assert.are.equals(1, output.EnduranceCharges)
+		assert.is_nil(output.EnduranceChargesApprox)
+		assert.is_nil(setup("30% chance to gain an Endurance Charge on Hit\nGain Brutal Charges instead of Endurance Charges", approx).EnduranceChargesApprox)
 	end)
 
 	it("a main skill that consumes the charges leaves the count alone and reports charges per use", function()

@@ -236,7 +236,9 @@ Order by the Phase 0 ranking. The census suggests this order:
      - **Approximation (Use approximations on, "Do you use ... Charges?" left unchecked):** charges gained per second from "chance to gain a
        ... Charge on kill / Hit / Critical Hit", Resonance's swapped types, additional charges per gain, "instead gain up to maximum", and the
        main skill's consumption (less "chance to not remove Charges"). Average charges ≈ min(maximum, gain rate × duration); for a consuming
-       main skill, charges per use ≈ min(maximum, gain rate × time between removing uses), and charges consumed Recently (4 s).
+       main skill, charges per use ≈ min(maximum, gain rate × time between removing uses), and charges consumed Recently (4 s). With
+       Nebuloch an attack main skill spends one Endurance Charge per crit: the share of attacks that crit ≈ min(1, gain rate / attack rate),
+       report-only (the exact 100% applies only to a configured count).
      - The kill-based part feeds the charge count, before offence, for charge types the main skill doesn't consume. Hits, critical hits and
        uses are only known after offence, so the full estimate is report-only (Calcs tab, Charges: *Estimate (approx.)*, *Consumed Recently*).
        Per-charge modifiers count whole charges (multipliers are floored), so a fractional average counts its integer part.
