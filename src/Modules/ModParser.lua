@@ -5299,12 +5299,13 @@ local specialModList = {
 	["gain guard equal to (%d+)%% of missing energy shield for (%d+) seconds when you dodge roll"] = function(num) return { mod("Guard", "MAX", 1, { type = "PercentStat", stat = "EnergyShield", percent = num / 2 }, { type = "Condition", var = "HaveGuard" }, { type = "Condition", var = "UseApproximations" }) } end,
 	["gain guard equal to (%d+)%% of maximum life for (%d+) seconds on taking savage hit"] = function(num) return { mod("Guard", "MAX", 1, { type = "PercentStat", stat = "Life", percent = num }, { type = "Condition", var = "HaveGuard" }, { type = "Condition", var = "UseApproximations" }) } end,
 	["maximum amount of guard is based on maximum energy shield instead"] = { flag("GuardBasedOnEnergyShield") },
-	-- Archon (CalcPerform doActorMisc). Only the approximated Archon uptime reads the recovery period; a source names the Archon Buff it grants;
+	-- Archon (CalcPerform doActorMisc). Only the approximated Archon uptime reads the recovery period and the event of a source (mana spent);
+	-- a source names the Archon Buff it grants;
 	-- stat descriptions: archon_delay_expires_x%_faster, archon_no_recovery_period, gain_archon_*, chance_%_to_gain_archon_*
 	["archon recovery period expires (%d+)%% faster"] = function(num) return { mod("ArchonRecoveryRate", "INC", num) } end,
 	["archon recovery period expires (%d+)%% slower"] = function(num) return { mod("ArchonRecoveryRate", "INC", -num) } end,
 	["archon buffs have no recovery period after you lose one"] = { flag("ArchonNoRecoveryPeriod") },
-	["gain elemental archon after spending 100%% of your maximum mana"] = { mod("ArchonSource", "LIST", "ArchonElemental") },
+	["gain elemental archon after spending 100%% of your maximum mana"] = { mod("ArchonSource", "LIST", "ArchonElemental"), flag("ArchonOnManaSpent") },
 	["gain elemental archon when your energy shield recharge begins"] = { mod("ArchonSource", "LIST", "ArchonElemental") },
 	["gain elemental archon when you cast a spell while on high infernal flame"] = { mod("ArchonSource", "LIST", "ArchonElemental") },
 	["(%d+)%% chance to gain archon of undeath when you use a command skill"] = { mod("ArchonSource", "LIST", "ArchonUndeath") },

@@ -174,7 +174,7 @@ Progress:
     with an *Archon Buff* choice in the configuration.
   - **Elemental Infusions:** exact counts per element in the configuration, capped at the maximum. With
     approximations on, the Calcs tab also estimates remnant generation, consumption, infused share and
-    average stacks; the estimate is report-only for now.
+    average stacks; the second pass (Phase 4) feeds the average stacks to the counts left empty.
   - **Known limits:** Siphon Elements counts as a buff on you (as in the game). Archon of Undeath's Command
     cooldown has no effect yet (no Command skill condition). With several Archon sources the first one is
     used. Whether increased Archon effect scales the conversion is untested.
@@ -225,8 +225,8 @@ Order by the Phase 0 ranking. The census suggests this order:
        skill are estimated from Remnant generation (Siphon Elements' chance on ignite / freeze / shock, a per-element
        *Infusion Remnants/s, other* input, remnant conversion keystones, extra remnants and infusions on pickup,
        Verisium every N s) and consumption (casts of a skill that consumes the infusion, less the chance to not remove
-       it). The estimate is reported in the calcs tab but doesn't feed the multipliers yet, because the rates come
-       from the offence calculation.
+       it). The rates come from the offence calculation, so the second pass (Phase 4) feeds the average stacks to
+       `Multiplier:<Element>Infusion`; the infused share is reported only (PoB has no infused skill variants).
      - Census: 1,171 → 1,126; Infusion / Archon 35 → 4 (Infernal Flame, minion Archon, Power Charge on consumption).
 2. **Charges**: generation, consumption and "per charge" effects (113 lines).
    - Done (November 2026), rules from the stat descriptions:
@@ -237,10 +237,11 @@ Order by the Phase 0 ranking. The census suggests this order:
        ... Charge on kill / Hit / Critical Hit", Resonance's swapped types, additional charges per gain, "instead gain up to maximum", and the
        main skill's consumption (less "chance to not remove Charges"). Average charges ≈ min(maximum, gain rate × duration); for a consuming
        main skill, charges per use ≈ min(maximum, gain rate × time between removing uses), and charges consumed Recently (4 s). With
-       Nebuloch an attack main skill spends one Endurance Charge per crit: the share of attacks that crit ≈ min(1, gain rate / attack rate),
-       report-only (the exact 100% applies only to a configured count).
+       Nebuloch an attack main skill spends one Endurance Charge per crit: the share of attacks that crit ≈ min(1, gain rate / attack rate)
+       (the exact 100% applies only to a configured count).
      - The kill-based part feeds the charge count, before offence, for charge types the main skill doesn't consume. Hits, critical hits and
-       uses are only known after offence, so the full estimate is report-only (Calcs tab, Charges: *Estimate (approx.)*, *Consumed Recently*).
+       uses are only known after offence, so the second pass (Phase 4) feeds the full estimate: the count (charges per use for a consuming
+       main skill), the charges consumed Recently, and Nebuloch's share as crit chance.
        Per-charge modifiers count whole charges (multipliers are floored), so a fractional average counts its integer part.
      - Not modelled: charges on Stun, Block, Heavy Stun, Low Life or maximum Rage and from charm use (no event rate), recovery per consumed
        charge (Phase 3 item 3), Elemental / Chaotic Surge triggers, charge sharing with allies.
@@ -284,6 +285,25 @@ For each mechanic:
 
 Build this once Phase 3's state flags exist, because it supplies them with rates. See the next
 section.
+
+Progress:
+- **Second pass** (November 2026, `calcs.perform` in `CalcPerform.lua`): estimates that need the main skill's rates, known only after
+  its offence calculation, used to be report-only. Now the first pass marks that it has one (`output.ApproxFeedsSecondPass`); the
+  environment is re-initialised the way `calcFullDPS` reuses one between skills (accelerated `initEnv`, same table, so every caller
+  and the optimizer get it), and a second pass feeds the first pass's estimates in before offence (`output.ApproxSecondPass`):
+  - average Elemental Infusions → `Multiplier:<Element>Infusion` for counts left empty;
+  - charges from hits, critical hits and uses → the charge count (charges per use for a consuming main skill), the charges consumed
+    Recently → their multiplier; Nebuloch's crit share → crit chance, share × 100% + (1 − share) × the attack's own chance;
+  - Archon sources with a known event rate wait for it after the recovery period: uptime = duration / (duration + recovery +
+    1 / rate). Arbiter's Ignition (`gain_archon_elemental_when_you_ignite_enemy_chance_%`, now mapped) has rate = chance × the main
+    skill's Ignites per second; "after spending 100% of your maximum mana" has rate = mana spent per second / maximum mana. Sources
+    without a rate in PoB (Energy Shield Recharge, High Infernal Flame, Command skills, Offerings, Overgrown plants) keep the
+    immediate assumption.
+  - Configured values win, as before; the breakdowns of fed values say "from the first pass's rates, used in the second pass".
+  - Ceiling: one extra pass, not a fixed point (the second pass's rates would move the estimates again). Cost: approximations off
+    is one pass, bit-identical; on, a build that needs the second pass takes about 1.75× per evaluation (4.3 ms against 2.4 ms on
+    the Lightning Arrow test build), one that doesn't stays at one pass.
+  - Still report-only: the infused share of casts (no infused skill variants), Ignite / Shock spread pack values (by design).
 
 ### Phase 5: Exporter extensions (as needed)
 

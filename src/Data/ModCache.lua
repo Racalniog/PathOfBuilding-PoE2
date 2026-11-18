@@ -7716,7 +7716,7 @@ c["Gain Deflection Rating equal to 50% of Evasion Rating"]={{[1]={flags=0,keywor
 c["Gain Deflection Rating equal to 6% of Evasion Rating"]={{[1]={flags=0,keywordFlags=0,name="EvasionGainAsDeflection",type="BASE",value=6}},nil}
 c["Gain Deflection Rating equal to 60% of Evasion Rating"]={{[1]={flags=0,keywordFlags=0,name="EvasionGainAsDeflection",type="BASE",value=60}},nil}
 c["Gain Deflection Rating equal to 8% of Evasion Rating"]={{[1]={flags=0,keywordFlags=0,name="EvasionGainAsDeflection",type="BASE",value=8}},nil}
-c["Gain Elemental Archon after spending 100% of your Maximum Mana"]={{[1]={flags=0,keywordFlags=0,name="ArchonSource",type="LIST",value="ArchonElemental"}},nil}
+c["Gain Elemental Archon after spending 100% of your Maximum Mana"]={{[1]={flags=0,keywordFlags=0,name="ArchonSource",type="LIST",value="ArchonElemental"},[2]={flags=0,keywordFlags=0,name="ArchonOnManaSpent",type="FLAG",value=true}},nil}
 c["Gain Elemental Archon when you cast a Spell while on High Infernal Flame"]={{[1]={flags=0,keywordFlags=0,name="ArchonSource",type="LIST",value="ArchonElemental"}},nil}
 c["Gain Elemental Archon when your Energy Shield Recharge begins"]={{[1]={flags=0,keywordFlags=0,name="ArchonSource",type="LIST",value="ArchonElemental"}},nil}
 c["Gain Endurance Charges instead of Power Charges"]={{[1]={flags=0,keywordFlags=0,name="ChargeGainInstead",type="LIST",value={from="Power",to="Endurance"}}},nil}

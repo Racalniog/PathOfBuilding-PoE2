@@ -578,6 +578,27 @@ local function applyEnemyModifiers(actor, clearCache)
 	end
 end
 
+-- Rates of the main skill for the approximations, from the output of an offence calculation (calcs.perform's second pass reads the
+-- first pass's): uses, hits, critical hits and Ignites per second, kills per second (configuration), and the share of maximum mana
+-- the main skill's costs spend per second.
+-- ponytail: hits on the one target PoB calculates; upgrade path = targets hit per use
+local function approxRates(env, output)
+	local speed = output.Speed or 0
+	local hits = (output.HitSpeed or speed) * (output.HitChance or 0) / 100
+	-- CritChance includes the chance to hit in the effective mode only (its confirmation roll)
+	local accuracy = env.mode_effective and (output.AccuracyHitChance or 100) or 100
+	return {
+		kills = env.player.modDB:GetMultiplier("ApproxKillsPerSecond"),
+		speed = speed,
+		hits = hits,
+		crits = accuracy > 0 and hits * m_min((output.CritChance or 0) / accuracy, 1) or 0,
+		ignites = hits * m_min(output.IgniteChancePerHit or 0, 100) / 100,
+		manaSpent = (output.Mana or 0) > 0 and (output.ManaPerSecondCost or 0) / output.Mana or 0,
+	}
+end
+local secondPassNote = "^8(from the first pass's rates, used in the second pass)"
+local doInfusionApprox
+
 -- Process enemy modifiers and other buffs
 ---@param env Env
 ---@param actor Actor
@@ -716,17 +737,40 @@ local function doActorMisc(env, actor)
 		-- ponytail: that this effect also scales the buff's own stats (25% more Spell damage, conversion, ...) is read from the wording,
 		-- which names the whole buff like "effect of Onslaught on you"; upgrade path = check Elemental Archon's damage bonus in the game
 		local archonUptime = modDB:Flag(nil, "Condition:AffectedByArchon") and 1 or 0
-		local archonSource = modDB:List(nil, "ArchonSource")[1]
+		-- Sources on passives and items, and on the main skill's supports (Arbiter's Ignition)
+		local skill = actor.mainSkill
+		local archonSources = skill and skill.skillModList:List(skill.skillCfg, "ArchonSource") or modDB:List(nil, "ArchonSource")
+		local archonSource = archonSources[1]
 		local archonId = archonUptime == 1 and env.configInput.archonBuff ~= "SOURCE" and env.configInput.archonBuff or archonSource or "ArchonElemental"
 		local archon = data.archonBuffs[archonId] or data.archonBuffs.ArchonElemental
+		local uptimeNote = ", approx."
 		if archonUptime == 0 and archonSource and modDB:Flag(nil, "Condition:UseApproximations") then
-			-- Approximation: the buff lasts its duration, then can't be gained again until its recovery period has expired,
-			-- so uptime = duration / (duration + recovery period).
-			-- ponytail: assumes the gain event comes as soon as the recovery period ends; upgrade path = add the wait 1 / (event rate)
+			-- Approximation: the buff lasts its duration, then can't be gained again until its recovery period has expired, and then
+			-- until the next gain event: uptime = duration / (duration + recovery period + wait for the event).
+			-- The event rate is known for Arbiter's Ignition (its chance x Ignites per second of the main skill it supports) and for
+			-- "after spending 100% of your maximum mana" (mana the main skill spends per second / maximum mana). Both are rates of the
+			-- first pass, so the first pass assumes no wait and the second pass (calcs.perform) waits 1 / (event rate). Other sources
+			-- (Energy Shield Recharge starting, a Spell on High Infernal Flame, Command skills, Offerings, Overgrown plants) have no
+			-- rate in PoB and are assumed to fire as soon as the recovery period ends; with one of them the wait is always 0.
+			-- ponytail: gain events are random in time (wait = 1 / rate) and don't count during the buff and its recovery period;
+			-- upgrade path = in-game measurement of when "spending 100% of your maximum mana" starts counting
 			local duration = archon.duration * calcLib.mod(modDB, nil, "ArchonDuration")
 			local recoveryRate = calcLib.mod(modDB, nil, "ArchonRecoveryRate")
 			local recovery = modDB:Flag(nil, "ArchonNoRecoveryPeriod") and 0 or recoveryRate > 0 and modDB:GetMultiplier("ApproxArchonRecovery") / recoveryRate or m_huge
-			archonUptime = duration > 0 and duration / (duration + recovery) or 0
+			local igniteChance = skill and m_min(skill.skillModList:Sum("BASE", skill.skillCfg, "ArchonOnIgniteChance"), 100) / 100 or 0
+			local onMana = modDB:Flag(nil, "ArchonOnManaSpent")
+			local wait = 0
+			if actor == env.player and (igniteChance > 0 and 1 or 0) + (onMana and 1 or 0) >= #archonSources then
+				if env.approxPrev then
+					local rates = approxRates(env, env.approxPrev)
+					local rate = igniteChance * rates.ignites + (onMana and rates.manaSpent or 0)
+					wait = rate > 0 and 1 / rate or m_huge
+					uptimeNote = s_format(", approx., second pass: %.1fs / (%.1fs + %.1fs recovery + %.2fs until the gain event, %.2f/s in the first pass)", duration, duration, recovery, wait, rate)
+				else
+					output.ApproxFeedsSecondPass = true
+				end
+			end
+			archonUptime = duration > 0 and duration / (duration + recovery + wait) or 0
 		end
 		if archonUptime > 0 then
 			local effect = m_max(calcLib.mod(modDB, nil, "ArchonEffect", "BuffEffectOnSelf"), 0)
@@ -736,7 +780,7 @@ local function doActorMisc(env, actor)
 				actor.breakdown.ArchonEffectMod = {
 					s_format("%s", archonId),
 					s_format("%.2f ^8(effect of Archon Buffs)", effect),
-					s_format("x %.2f ^8(uptime%s)", archonUptime, archonUptime < 1 and ", approx." or ""),
+					s_format("x %.2f ^8(uptime%s)", archonUptime, archonUptime < 1 and uptimeNote or ""),
 				}
 			end
 			local function addArchonMod(mod)
@@ -794,6 +838,10 @@ local function doActorMisc(env, actor)
 					modDB.multipliers[element.."Infusion"] = output[element.."Infusions"]
 					output.HaveInfusions = true
 				end
+			end
+			-- Second pass (calcs.perform): the estimate for the counts left empty, from the first pass's rates
+			if env.approxPrev then
+				doInfusionApprox(env, env.approxPrev)
 			end
 		end
 		if modDB:Max(nil, "WitherEffectStack") then
@@ -959,10 +1007,12 @@ end
 -- - A main skill that consumes the type (skill type SkillConsumes<type>ChargesOnUse) removes all of them on each use, except with
 --   "chance to not remove Charges but still count as consuming them", so a use finds the charges gained since the last removing use.
 --   ponytail: every consuming skill takes all its charges; upgrade path = per-skill consumption counts. Recently = 4 seconds.
--- Kills come from the configuration; hits, critical hits and uses only after offence (rates.speed), so the charge count only gets the
--- kill part, and only for a type the main skill doesn't consume (doActorCharges); the full estimate is reported (doChargeApprox).
--- ponytail: report-only for hit- and use-based rates; upgrade path = these rates before offence (getCachedOutputValue costs a second
--- calculation) or a second offence pass
+-- Kills come from the configuration; hits, critical hits and uses only after offence (rates.speed). So the first pass's charge count
+-- only gets the kill part, and only for a type the main skill doesn't consume (doActorCharges); when the full estimate differs
+-- (doChargeApprox), the second pass (calcs.perform) gives the count the full estimate from the first pass's rates: the average for a
+-- type the main skill doesn't consume, the charges per use for one it consumes (ponytail: its per-charge modifiers on you see the same
+-- count, though you hold fewer between uses; upgrade path = a separate held count), with the charges consumed Recently as the
+-- multiplier and Nebuloch's crit share as a crit chance contribution (CalcOffence) instead of a count.
 -- ponytail: the count is a fractional average, but per-charge modifiers count whole charges (ModStore floors Multiplier tags), so they
 -- get its integer part; upgrade path = unfloored multipliers for approximated counts
 local function approxCharges(env, charge, rates, key)
@@ -1028,7 +1078,7 @@ local function approxCharges(env, charge, rates, key)
 		t_insert(lines, s_format("= %.2f ^8(charges gained per second)", total))
 		if critConsumes then
 			t_insert(lines, s_format("/ %.2f ^8(attacks per second that remove one)", rates.speed * (1 - m_min(modDB:Sum("BASE", cfg, "ChargeNotRemovedChance"), 100) / 100)))
-			t_insert(lines, s_format("= %.0f%% ^8(of attacks find an Endurance Charge and crit, at most 100%%, approx.; report only)", average * 100))
+			t_insert(lines, s_format("= %.0f%% ^8(of attacks find an Endurance Charge and crit, at most 100%%, approx.)", average * 100))
 			t_insert(lines, s_format("%.2f ^8(consumed in the past 4 seconds: %.2f attacks per second x share x 4)", consumedRecently, rates.speed))
 		elseif consumes then
 			t_insert(lines, s_format("x %.2fs ^8(until the next use removes them, or they expire)", lifetime))
@@ -1041,32 +1091,27 @@ local function approxCharges(env, charge, rates, key)
 			t_insert(lines, s_format("x %.2fs ^8(duration)", duration))
 			t_insert(lines, s_format("= %.2f ^8(average charges, at most %d, approx.)", average, max))
 		end
+		if env.approxPrev then
+			t_insert(lines, secondPassNote)
+		end
 		breakdown[key] = lines
 	end
 	return average
 end
 
--- Report of the full charge approximation after offence (see approxCharges), for types the configuration leaves unused
+-- First pass (calcs.perform): whether the full charge approximation (see approxCharges) differs from the kill-based count this pass
+-- used, for types the configuration leaves unused; the second pass then feeds it (doActorCharges)
 local function doChargeApprox(env)
 	local modDB, output = env.player.modDB, env.player.output
 	if not modDB:Flag(nil, "Condition:UseApproximations") or not env.player.mainSkill then
 		return
 	end
-	local speed = output.Speed or 0
-	-- ponytail: hits on the one target PoB calculates, as in doInfusionApprox; upgrade path = targets hit per use
-	local hits = (output.HitSpeed or speed) * (output.HitChance or 0) / 100
-	-- CritChance includes the chance to hit in the effective mode only (as in doInfusionApprox)
-	local accuracy = env.mode_effective and (output.AccuracyHitChance or 100) or 100
-	local crits = accuracy > 0 and hits * m_min((output.CritChance or 0) / accuracy, 1) or 0
-	local rates = { kills = modDB:GetMultiplier("ApproxKillsPerSecond"), hits = hits, crits = crits, speed = speed }
-	local converts = { Endurance = "EnduranceChargesConvertToBrutalCharges", Frenzy = "FrenzyChargesConvertToAfflictionCharges", Power = "PowerChargesConvertToAbsorptionCharges" }
+	local rates = approxRates(env, output)
 	for _, charge in ipairs({ "Endurance", "Frenzy", "Power" }) do
-		if not modDB:Flag(nil, "Condition:Use"..charge.."Charges") and not modDB:Flag(nil, converts[charge]) then
+		if not modDB:Flag(nil, "Condition:Use"..charge.."Charges") then
 			local average = approxCharges(env, charge, rates, charge.."ChargesApprox")
-			-- only when it differs from the estimate the charge count got before offence
 			if average and average ~= (output[charge.."ChargesApproxKills"] or 0) then
-				output[charge.."ChargesApprox"] = average
-				output["Use"..charge.."Charges"] = true
+				output.ApproxFeedsSecondPass = true
 			end
 		end
 	end
@@ -1186,14 +1231,25 @@ local function doActorCharges(env, actor)
 	if modDB:Flag(nil, "MinimumPowerChargesIsMaximumPowerCharges") then
 		output.PowerChargesMin = output.PowerChargesMax
 	end
-	-- Charges from the configuration or, for the player with approximations on, their expected number from kills (approxCharges)
-	local approxKills = actor == env.player and modDB:Flag(nil, "Condition:UseApproximations") and { kills = modDB:GetMultiplier("ApproxKillsPerSecond") }
+	-- Charges from the configuration or, for the player with approximations on, their expected number (approxCharges): from kills, and in
+	-- the second pass (calcs.perform) also from the first pass's hits, critical hits and uses
+	local approx = actor == env.player and modDB:Flag(nil, "Condition:UseApproximations") and (env.approxPrev and approxRates(env, env.approxPrev) or { kills = modDB:GetMultiplier("ApproxKillsPerSecond") })
 	for _, charge in ipairs({ "Endurance", "Frenzy", "Power" }) do
 		if modDB:Flag(nil, "Condition:Use"..charge.."Charges") then
 			output[charge.."Charges"] = modDB:Override(nil, charge.."Charges") or output[charge.."ChargesMax"]
-		elseif approxKills then
-			output[charge.."ChargesApproxKills"] = approxCharges(env, charge, approxKills, charge.."Charges")
-			output[charge.."Charges"] = output[charge.."ChargesApproxKills"] or 0
+		elseif approx then
+			local average = approxCharges(env, charge, approx, charge.."Charges")
+			-- Only with the uses of the second pass: the charges consumed Recently, unless configured, and Nebuloch's crits, which
+			-- spend the charges as they come. Both are set, not added: charges are processed twice per pass
+			if output[charge.."ChargesConsumedRecentlyApprox"] then
+				modDB.multipliers[charge.."ChargesConsumedRecently"] = output[charge.."ChargesConsumedRecentlyApprox"]
+			end
+			if charge == "Endurance" and output.EnduranceCritShareApprox then
+				modDB:NewMod("ForcedCritShareApprox", "OVERRIDE", output.EnduranceCritShareApprox, "Nebuloch, approx., second pass", ModFlag.Attack)
+				average = nil
+			end
+			output[charge.."ChargesApproxKills"] = average
+			output[charge.."Charges"] = average or 0
 		end
 		-- Conduit and its rune versions (keystone_conduit): charges you would gain go to allies; minimum charges aren't gained and stay
 		if modDB:Flag(nil, charge.."ChargesToAllies") then
@@ -1262,7 +1318,7 @@ local function doActorCharges(env, actor)
 		output.EnduranceCharges = output.EnduranceChargesMax
 	end
 	for _, charge in ipairs({ "Endurance", "Frenzy", "Power" }) do
-		output["Use"..charge.."Charges"] = (output[charge.."Charges"] > 0 or modDB:Flag(nil, "Condition:Use"..charge.."Charges")) or nil
+		output["Use"..charge.."Charges"] = (output[charge.."Charges"] > 0 or modDB:Flag(nil, "Condition:Use"..charge.."Charges") or (output[charge.."ChargesConsumedRecentlyApprox"] or 0) > 0) or nil
 	end
 	output.TotalCharges = output.PowerCharges + output.FrenzyCharges + output.EnduranceCharges
 	output.RemovableTotalCharges = output.RemovableEnduranceCharges + output.RemovableFrenzyCharges + output.RemovablePowerCharges
@@ -1441,22 +1497,23 @@ end
 
 -- Approximation of Elemental Infusions (needs Use approximations): average infusions per element from Remnant generation and
 -- the main skill's consumption, and the share of the main skill's casts that find an infusion. It needs the main skill's hit and
--- ailment rates, so it runs after its offence calculation.
--- ponytail: report only, the estimate doesn't feed Multiplier:<Element>Infusion (offence has used it already, and ailment rates
--- depend on damage); upgrade path = estimate the rates before offence, or a second pass
-local function doInfusionApprox(env)
+-- ailment rates (from src, an offence output): the first pass reports it after offence, and the second pass (calcs.perform) runs it
+-- before offence with the first pass's output, so the estimate feeds Multiplier:<Element>Infusion for the counts left empty.
+-- The infused share has nothing to feed: PoB has no infused variants of skills (Arc's is a configuration option), so it is reported.
+function doInfusionApprox(env, src)
 	local modDB, output, breakdown = env.player.modDB, env.player.output, env.player.breakdown
 	local skill = env.player.mainSkill
 	if not modDB:Flag(nil, "Condition:UseApproximations") or not skill then
 		return
 	end
-	local speed = output.Speed or 0
+	src = src or output
+	local speed = src.Speed or 0
 	-- ponytail: hits on the one target PoB calculates, one per cast unless the skill has its own hit rate; upgrade path = targets hit per cast
-	local hitRate = (output.HitSpeed or speed) * (output.HitChance or 0) / 100
+	local hitRate = (src.HitSpeed or speed) * (src.HitChance or 0) / 100
 	-- CritChance already includes the chance to hit (its confirmation roll); per landed hit it is CritChance / AccuracyHitChance
 	-- (only in the effective mode, the other modes have no accuracy factor)
-	local accuracy = env.mode_effective and (output.AccuracyHitChance or 100) or 100
-	local crit = accuracy > 0 and m_min((output.CritChance or 0) / accuracy, 1) or 0
+	local accuracy = env.mode_effective and (src.AccuracyHitChance or 100) or 100
+	local crit = accuracy > 0 and m_min((src.CritChance or 0) / accuracy, 1) or 0
 	-- Siphon Elements (stat descriptions infusion_remnants_%_chance_to_spawn_*): a chance to create a Remnant on igniting a non-Ignited
 	-- target, on shocking a non-Shocked target, and per Power on freezing a target
 	local remnants = { }
@@ -1466,10 +1523,10 @@ local function doInfusionApprox(env)
 		if ailment == "Freeze" then
 			-- ponytail: one freeze per 100% average buildup, against a target of Power 1 (a normal monster), and no wait for the freeze to
 			-- end; upgrade path = Power by enemy rarity and the freeze duration
-			rate = m_min((output.FreezeBuildupAvg or 0) / 100, 1) * hitRate
+			rate = m_min((src.FreezeBuildupAvg or 0) / 100, 1) * hitRate
 		else
-			rate = ((output[ailment.."ChanceOnHit"] or 0) * (1 - crit) + (output[ailment.."ChanceOnCrit"] or 0) * crit) / 100 * hitRate
-			rate = calcLib.approxRateWhileUnaffected(rate, output[ailment.."Duration"] or 0)
+			rate = ((src[ailment.."ChanceOnHit"] or 0) * (1 - crit) + (src[ailment.."ChanceOnCrit"] or 0) * crit) / 100 * hitRate
+			rate = calcLib.approxRateWhileUnaffected(rate, src[ailment.."Duration"] or 0)
 		end
 		remnants[element] = rate * modDB:Sum("BASE", nil, element.."InfusionRemnantChance") / 100 + modDB:GetMultiplier("Approx"..element.."RemnantsPerSecond")
 	end
@@ -1529,6 +1586,11 @@ local function doInfusionApprox(env)
 		end
 		if not output[element.."Infusions"] and generation > 0 then
 			output[element.."Infusions"] = average
+			if src == output then
+				output.ApproxFeedsSecondPass = true
+			else
+				modDB.multipliers[element.."Infusion"] = average
+			end
 			if breakdown then
 				breakdown[element.."Infusions"] = {
 					s_format("%.2f ^8(remnants per second: ailments, other sources and remnant conversion)", converted[element]),
@@ -1548,6 +1610,9 @@ local function doInfusionApprox(env)
 					t_insert(breakdown[element.."Infusions"], s_format("x %.2fs ^8(duration)", duration))
 				end
 				t_insert(breakdown[element.."Infusions"], s_format("= %.2f ^8(average infusions, at most %d, approx.)", output[element.."Infusions"], max))
+				if src ~= output then
+					t_insert(breakdown[element.."Infusions"], secondPassNote)
+				end
 			end
 		end
 	end
@@ -1575,9 +1640,10 @@ end
 -- 6. Processes buffs and debuffs
 -- 7. Processes charges and misc buffs (doActorCharges, doActorMisc)
 -- 8. Calculates defence and offence stats (calcs.defence, calcs.offence)
+-- One pass; calcs.perform below runs it, twice for the approximations that need the main skill's rates
 ---@param env Env
 ---@param skipEHP? boolean
-function calcs.perform(env, skipEHP)
+local function performPass(env, skipEHP)
 	---@type ModDB
 	local modDB = env.modDB
 	---@type ModDB
@@ -3904,8 +3970,11 @@ function calcs.perform(env, skipEHP)
 	--calcs.triggers(env, env.player)
 	--if not calcs.mirages(env) then
 		calcs.offence(env, env.player, env.player.mainSkill)
-		doInfusionApprox(env)
-		doChargeApprox(env)
+		-- the second pass got these estimates before offence
+		if not env.approxPrev then
+			doInfusionApprox(env)
+			doChargeApprox(env)
+		end
 		doAilmentApprox(env)
 	--end
 
@@ -4113,4 +4182,33 @@ function calcs.perform(env, skipEHP)
 
 	-- Cache skill data
 	cacheData(cacheSkillUUID(env.player.mainSkill, env), env)
+end
+
+-- Performs the calculation (performPass). With approximations on, some estimates need rates of the main skill that are only known
+-- after its offence calculation, which has already used the values they change: Elemental Infusions (doInfusionApprox), charges from
+-- hits, critical hits and uses (doChargeApprox, doActorCharges), Nebuloch's crits, and Archon sources that wait for an event
+-- (doActorMisc). The first pass reports that it has one of them (output.ApproxFeedsSecondPass); the environment is then
+-- re-initialised the way calcFullDPS reuses one between skills, and a second pass feeds the estimates in before offence, from the
+-- first pass's output (env.approxPrev). The second pass's output has ApproxSecondPass set. Configured values always win: the
+-- estimates only fill what the configuration leaves empty. With approximations off this is the single pass it always was.
+-- ponytail: one extra pass, not a fixed point: the second pass's own rates (with more charges, or another Archon uptime) would move
+-- the estimates again; upgrade path = repeat while they change by more than a tolerance, at one full pass per repeat
+---@param env Env
+---@param skipEHP? boolean
+function calcs.perform(env, skipEHP)
+	performPass(env, skipEHP)
+	local output = env.player.output
+	if not output.ApproxFeedsSecondPass then
+		return
+	end
+	-- Re-initialising drops the weapon set contexts (built with the skills, which are kept) and keeps the warnings of the first pass
+	local weaponSetEnvs, validationList = env.weaponSetEnvs, env.weaponSetValidationSkillList
+	calcs.initEnv(env.build, env.mode, env.initOverride, { env = env, cachedPlayerDB = env.modDB.parent, cachedEnemyDB = env.enemyDB.parent,
+		accelerate = { nodeAlloc = true, requirementsItems = true, requirementsGems = true, skills = true, everything = true } })
+	env.weaponSetEnvs, env.weaponSetValidationSkillList = weaponSetEnvs, validationList
+	env.itemWarnings.gemGroupCountWarning, env.itemWarnings.lineageSupportGemLimitWarning = nil, nil
+	env.approxPrev = output
+	performPass(env, skipEHP)
+	env.approxPrev = nil
+	env.player.output.ApproxSecondPass = true
 end

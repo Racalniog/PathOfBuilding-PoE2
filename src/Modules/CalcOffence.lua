@@ -3975,6 +3975,17 @@ function calcs.offence(env, actor, activeSkill)
 					end
 				end
 			end
+			-- Approximations' second pass (CalcPerform doActorCharges): Nebuloch's attacks that find an Endurance Charge always crit
+			local forcedShare = m_min(skillModList:Override(cfg, "ForcedCritShareApprox") or 0, 100) / 100
+			if forcedShare > 0 and output.CritChance < 100 then
+				local before = output.CritChance
+				output.CritChance = forcedShare * 100 + (1 - forcedShare) * before
+				if breakdown then
+					breakdown.CritChance = breakdown.CritChance or { s_format("%.2f%%", before) }
+					t_insert(breakdown.CritChance, s_format("%.2f x 100%% + %.2f x %.2f%% ^8(attacks that find an Endurance Charge crit, approx.)", forcedShare, 1 - forcedShare, before))
+					t_insert(breakdown.CritChance, s_format("= %.2f%% ^8(from the first pass's rates, used in the second pass)", output.CritChance))
+				end
+			end
 		end
 		if not output.CritEffect then
 			if skillModList:Flag(cfg, "NoCritMultiplier") then

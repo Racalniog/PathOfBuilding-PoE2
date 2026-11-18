@@ -61,8 +61,7 @@ describe("TestCharges", function()
 		local output = setup(gain.."\n20% chance to gain a Power Charge on Hit", { approxKillsPerSecond = 0.5 }, "Fireball")
 		assert.are.equals(0, output.FrenzyCharges)
 		assert.are.equals(0, output.PowerCharges)
-		assert.is_nil(output.FrenzyChargesApprox)
-		assert.is_nil(output.PowerChargesApprox)
+		assert.is_nil(output.ApproxSecondPass)
 	end)
 
 	it("estimates the average charges from kills with approximations on", function()
@@ -96,40 +95,42 @@ describe("TestCharges", function()
 		-- "Do you use Frenzy Charges?" without a count means the maximum
 		local output = setup(gain, approx, "Fireball")
 		assert.are.equals(3, output.FrenzyCharges)
-		assert.is_nil(output.FrenzyChargesApprox)
 		assert.are.equals(1, setup(gain, { overrideFrenzyCharges = 1 }).FrenzyCharges)
 	end)
 
-	it("reports hit-based generation and consumption after offence", function()
+	it("feeds hit-based generation into the count in the second pass", function()
 		local approx = { useApproximations = true, approxKillsPerSecond = 0 }
 		local output = setup("5% chance to gain a Power Charge on Hit", approx, "Fireball")
-		-- hits are only known after offence: the count stays 0 and the estimate is reported
-		assert.are.equals(0, output.PowerCharges)
-		assert.are.near(math.min(3, 0.05 * output.Speed * 15), output.PowerChargesApprox, 1e-9)
+		-- hits are only known after offence: the second pass gets the first pass's rate (power charges don't change it)
+		assert.is_true(output.ApproxSecondPass)
+		assert.are.near(math.min(3, 0.05 * output.Speed * 15), output.PowerCharges, 1e-9)
 		-- critical hits: the spell always hits, so crits per second = casts x crit chance
 		output = setup("10% chance to gain a Power Charge on Critical Hit", approx)
-		assert.are.near(math.min(3, 0.1 * output.Speed * output.CritChance / 100 * 15), output.PowerChargesApprox, 1e-9)
+		assert.are.near(math.min(3, 0.1 * output.Speed * output.CritChance / 100 * 15), output.PowerCharges, 1e-9)
 	end)
 
-	it("doesn't report an estimate for minimum charges or converted charge types", function()
+	it("keeps minimum charges, and gives a converted type's estimate to the charges it becomes", function()
 		local approx = { useApproximations = true, approxKillsPerSecond = 1 }
 		local output = setup("+1 to Minimum Endurance Charges", approx, "Fireball")
 		assert.are.equals(1, output.EnduranceCharges)
-		assert.is_nil(output.EnduranceChargesApprox)
-		assert.is_nil(setup("30% chance to gain an Endurance Charge on Hit\nGain Brutal Charges instead of Endurance Charges", approx).EnduranceChargesApprox)
+		assert.is_nil(output.ApproxSecondPass)
+		-- as the kill-based count already did: 30% x casts per second x 15 s, at most 3, become Brutal Charges
+		output = setup("30% chance to gain an Endurance Charge on Hit\nGain Brutal Charges instead of Endurance Charges", approx)
+		assert.are.equals(0, output.EnduranceCharges)
+		assert.are.near(math.min(3, 0.3 * output.Speed * 15), output.BrutalCharges, 1e-9)
 	end)
 
-	it("a main skill that consumes the charges leaves the count alone and reports charges per use", function()
+	it("a main skill that consumes the charges gets the charges per use in the second pass", function()
 		build.itemsTab:CreateDisplayItemFromRaw("New Item\nWrapped Quarterstaff\n")
 		build.itemsTab:AddDisplayItem()
 		local mods = "20% chance to gain a Power Charge on kill\nSkills have 10% chance to not remove Charges but still count as consuming them"
 		local output = setup(mods, { useApproximations = true, approxKillsPerSecond = 1 }, "Falling Thunder")
 		assert.is_true(output.Speed > 0)
-		assert.are.equals(0, output.PowerCharges)
 		-- 0.2 charges/s; 90% of uses remove them, so a use finds the charges of 1 / (0.9 x speed) seconds
 		local perUse = math.min(3, 0.2 * math.min(15, 1 / (0.9 * output.Speed)))
-		assert.are.near(perUse, output.PowerChargesApprox, 1e-9)
-		-- every use counts as consuming them: consumed in the past 4 seconds
+		assert.are.near(perUse, output.PowerCharges, 1e-9)
+		-- every use counts as consuming them: consumed in the past 4 seconds, which feeds the multiplier
 		assert.are.near(output.Speed * perUse * 4, output.PowerChargesConsumedRecentlyApprox, 1e-9)
+		assert.are.near(output.Speed * perUse * 4, build.calcsTab.mainEnv.modDB:GetMultiplier("PowerChargesConsumedRecently"), 1e-9)
 	end)
 end)

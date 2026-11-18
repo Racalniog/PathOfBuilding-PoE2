@@ -3189,6 +3189,11 @@ return function(mod, flag, skill)
 ["chance_to_not_consume_infusion_%"] = {
 	mod("InfusionNotConsumedChance", "BASE", nil),
 },
+-- Arbiter's Ignition: an Elemental Archon source on the supported skill, gained on Ignite (CalcPerform doActorMisc, approximations)
+["gain_archon_elemental_when_you_ignite_enemy_chance_%"] = {
+	{ mod("ArchonSource", "LIST", "ArchonElemental"), value = "ArchonElemental" },
+	mod("ArchonOnIgniteChance", "BASE", nil),
+},
 -- Archon Buffs' own stats (data.archonBuffs, Archon of Chayula's from its skill), applied by CalcPerform doActorMisc
 ["elemental_damage_with_spell_skills_+%_final_from_archon_buff"] = {
 	mod("ElementalDamage", "MORE", nil, 0, KeywordFlag.Spell),

@@ -924,6 +924,8 @@ function calcs.initEnv(build, mode, override, specEnv)
 		modDB = env.modDB
 		enemyDB = env.enemyDB
 	end
+	-- calcs.perform re-initialises the environment with it for the approximations' second pass
+	env.initOverride = override
 
 	-- Set buff mode
 	local buffMode
