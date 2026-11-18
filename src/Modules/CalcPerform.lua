@@ -1730,6 +1730,8 @@ function calcs.perform(env, skipEHP)
 			end
 			if item.base.flask.mana then
 				flaskConditions["UsingManaFlask"] = true
+				-- recovery amount of the used Mana Flask, for "Guard equal to X% of Flask's recovery amount"
+				modDB.multipliers.ManaFlaskRecovery = m_max(modDB.multipliers.ManaFlaskRecovery or 0, item.flaskData.manaTotal * calcLib.mod(modDB, nil, "FlaskManaRecovery"))
 			end
 
 			if onlyRecovery then

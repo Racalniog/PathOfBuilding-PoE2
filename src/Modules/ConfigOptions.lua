@@ -1379,6 +1379,9 @@ Huge sets the radius to 11.
 	{ var = "conditionShieldRaised", type = "check", label = "Is your Shield raised?", ifCond = "ShieldRaised", apply = function(val, modList, enemyModList)
 		modList:NewMod("Condition:ShieldRaised", "FLAG", true, "Config", { type = "Condition", var = "Combat" })
 	end },
+	{ var = "conditionHaveGuard", type = "check", label = "Do you have Guard?", ifCond = "HaveGuard", tooltip = "Guard takes damage from Hits before Life and Energy Shield, up to your maximum Life.\nOn: your largest Guard source counts. Sources that depend on an event (Combo, Sprinting, Dodge Roll, ...)\nalso need Use approximations.", apply = function(val, modList, enemyModList)
+		modList:NewMod("Condition:HaveGuard", "FLAG", true, "Config", { type = "Condition", var = "Combat" })
+	end },
 	{ var = "conditionEnergyShieldRechargeRecently", type = "check", label = "^x88FFFFEnergy Shield ^7Recharge started Recently?", ifCond = "EnergyShieldRechargeRecently", apply = function(val, modList, enemyModList)
 		modList:NewMod("Condition:EnergyShieldRechargeRecently", "FLAG", true, "Config", { type = "Condition", var = "Combat" })
 	end },

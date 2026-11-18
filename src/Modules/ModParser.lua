@@ -449,6 +449,12 @@ local modNameList = {
 	["elemental damage taken recouped as energy shield"] = { "LightningEnergyShieldRecoup", "ColdEnergyShieldRecoup", "FireEnergyShieldRecoup" },
 	["damage taken recouped as mana"] = "ManaRecoup",
 	["damage taken recouped as life, mana and energy shield"] = { "LifeRecoup", "EnergyShieldRecoup", "ManaRecoup" },
+	["physical damage prevented recouped as life"] = "PhysicalDamagePreventedLifeRecoup",
+	["physical damage prevented recouped as energy shield"] = "PhysicalDamagePreventedEnergyShieldRecoup",
+	["damage taken from deflected hits recouped as life"] = "DeflectedLifeRecoup",
+	["damage blocked is recouped as mana"] = "BlockedManaRecoup",
+	["speed of recoup effects"] = "RecoupSpeed",
+	["guard gained"] = "Guard",
 	["ailment threshold"] = "AilmentThreshold",
 	["elemental ailment threshold"] = "AilmentThreshold",
 	-- Stun/knockback modifiers
@@ -1478,6 +1484,7 @@ local modTagList = {
 	["per power charge"] = { tag = { type = "Multiplier", var = "PowerCharge" } },
 	["if you've consumed an? (%D+) charge recently"] = function(charge) return { tag = { type = "Multiplier", var = "Removable" .. firstToUpper(charge) .. "Charge", limit = 1 }} end,
 	["per frenzy charge"] = { tag = { type = "Multiplier", var = "FrenzyCharge" } },
+	["per enemy power"] = { tag = { type = "Multiplier", var = "EnemyPower" } },
 	["per endurance charge"] = { tag = { type = "Multiplier", var = "EnduranceCharge" } },
 	["per siphoning charge"] = { tag = { type = "Multiplier", var = "SiphoningCharge" } },
 	["per spirit charge"] = { tag = { type = "Multiplier", var = "SpiritCharge" } },
@@ -5223,6 +5230,23 @@ local specialModList = {
 	["you cannot regenerate energy shield" ] = { flag("NoEnergyShieldRegen") },
 	["you cannot recover energy shield from regeneration"] = { flag("NoEnergyShieldRegen") },
 	["(%d+)%% of damage taken during effect recouped as life"] = function(num) return { mod("LifeRecoup", "BASE", num, { type = "Condition", var = "UsingFlask" }) } end,
+	["damage blocked is recouped as mana"] = { mod("BlockedManaRecoup", "BASE", 100) },
+	-- Guard (pool in CalcDefence): every source needs the "Do you have Guard?" config. Sources whose amount depends on how an
+	-- event plays out also need approximations on, and count one occurrence of the event in an assumed state (noted per line).
+	["also grants (%d+) guard"] = function(num) return { mod("Guard", "MAX", num, { type = "Condition", var = "HaveGuard" }) } end,
+	["every (%d+) seconds, gain guard equal to (%d+)%% of maximum runic ward for (%d+) seconds"] = function(_, _, num) return { mod("Guard", "MAX", 1, { type = "PercentStat", stat = "Ward", percent = tonumber(num) }, { type = "Condition", var = "HaveGuard" }) } end,
+	["using a mana flask grants guard equal to (%d+)%% of flask's recovery amount for (%d+) seconds"] = function(num) return { mod("Guard", "MAX", num / 100, { type = "Multiplier", var = "ManaFlaskRecovery" }, { type = "Condition", var = "HaveGuard" }) } end,
+	-- per Combo expended: the Combo count from the config
+	["gain (%d+) guard for ([%d%.]+) seconds per combo expended when using skills"] = function(num) return { mod("Guard", "MAX", num, { type = "Multiplier", var = "ComboStacks" }, { type = "Condition", var = "HaveGuard" }, { type = "Condition", var = "UseApproximations" }) } end,
+	-- at full Life the whole recovery of the used Life Flask is excess
+	["excess life recovery added as guard for (%d+) seconds"] = { mod("Guard", "MAX", 1, { type = "Multiplier", var = "LifeFlaskRecovery" }, { type = "Condition", var = "HaveGuard" }, { type = "Condition", var = "UseApproximations" }) },
+	-- sprinted long enough to reach the maximum
+	["when you stop sprinting, gain guard equal to (%d+)%% of maximum life per second spent sprinting, up to a maximum of (%d+)%%, for (%d+) seconds"] = function(_, _, max) return { mod("Guard", "MAX", 1, { type = "PercentStat", stat = "Life", percent = tonumber(max) }, { type = "Condition", var = "HaveGuard" }, { type = "Condition", var = "UseApproximations" }) } end,
+	-- ponytail: assumes half of Energy Shield is missing when you roll; upgrade path = missing ES from the EHP simulation
+	["gain guard equal to (%d+)%% of missing energy shield for (%d+) seconds when you dodge roll"] = function(num) return { mod("Guard", "MAX", 1, { type = "PercentStat", stat = "EnergyShield", percent = num / 2 }, { type = "Condition", var = "HaveGuard" }, { type = "Condition", var = "UseApproximations" }) } end,
+	["gain guard equal to (%d+)%% of maximum life for (%d+) seconds on taking savage hit"] = function(num) return { mod("Guard", "MAX", 1, { type = "PercentStat", stat = "Life", percent = num }, { type = "Condition", var = "HaveGuard" }, { type = "Condition", var = "UseApproximations" }) } end,
+	["maximum amount of guard is based on maximum energy shield instead"] = { flag("GuardBasedOnEnergyShield") },
+	["(%d+)%% chance to avoid death from hits"] = function(num) return { mod("AvoidDeathFromHitsChance", "BASE", num, { type = "Condition", var = "UseApproximations" }) } end,
 	["cannot recharge or regenerate energy shield"] = { flag("NoEnergyShieldRecharge"), flag("NoEnergyShieldRegen") },
 	["enemies you (%a+) cannot recharge energy shield"] = function(_, cond) return {
 		mod("EnemyModifier", "LIST", { mod = flag("NoEnergyShieldRecharge" )}, { type = "Condition", var = cond:gsub("^%a", string.upper) })
