@@ -526,7 +526,26 @@ function main:OnKeyDown(key, doubleClick)
 end
 
 function main:OnKeyUp(key)
+	if (key == "WHEELUP" or key == "WHEELDOWN") and IsKeyDown("CTRL") then
+		self:StepUIScale(key == "WHEELUP" and 1 or -1)
+		return
+	end
 	t_insert(self.inputEvents, { type = "KeyUp", key = key })
+end
+
+-- Ctrl + mouse wheel: UI scaling in the steps of the "UI scaling override" option (100% to 250%)
+function main:StepUIScale(direction)
+	local current = self.dpiScaleOverridePercent
+	if current == 0 then
+		current = m_floor((GetScreenScale and GetScreenScale() or 1) * 4 + 0.5) * 25
+	end
+	local percent = m_max(100, m_min(250, current + direction * 25))
+	if percent ~= self.dpiScaleOverridePercent then
+		self.dpiScaleOverridePercent = percent
+		SetDPIScaleOverridePercent(percent)
+		self.screenW, self.screenH = GetVirtualScreenSize()
+		self:SaveSettings()
+	end
 end
 
 function main:OnChar(key)
