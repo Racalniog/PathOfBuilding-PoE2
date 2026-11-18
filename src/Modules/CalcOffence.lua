@@ -5369,6 +5369,41 @@ function calcs.offence(env, actor, activeSkill)
 			-- Over-stacking stacks increases the chance a critical is present
 			local ailmentCritChance = 100 * (1 - m_pow(1 - output.CritChance / 100, m_max(globalOutput[ailment .. "StackPotential"], 1)))
 			globalOutput[ailment .. "MagnitudeEffect"] = calcLib.mod(skillModList, dotCfg, "AilmentMagnitude")
+			-- Aggravating Bleeding on Hit (needs Use approximations). Rules: stat descriptions aggravate_bleeding_on_attack_hit_chance_%,
+			-- aggravate_bleeding_on_attack_crit_chance_%, local_aggravate_bleeding_on_hit_chance_% ("chance to Aggravate Bleeding on targets you
+			-- (Critically) Hit") and aggravate_bleeding_older_than_ms_on_hit ("Attack Hits Aggravate any Bleeding on targets which is older than N
+			-- seconds"); Aggravated Bleeding deals 100% more damage, like Bleeding on a moving target (CalcSetup). A Hit aggravates the Bleeding
+			-- already on the target for the rest of its duration D. Aggravating Hits come at rate r (chance x hits or critical hits per second),
+			-- so a Bleeding waits T ~ Exp(r), or at most N, and is aggravated for D - min(T, N) on average D - (1 - e^(-r M)) / r, M = min(N, D).
+			-- ponytail: one Bleeding at a time, aggravated from its own application, with hits coming continuously; upgrade path = per-instance
+			-- simulation with newer, stronger Bleeding replacing an aggravated one
+			if ailment == "Bleed" and skillModList:Flag(nil, "Condition:UseApproximations") and not skillModList:Flag(nil, "Condition:CannotAggravate", "Condition:NoExtraBleedDamageToMovingEnemy")
+				and not enemyDB:GetCondition("Moving") and not enemyDB:GetCondition("BleedAggravated") then
+				local uses = globalOutput.HitSpeed or globalOutput.Speed or 0
+				-- CritChance already includes the chance to hit
+				local rate = uses * (m_min(skillModList:Sum("BASE", cfg, "AggravateBleedOnHitChance"), 100) * output.HitChance + m_min(skillModList:Sum("BASE", cfg, "AggravateBleedOnCritChance"), 100) * output.CritChance) / 10000
+				local age = m_huge
+				for _, value in ipairs(uses > 0 and skillModList:Tabulate("BASE", cfg, "AggravateBleedAge") or { }) do
+					age = m_min(age, value.value)
+				end
+				local duration = globalOutput[ailment .. "Duration"]
+				local wait = m_min(age, duration)
+				local share = duration > 0 and (duration - (rate > 0 and (1 - math.exp(-rate * wait)) / rate or wait)) / duration or 0
+				if share > 0 then
+					globalOutput.BleedAggravatedApprox = share * 100
+					globalOutput[ailment .. "MagnitudeEffect"] = globalOutput[ailment .. "MagnitudeEffect"] * (1 + share)
+					if globalBreakdown then
+						globalBreakdown.BleedAggravatedApprox = {
+							s_format("%.2f ^8(aggravating hits per second)", rate),
+						}
+						if age < m_huge then
+							t_insert(globalBreakdown.BleedAggravatedApprox, s_format("%.2fs ^8(attack hits aggravate Bleeding older than this)", age))
+						end
+						t_insert(globalBreakdown.BleedAggravatedApprox, s_format("%.2fs ^8(Bleeding duration)", duration))
+						t_insert(globalBreakdown.BleedAggravatedApprox, s_format("= %.1f%% ^8(of the duration aggravated, 100%% more damage, approx.)", share * 100))
+					end
+				end
+			end
 			local ailmentPercentBase = data.misc[ailment .. "PercentBase"] * globalOutput[ailment .. "MagnitudeEffect"]
 			local baseMinVal = calcAilmentDamage(ailment, ailmentCritChance, hitMin, 0, true) * ailmentPercentBase
 			local baseMaxVal = calcAilmentDamage(ailment, 100, hitMax, critMax, true) * ailmentPercentBase
@@ -5552,10 +5587,14 @@ function calcs.offence(env, actor, activeSkill)
 				output[flatAilment.."ChanceOnCrit"] = 0
 				skillFlags["inflict"..flatAilment] = false
 			else
+				-- "Chance to Poison is calculated from your base chance to inflict Bleeding instead" and the reverse
+				-- (base_poison_chance_is_bleed_chance_instead, base_bleed_chance_is_poison_chance_instead): the other ailment's flat chance
+				local other = flatAilment == "Bleed" and "Poison" or "Bleed"
+				local baseName = skillModList:Flag(cfg, flatAilment.."ChanceFrom"..other.."Chance") and other or flatAilment
 				for _, val in ipairs({"OnHit", "OnCrit"}) do
 					local critCfg = copyTable(cfg,true)
 					critCfg.skillCond.CriticalStrike = val == "OnCrit" -- force crit config to be true for "OnCrit" chance calculation
-					local base = skillModList:Sum("BASE", critCfg, flatAilment.."Chance", "AilmentChance") + enemyDB:Sum("BASE", nil, "Self"..flatAilment.."Chance")
+					local base = skillModList:Sum("BASE", critCfg, baseName.."Chance", "AilmentChance") + enemyDB:Sum("BASE", nil, "Self"..flatAilment.."Chance")
 					local inc = skillModList:Sum("INC", critCfg, flatAilment.."Chance", "AilmentChance")
 					local more = skillModList:More(critCfg, flatAilment.."Chance", "AilmentChance")
 					local chance = m_min(100, skillModList:Override(critCfg, flatAilment .. "Chance") or (base * (1 + inc / 100) * more))

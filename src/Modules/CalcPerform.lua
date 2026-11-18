@@ -1054,6 +1054,51 @@ local function doChargeApprox(env)
 	end
 end
 
+-- Spread of ailments to other enemies (needs Use approximations). It only adds damage to the enemies near the target, so it is reported as
+-- a pack value and never feeds the single-target DPS. Rules, from the stat descriptions:
+-- - "Ignites you inflict spread to other Enemies that stay within 1.5 metres for 1 second" (ignite_proliferation_radius_15,
+--   passive_notable_ignite_proliferation_radius): the enemies near the target get its Ignite.
+--   ponytail: every enemy near the target stays long enough and gets an Ignite as strong as the target's, and spread Ignites don't spread
+--   again; upgrade path = in-game measurement of the spread rules
+-- - "Shocking Hits have a N% chance to also Shock enemies in a 1.5 metre radius" (shock_enemies_in_150cm_radius_on_shock_chance_%): each
+--   Shocking Hit shocks each enemy near the target with chance N%, so it is Shocked 1 - e^(-N% x Shocking Hits/s x Shock duration) of
+--   the time (the approximation model's buff uptime).
+-- The number of enemies near the target is an input (approxEnemiesNearTarget).
+local function doAilmentApprox(env)
+	local modDB, output, breakdown = env.player.modDB, env.player.output, env.player.breakdown
+	if not modDB:Flag(nil, "Condition:UseApproximations") or not env.player.mainSkill then
+		return
+	end
+	local nearby = modDB:GetMultiplier("ApproxEnemiesNearTarget")
+	if modDB:Flag(nil, "IgniteSpreads") and (output.IgniteDPS or 0) > 0 then
+		output.IgnitePackDPSApprox = output.IgniteDPS * (1 + nearby)
+		if breakdown then
+			breakdown.IgnitePackDPSApprox = {
+				s_format("%.1f ^8(Ignite DPS on the target)", output.IgniteDPS),
+				s_format("x %d ^8(the target and %d enemies near it, which the Ignite spreads to)", 1 + nearby, nearby),
+				s_format("= %.1f ^8(Ignite DPS on the pack, approx.)", output.IgnitePackDPSApprox),
+			}
+		end
+	end
+	local spread = m_min(modDB:Sum("BASE", nil, "ShockSpreadChance"), 100) / 100
+	if spread > 0 and (output.ShockChance or 0) > 0 and nearby > 0 then
+		-- ponytail: hits on the one target PoB calculates, as in doInfusionApprox; upgrade path = targets hit per use
+		local shocking = (output.HitSpeed or output.Speed or 0) * (output.HitChance or 0) / 100 * m_min(output.ShockChance, 100) / 100
+		local uptime = 1 - math.exp(-spread * shocking * (output.ShockDuration or 0))
+		output.ShockSpreadApprox = nearby * uptime
+		if breakdown then
+			breakdown.ShockSpreadApprox = {
+				s_format("%.2f ^8(Shocking Hits per second)", shocking),
+				s_format("x %.2f ^8(chance to also Shock each enemy near the target)", spread),
+				s_format("x %.2fs ^8(Shock duration)", output.ShockDuration or 0),
+				s_format("= %.0f%% ^8(of the time each enemy near the target is Shocked: 1 - e^-(rate x duration))", uptime * 100),
+				s_format("x %d ^8(enemies near the target)", nearby),
+				s_format("= %.2f ^8(Shocked enemies near the target on average, approx.)", output.ShockSpreadApprox),
+			}
+		end
+	end
+end
+
 -- Process charges
 ---@param env Env
 ---@param actor Actor
@@ -3841,6 +3886,7 @@ function calcs.perform(env, skipEHP)
 		calcs.offence(env, env.player, env.player.mainSkill)
 		doInfusionApprox(env)
 		doChargeApprox(env)
+		doAilmentApprox(env)
 	--end
 
 	if env.minion then

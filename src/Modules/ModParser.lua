@@ -822,6 +822,7 @@ local modNameList = {
 	["magnitude of ailments"] = "AilmentMagnitude",
 	["magnitude of ailments you inflict"] = "AilmentMagnitude",
 	["magnitude of damaging ailments you inflict"] = { "AilmentMagnitude", keywordFlags = bor(KeywordFlag.Poison, KeywordFlag.Bleed, KeywordFlag.Ignite) },
+	["magnitude of damaging ailments"] = { "AilmentMagnitude", keywordFlags = bor(KeywordFlag.Poison, KeywordFlag.Bleed, KeywordFlag.Ignite) },
 	["effect of lightning ailments"] = "EnemyShockMagnitude",
 	["effect of chill and shock on you"] = { "SelfChillEffect", "SelfShockEffect" },
 	["chill effect"] = "EnemyChillMagnitude",
@@ -867,6 +868,9 @@ local modNameList = {
 	-- Other ailments
 	["chance to inflict ailments"] = "AilmentChance",
 	["chance to inflict elemental ailments"] = { "EnemyIgniteChance", "EnemyShockChance" },
+	-- elemental_ailment_chance_+%: the newer wording of "chance to inflict Elemental Ailments" (ailment_chance_+% stays "chance to inflict
+	-- Ailments"). ponytail: Freeze has buildup rather than a chance, so it isn't counted; upgrade path = an in-game test with Freeze Buildup
+	["elemental ailment application"] = { "EnemyIgniteChance", "EnemyShockChance" },
 	["to poison"] = "PoisonChance",
 	["to cause poison"] = "PoisonChance",
 	["to poison on hit"] = "PoisonChance",
@@ -879,6 +883,8 @@ local modNameList = {
 	["to inflict bleeding"] = "BleedChance",
 	["to inflict bleeding on hit"] = "BleedChance",
 	["to bleed"] = "BleedChance",
+	["chance to poison"] = "PoisonChance",
+	["chance to inflict bleeding"] = "BleedChance",
 	["bleed duration"] = { "EnemyBleedDuration" },
 	["bleeding duration"] = { "EnemyBleedDuration" },
 	["bleed duration on you"] = "SelfBleedDuration",
@@ -1087,6 +1093,7 @@ local modFlagList = {
 	["with melee attacks"] = { flags = ModFlag.Melee },
 	["with melee damage"] = { flags = ModFlag.Melee },
 	["with melee critical hits"] = { flags = ModFlag.Melee, tag = { type = "Condition", var = "CriticalStrike" } },
+	["with empowered attacks"] = { flags = ModFlag.Attack, tag = { type = "Condition", var = "Empowered" } },
 	["with melee skills"] = { tag = { type = "SkillType", skillType = SkillType.Melee } },
 	["with bow skills"] = { keywordFlags = KeywordFlag.Bow },
 	["on melee hit"] = { flags = bor(ModFlag.Melee, ModFlag.Hit) },
@@ -1885,6 +1892,7 @@ local modTagList = {
 	["while parrying"] = { tag = { type = "Condition", var = "Parrying" } },
 	["while y?o?u?r? ?shield is raised"] = { tag = { type = "Condition", var = "ShieldRaised" } },
 	["during empowered attacks"] = { tag = { type = "Condition", var = "Empowered" } },
+	["while on burning, chilled or shocked ground"] = { tag = { type = "Condition", varList = { "OnBurningGround", "OnChilledGround", "OnShockedGround" } } },
 	["while you have tailwind"] = { tag = { type = "MultiplierThreshold", var = "Tailwind", threshold = 1 } },
 	["while elusive"] = { tag = { type = "Condition", var = "Elusive" } },
 	["gain elusive"] = { tag = { type = "Condition", varList = { "CanBeElusive", "Elusive" } } },
@@ -2578,6 +2586,27 @@ local specialModList = {
 	} end,
 	["bleeding you inflict is aggravated"] = { mod("EnemyModifier", "LIST", { mod = flag("Condition:BleedAggravated") }) },
 	["bleeding you inflict on pinned enemies is aggravated"] = { mod("EnemyModifier", "LIST", { mod = flag("Condition:BleedAggravated", { type = "Condition", var = "Pinned" } ) }) },
+	-- Aggravating Bleeding on Hit (aggravate_bleeding_on_attack_*, local_aggravate_bleeding_on_hit_chance_%, aggravate_bleeding_older_than_ms_on_hit):
+	-- a Hit aggravates the Bleeding already on the target; CalcOffence turns the event rate into the aggravated share (needs Use approximations)
+	["(%d+)%% chance to aggravate bleeding on targets you hit with attacks"] = function(num) return { mod("AggravateBleedOnHitChance", "BASE", num, nil, ModFlag.Attack) } end,
+	["(%d+)%% chance to aggravate bleeding on targets you hit with empowered attacks"] = function(num) return { mod("AggravateBleedOnHitChance", "BASE", num, nil, ModFlag.Attack, { type = "Condition", var = "Empowered" }) } end,
+	["(%d+)%% chance to aggravate bleeding on targets you critically hit with attacks"] = function(num) return { mod("AggravateBleedOnCritChance", "BASE", num, nil, ModFlag.Attack) } end,
+	["aggravate bleeding on targets you critically hit with attacks"] = { mod("AggravateBleedOnCritChance", "BASE", 100, nil, ModFlag.Attack) },
+	["(%d+)%% chance to aggravate bleeding on hit"] = function(num) return { mod("AggravateBleedOnHitChance", "BASE", num, { type = "Condition", var = "{Hand}Attack" }) } end,
+	["attack hits aggravate any bleeding on targets which is older than (%d+) seconds?"] = function(num) return { mod("AggravateBleedAge", "BASE", num, nil, ModFlag.Attack) } end,
+	-- base_poison_chance_is_bleed_chance_instead / base_bleed_chance_is_poison_chance_instead: the flat (BASE) chance of the other ailment is used
+	["chance to poison is calculated from your base chance to inflict bleeding instead"] = { flag("PoisonChanceFromBleedChance") },
+	["chance to inflict bleeding is calculated from your base chance to poison instead"] = { flag("BleedChanceFromPoisonChance") },
+	-- Spread to other enemies: pack-only, reported with Use approximations (CalcPerform doAilmentApprox), never in single-target DPS
+	["ignites you inflict spread to other enemies that stay within ([%d%.]+) metres? for 1 second"] = { flag("IgniteSpreads") },
+	["shocking hits have a (%d+)%% chance to also shock enemies in a 1%.5 metre radius"] = function(num) return { mod("ShockSpreadChance", "BASE", num) } end,
+	-- Magnitude of Elemental Ailments (Ignite, Chill, Shock; Freeze and Electrocute have buildup, no magnitude) with Spells: Ignite needs both
+	-- keywords (MatchAll), the non-damaging ones read the hit's keywords
+	["(%d+)%% increased magnitude of elemental ailments you inflict with spells"] = function(num) return {
+		mod("AilmentMagnitude", "INC", num, nil, 0, bor(KeywordFlag.Spell, KeywordFlag.Ignite, KeywordFlag.MatchAll)),
+		mod("EnemyShockMagnitude", "INC", num, nil, 0, KeywordFlag.Spell),
+		mod("EnemyChillMagnitude", "INC", num, nil, 0, KeywordFlag.Spell),
+	} end,
 	["your minions spread caustic ground on death, dealing 20%% of their maximum life as chaos damage per second"] = { mod("ExtraMinionSkill", "LIST", { skillId = "SiegebreakerCausticGround" }) },
 	["your minions spread burning ground on death, dealing 20%% of their maximum life as fire damage per second"] = { mod("ExtraMinionSkill", "LIST", { skillId = "ReplicaSiegebreakerBurningGround" }) },
 	["you can have an additional brand attached to an enemy"] = { mod("BrandsAttachedLimit", "BASE", 1) },
@@ -3974,6 +4003,8 @@ local specialModList = {
 		flag("FireCanChill", { type = "Condition", var = "UsingMace" }),
 		flag("ChaosCanChill", { type = "Condition", var = "UsingMace" })
 	},
+	["(%a+) damage from hits also contributes to flammability and ignite magnitudes"] = function(_, damage) return { flag(firstToUpper(damage) .. "CanIgnite") } end,
+	["(%a+) damage from hits also contributes to chill magnitude"] = function(_, damage) return { flag(firstToUpper(damage) .. "CanChill") } end,
 	["(%a+) damage from hits ?a?l?s?o? contributes to (%a+%s*%a*) buildup"] = function(_, damage, ailment)return {
 		flag(firstToUpper(damage) .. "Can" .. ailment:gsub("^%l", string.upper):gsub(" %l", string.upper):gsub(" ", ""))
 	} end,
@@ -4176,6 +4207,12 @@ local specialModList = {
 	["chance to avoid being shocked applies to all elemental ailments"] = { flag("ShockAvoidAppliesToElementalAilments") }, -- typo / old wording change
 	["modifiers to chance to avoid being shocked apply to all elemental ailments"] = { flag("ShockAvoidAppliesToElementalAilments") },
 	["enemies permanently take (%d+)%% increased damage for each second they've ever been frozen by you, up to a maximum of (%d+)%%"] = function(num, _, limit) return { mod("EnemyModifier", "LIST", { mod = mod("DamageTaken", "INC", num, { type = "Condition", var = "FrozenByYou" }, { type = "Multiplier", var = "FrozenByYouSeconds", limit = limit / num }) }) } end,
+	["enemies ignited by you permanently take (%d+)%% increased fire damage for each second they have ever been ignited by you, up to a maximum of (%d+)%%"] = function(num, _, limit) return { mod("EnemyModifier", "LIST", { mod = mod("FireDamageTaken", "INC", num, { type = "Condition", var = "IgnitedByYou" }, { type = "Multiplier", var = "IgnitedByYouSeconds", limit = limit / num }) }) } end,
+	["enemies standing on (%a+) ground take (%d+)%% increased (%a+) damage"] = function(_, ground, num, damageType) return { mod("EnemyModifier", "LIST", { mod = mod(firstToUpper(damageType) .. "DamageTaken", "INC", num, { type = "Condition", var = "On" .. firstToUpper(ground) .. "Ground" }) }) } end,
+	["become ignited when you deal a critical hit, taking (%d+)%% of your maximum life and energy shield as fire damage per second"] = function(num) return {
+		mod("FireDegen", "BASE", 1, { type = "PercentStat", stat = "Life", percent = num }, { type = "Condition", var = "Ignited" }),
+		mod("FireDegen", "BASE", 1, { type = "PercentStat", stat = "EnergyShield", percent = num }, { type = "Condition", var = "Ignited" }),
+	} end,
 	["enemies permanently take (%d+)%% increased damage for each second they've ever been chilled by you, up to a maximum of (%d+)%%"] = function(num, _, limit) return { mod("EnemyModifier", "LIST", { mod = mod("DamageTaken", "INC", num, { type = "Condition", var = "ChilledByYou" }, { type = "Multiplier", var = "ChilledByYouSeconds", limit = limit / num }) }) } end,
 	["modifiers to chance to suppress spell damage also apply to chance to avoid elemental ailments at (%d+)%% of their value"] = function(num) return {
 		mod("SpellSuppressionAppliesToAilmentAvoidancePercent", "BASE", num),
@@ -5026,6 +5063,7 @@ local specialModList = {
 	["projectiles pierce (%d+) additional targets while you have phasing"] = function(num) return { mod("PierceCount", "BASE", num, { type = "Condition", var = "Phasing" }) } end,
 	["projectiles pierce all targets while you have phasing"] = { flag("PierceAllTargets", { type = "Condition", var = "Phasing" }) },
 	["projectiles pierce all burning enemies"] = { flag("PierceAllTargets", { type = "ActorCondition", actor = "enemy", var = "Burning" }) },
+	["projectiles pierce all ignited enemies"] = { flag("PierceAllTargets", { type = "ActorCondition", actor = "enemy", var = "Ignited" }) },
 	["arrows pierce an additional target"] = { mod("PierceCount", "BASE", 1, nil, 0, KeywordFlag.Arrow) },
 	["arrows pierce (%d+) additional targets"] = function(num) return { mod("PierceCount", "BASE", num, nil, 0, KeywordFlag.Arrow) } end,
 	["arrows pierce one target"] = { mod("PierceCount", "BASE", 1, nil, 0, KeywordFlag.Arrow) },
