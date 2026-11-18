@@ -704,6 +704,8 @@ local modNameList = {
 	["elusive effect"] = "ElusiveEffect",
 	["effect of elusive on you"] = "ElusiveEffect",
 	["effect of infusion"] = "InfusionEffect",
+	["effect of archon buffs on you"] = "ArchonEffect",
+	["archon buff duration"] = "ArchonDuration",
 	["effect of incision"] = "IncisionEffect",
 	["fire exposure effect"] = "FireExposureEffect",
 	["cold exposure effect"] = "ColdExposureEffect",
@@ -1426,6 +1428,7 @@ local preFlagList = {
 	["allies in your presence "] = { newAura = true, newAuraOnlyAllies = true },
 	["allies in your presence [hgd][ae][via][enl] "] = { newAura = true, newAuraOnlyAllies = true },
 	["^you and allies in your presence [hgd][ae][via][enl] "] = { newAura = true },
+	["^archon buffs also grant "] = { addToArchon = true },
 	["^every rage also grants "] = { tag = { type = "Multiplier", var = "RageEffect" } },
 	["^each rage also grants "] = { tag = { type = "Multiplier", var = "RageEffect" } },
 	["^every (%d+) rage also grants "] = function(num) return { tag = { type = "Multiplier", var = "RageEffect", div = tonumber(num) } } end,
@@ -1893,6 +1896,7 @@ local modTagList = {
 	["while in sand stance"] = { tag = { type = "Condition", var = "SandStance" } },
 	["while you have a bestial minion"] = { tag = { type = "Condition", var = "HaveBestialMinion" } },
 	["while you have infusion"] = { tag = { type = "Condition", var = "InfusionActive" } },
+	["while affected by an archon buff"] = { tag = { type = "Condition", var = "AffectedByArchon" } },
 	["while focus?sed"] = { tag = { type = "Condition", var = "Focused" } },
 	["while leeching"] = { tag = { type = "Condition", var = "Leeching" } },
 	["while leeching life"] = { tag = { type = "Condition", var = "LeechingLife" } },
@@ -5246,6 +5250,17 @@ local specialModList = {
 	["gain guard equal to (%d+)%% of missing energy shield for (%d+) seconds when you dodge roll"] = function(num) return { mod("Guard", "MAX", 1, { type = "PercentStat", stat = "EnergyShield", percent = num / 2 }, { type = "Condition", var = "HaveGuard" }, { type = "Condition", var = "UseApproximations" }) } end,
 	["gain guard equal to (%d+)%% of maximum life for (%d+) seconds on taking savage hit"] = function(num) return { mod("Guard", "MAX", 1, { type = "PercentStat", stat = "Life", percent = num }, { type = "Condition", var = "HaveGuard" }, { type = "Condition", var = "UseApproximations" }) } end,
 	["maximum amount of guard is based on maximum energy shield instead"] = { flag("GuardBasedOnEnergyShield") },
+	-- Archon (CalcPerform doActorMisc). Only the approximated Archon uptime reads the recovery period and the sources;
+	-- stat descriptions: archon_delay_expires_x%_faster, archon_no_recovery_period, gain_archon_*, chance_%_to_gain_archon_*
+	["archon recovery period expires (%d+)%% faster"] = function(num) return { mod("ArchonRecoveryRate", "INC", num) } end,
+	["archon recovery period expires (%d+)%% slower"] = function(num) return { mod("ArchonRecoveryRate", "INC", -num) } end,
+	["archon buffs have no recovery period after you lose one"] = { flag("ArchonNoRecoveryPeriod") },
+	["gain elemental archon after spending 100%% of your maximum mana"] = { flag("ArchonSource", { type = "Condition", var = "UseApproximations" }) },
+	["gain elemental archon when your energy shield recharge begins"] = { flag("ArchonSource", { type = "Condition", var = "UseApproximations" }) },
+	["gain elemental archon when you cast a spell while on high infernal flame"] = { flag("ArchonSource", { type = "Condition", var = "UseApproximations" }) },
+	["(%d+)%% chance to gain archon of undeath when you use a command skill"] = { flag("ArchonSource", { type = "Condition", var = "UseApproximations" }) },
+	["(%d+)%% c?h?a?n?c?e? ?to gain archon of undeath when you create an offering"] = { flag("ArchonSource", { type = "Condition", var = "UseApproximations" }) },
+	["(%d+)%% chance to gain nature's archon when your plants overgrow"] = { flag("ArchonSource", { type = "Condition", var = "UseApproximations" }) },
 	["(%d+)%% chance to avoid death from hits"] = function(num) return { mod("AvoidDeathFromHitsChance", "BASE", num, { type = "Condition", var = "UseApproximations" }) } end,
 	["cannot recharge or regenerate energy shield"] = { flag("NoEnergyShieldRecharge"), flag("NoEnergyShieldRegen") },
 	["enemies you (%a+) cannot recharge energy shield"] = function(_, cond) return {
@@ -7125,6 +7140,11 @@ local function parseMod(line, order)
 					end
 				end
 				modList[i] = mod("MinionModifier", "LIST", { mod = effectMod }, unpack(tagList))
+			end
+		elseif misc.addToArchon then
+			-- Part of the Archon Buff: CalcPerform scales it by the buff's effect (and its uptime)
+			for i, effectMod in ipairs(modList) do
+				modList[i] = mod("ArchonBuff", "LIST", { mod = effectMod })
 			end
 		elseif misc.addToSkill then
 			-- Skill enchants or socketed gem modifiers that add additional effects

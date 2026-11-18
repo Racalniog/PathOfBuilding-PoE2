@@ -176,6 +176,15 @@ Order by the Phase 0 ranking. The census suggests this order:
 
 1. **Elemental Infusion and Archon** (87 lines, mostly on the tree). These are central to caster
    builds, and the top optimizer builds are casters.
+   - Archon done (November 2026): an *Are you affected by an Archon Buff?* option applies "Archon Buffs also
+     grant ..." (scaled by the effect of Archon Buffs) and "while affected by an Archon Buff" lines. With
+     approximations on, an Archon source gives the "also grant" part an uptime of duration / (duration + recovery
+     period), from *Archon Buff duration* and *Archon recovery period* inputs (10 s each, a guess: the base values
+     and what each Archon Buff grants by itself aren't exported yet, see Phase 5).
+   - Still open: the infusion supply lines (maximum infusions, infusion duration, extra infusions on collection,
+     not removing infusions, Elemental Equilibrium, Verisium every 5 s). They need the remnant generation rules
+     and a share of infused casts, which the engine doesn't have.
+   - Census: 1,309 → 1,261; Infusion / Archon 87 → 39.
 2. **Charges**: generation, consumption and "per charge" effects (113 lines).
 3. **Recovery on events**: on kill, in Presence, leech variants (151 lines). Started early, as the
    first user of the approximation model: on-kill recovery uses the kills-per-second rate.
