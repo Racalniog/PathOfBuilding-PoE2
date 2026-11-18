@@ -256,9 +256,11 @@ Order by the Phase 0 ranking. The census suggests this order:
        *Is the enemy on Ignited Ground?* option), "Projectiles Pierce all Ignited enemies", Become Ignited on Critical Hit (Fire degen
        while *Are you Ignited?*).
      - **Approximation (Use approximations on):** aggravating Bleeding on Hit, on Critical Hit, with Empowered Attacks and "older than N
-       seconds". A Hit aggravates the Bleeding already on the target for the rest of its duration D (100% more damage); with aggravating
-       hits at rate r the share aggravated is (D - (1 - e^(-r·M)) / r) / D, M = min(N, D). Hit rates are known inside offence, so this
-       feeds Bleed DPS directly (Calcs tab, Bleed: *Aggravated (approx.)*).
+       seconds". A Hit aggravates the Bleeding instances on the target for the rest of their duration D (100% more damage), and the
+       strongest instance deals damage, so the share is the chance that an aggravated instance is alive: 1 − e^(−a·(D − N)) for "older
+       than N" (a = Bleeding applied per second) and 1 − e^(−r·D) for chances on Hit / Critical Hit (r = hits/s × chance per hit),
+       combined as independent. Hit rates are known inside offence, so this feeds Bleed DPS directly (Calcs tab, Bleed: *Aggravated
+       (approx.)*). The Malady support's base chance swap is mapped too.
      - **Pack only (Use approximations on, new *Enemies near the target* input, 3 by default, a guess):** Ignite spread gives *Pack DPS
        (approx.)* = Ignite DPS × (1 + enemies near the target); Shock spread gives the average Shocked enemies near the target,
        enemies × (1 − e^(−chance × Shocking Hits/s × Shock duration)). Neither changes single-target DPS or the optimizer score.

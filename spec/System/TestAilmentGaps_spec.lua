@@ -78,28 +78,49 @@ describe("TestAilmentGaps", function()
 		assert.is_nil(output.BleedAggravatedApprox)
 	end)
 
-	it("estimates the aggravated share of Bleeding from aggravating hits", function()
+	it("estimates the chance an aggravated Bleeding is on the target from aggravating hits", function()
 		local approx = { useApproximations = true }
 		local base = setup(bleed, approx)
 		assert.is_nil(base.BleedAggravatedApprox)
-		-- older than 4 seconds: a 5 s Bleeding is aggravated for its last second, 20% of the time, 100% more damage
+		-- every landed hit applies a Bleeding: a = hits per second
+		local hits = base.Speed * base.HitChance / 100
+		assert.are.equals(5, base.BleedDuration)
+		-- older than 4 seconds: aggravated if one was applied in the last 5 - 4 = 1 second
 		local output = setup(bleed .. "\nAttack Hits Aggravate any Bleeding on targets which is older than 4 seconds", approx)
-		assert.are.equals(5, output.BleedDuration)
-		assert.are.near(20, output.BleedAggravatedApprox, 1e-9)
-		assert.are.near(base.BleedDPS * 1.2, output.BleedDPS, 1e-6)
-		-- 20% chance on Hit: rate r = 0.2 x hits per second, aggravated for 5 - (1 - e^(-5r)) / r of 5 seconds
+		local fromAge = 1 - math.exp(-hits * 1)
+		assert.are.near(fromAge * 100, output.BleedAggravatedApprox, 1e-6)
+		assert.are.near(base.BleedDPS * (1 + fromAge), output.BleedDPS, 1e-6)
+		-- decimal ages: 5 - 1.5 = 3.5 seconds
+		output = setup(bleed .. "\nAttack Hits Aggravate any Bleeding on targets which is older than 1.5 seconds", approx)
+		assert.are.near((1 - math.exp(-hits * 3.5)) * 100, output.BleedAggravatedApprox, 1e-6)
+		-- 20% chance on Hit: an aggravating hit in the last 5 seconds, rate 0.2 x hits per second
 		output = setup(bleed .. "\n20% chance to Aggravate Bleeding on targets you Hit with Attacks", approx)
-		local r = 0.2 * output.Speed * output.HitChance / 100
-		local share = (5 - (1 - math.exp(-5 * r)) / r) / 5
-		assert.are.near(share * 100, output.BleedAggravatedApprox, 1e-6)
-		assert.are.near(base.BleedDPS * (1 + share), output.BleedDPS, 1e-6)
-		-- both: the wait is capped at 4 seconds
+		local fromHits = 1 - math.exp(-hits * 0.2 * 5)
+		assert.are.near(fromHits * 100, output.BleedAggravatedApprox, 1e-6)
+		assert.are.near(base.BleedDPS * (1 + fromHits), output.BleedDPS, 1e-6)
+		-- both, independent
 		output = setup(bleed .. "\n20% chance to Aggravate Bleeding on targets you Hit with Attacks\nAttack Hits Aggravate any Bleeding on targets which is older than 4 seconds", approx)
-		assert.are.near((5 - (1 - math.exp(-4 * r)) / r) / 5 * 100, output.BleedAggravatedApprox, 1e-6)
+		assert.are.near((1 - (1 - fromAge) * (1 - fromHits)) * 100, output.BleedAggravatedApprox, 1e-6)
+		-- on Critical Hit: per landed hit the crit share CritChance / AccuracyHitChance, combined with the on-hit chance
+		output = setup(bleed .. "\n20% chance to Aggravate Bleeding on targets you Hit with Attacks\nAggravate Bleeding on targets you Critically Hit with Attacks", approx)
+		local critShare = math.min(output.CritChance / output.AccuracyHitChance, 1)
+		assert.is_true(critShare > 0)
+		assert.are.near((1 - math.exp(-hits * (1 - 0.8 * (1 - critShare)) * 5)) * 100, output.BleedAggravatedApprox, 1e-6)
+		-- a 50% Bleed chance halves the application rate for the age rule
+		output = setup("Adds 10 to 20 Physical damage to Attacks\n50% chance to inflict Bleeding on Hit\nAttack Hits Aggravate any Bleeding on targets which is older than 4 seconds", approx)
+		assert.are.near((1 - math.exp(-hits * 0.5)) * 100, output.BleedAggravatedApprox, 1e-6)
 		-- a moving enemy's Bleeding already deals the extra damage
 		output = setup(bleed .. "\nAttack Hits Aggravate any Bleeding on targets which is older than 4 seconds", { useApproximations = true, conditionEnemyMoving = true })
 		assert.is_nil(output.BleedAggravatedApprox)
 		assert.are.near(base.BleedDPS * 2, output.BleedDPS, 1e-6)
+	end)
+
+	it("ground damage taken values are numbers and Malady swaps the base chances", function()
+		local mods = modLib.parseMod("Enemies standing on Chilled Ground take 25% increased Fire Damage")
+		assert.are.equals(25, mods[1].value.mod.value)
+		local output = setup("20% chance to Poison on Hit\n10% chance to inflict Bleeding on Hit", nil, "Fireball 20/0 1\nMalady")
+		assert.are.near(10, output.PoisonChanceOnHit, 1e-9)
+		assert.are.near(20, output.BleedChanceOnHit, 1e-9)
 	end)
 
 	local spread = "Ignites you inflict spread to other Enemies that stay within 1.5 metres for 1 second"

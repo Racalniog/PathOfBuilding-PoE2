@@ -5271,17 +5271,22 @@ function calcs.offence(env, actor, activeSkill)
 			-- The average number of ailment that will be active on the enemy at once
 			local ailmentStacks = output.HitChance / 100 * ailmentChance * output.DpsMultiplier
 			local configStacks = enemyDB:Sum("BASE", nil, "Multiplier:" .. ailment .. "Stacks")
+			-- landed hits per second on the target, the basis of ailmentStacks (used by the Bleeding aggravation estimate)
+			local hitRate
 			if not skillData.triggeredOnDeath then
 				if output.Cooldown then
 					ailmentStacks = ailmentStacks * globalOutput[ailment .. "Duration"] / m_max(output.Cooldown, (output.HitTime or output.Time))
+					hitRate = output.HitChance / 100 * output.DpsMultiplier / m_max(output.Cooldown, (output.HitTime or output.Time))
 				elseif (globalOutput.HitSpeed or globalOutput.Speed) > 0 then
 					-- assume skills with no cast, attack, or cooldown time are single cast
 					ailmentStacks = ailmentStacks * globalOutput[ailment .. "Duration"] * (globalOutput.HitSpeed or globalOutput.Speed)
+					hitRate = output.HitChance / 100 * output.DpsMultiplier * (globalOutput.HitSpeed or globalOutput.Speed)
 				end
 
 				local activeTotems = env.modDB:Override(nil, "TotemsSummoned") or skillModList:Sum("BASE", skillCfg, "ActiveTotemLimit", "ActiveBallistaLimit")
 				if skillFlags.totem then
 					ailmentStacks = ailmentStacks * activeTotems
+					hitRate = hitRate and hitRate * activeTotems
 				end
 				if configStacks > 0 then
 					ailmentStacks = configStacks
@@ -5373,35 +5378,46 @@ function calcs.offence(env, actor, activeSkill)
 			-- aggravate_bleeding_on_attack_crit_chance_%, local_aggravate_bleeding_on_hit_chance_% ("chance to Aggravate Bleeding on targets you
 			-- (Critically) Hit") and aggravate_bleeding_older_than_ms_on_hit ("Attack Hits Aggravate any Bleeding on targets which is older than N
 			-- seconds"); Aggravated Bleeding deals 100% more damage, like Bleeding on a moving target (CalcSetup). A Hit aggravates the Bleeding
-			-- already on the target for the rest of its duration D. Aggravating Hits come at rate r (chance x hits or critical hits per second),
-			-- so a Bleeding waits T ~ Exp(r), or at most N, and is aggravated for D - min(T, N) on average D - (1 - e^(-r M)) / r, M = min(N, D).
-			-- ponytail: one Bleeding at a time, aggravated from its own application, with hits coming continuously; upgrade path = per-instance
-			-- simulation with newer, stronger Bleeding replacing an aggravated one
-			if ailment == "Bleed" and skillModList:Flag(nil, "Condition:UseApproximations") and not skillModList:Flag(nil, "Condition:CannotAggravate", "Condition:NoExtraBleedDamageToMovingEnemy")
+			-- instances on the target for the rest of their duration D, and the strongest instance deals damage, which an aggravated one (2x)
+			-- usually is. So the share is the chance that an aggravated instance is alive:
+			-- - older than N: an instance applied in the last D - N seconds, at the application rate a (hits/s x Bleed chance): 1 - e^(-a (D - N))
+			-- - chance on Hit p and on Critical Hit q: an aggravating hit in the last D seconds, at rate r = hits/s x (1 - (1 - p)(1 - q x crit
+			--   share)): 1 - e^(-r D); both sources independent
+			-- ponytail: assumes a Bleeding is on the target whenever an aggravating hit lands, that the aggravated instance is the strongest and
+			-- that attack hits come right after age N; upgrade path = per-instance simulation of rolls, applications and the strongest-applies rule
+			if ailment == "Bleed" and hitRate and skillModList:Flag(nil, "Condition:UseApproximations") and not skillModList:Flag(nil, "Condition:CannotAggravate", "Condition:NoExtraBleedDamageToMovingEnemy")
 				and not enemyDB:GetCondition("Moving") and not enemyDB:GetCondition("BleedAggravated") then
-				local uses = globalOutput.HitSpeed or globalOutput.Speed or 0
-				-- CritChance already includes the chance to hit
-				local rate = uses * (m_min(skillModList:Sum("BASE", cfg, "AggravateBleedOnHitChance"), 100) * output.HitChance + m_min(skillModList:Sum("BASE", cfg, "AggravateBleedOnCritChance"), 100) * output.CritChance) / 10000
+				-- CritChance already includes the chance to hit; per landed hit it is CritChance / AccuracyHitChance
+				local accuracy = output.AccuracyHitChance or 100
+				local critShare = accuracy > 0 and m_min(output.CritChance / accuracy, 1) or 0
+				local perHit = 1 - (1 - m_min(skillModList:Sum("BASE", cfg, "AggravateBleedOnHitChance"), 100) / 100) * (1 - m_min(skillModList:Sum("BASE", cfg, "AggravateBleedOnCritChance"), 100) / 100 * critShare)
 				local age = m_huge
-				for _, value in ipairs(uses > 0 and skillModList:Tabulate("BASE", cfg, "AggravateBleedAge") or { }) do
+				for _, value in ipairs(skillModList:Tabulate("BASE", cfg, "AggravateBleedAge")) do
 					age = m_min(age, value.value)
 				end
 				local duration = globalOutput[ailment .. "Duration"]
-				local wait = m_min(age, duration)
-				local share = duration > 0 and (duration - (rate > 0 and (1 - math.exp(-rate * wait)) / rate or wait)) / duration or 0
+				local applications = hitRate * ailmentChance
+				local fromAge = age < duration and 1 - math.exp(-applications * (duration - age)) or 0
+				local fromHits = 1 - math.exp(-hitRate * perHit * duration)
+				local share = 1 - (1 - fromAge) * (1 - fromHits)
 				if share > 0 then
 					globalOutput.BleedAggravatedApprox = share * 100
-					globalOutput[ailment .. "MagnitudeEffect"] = globalOutput[ailment .. "MagnitudeEffect"] * (1 + share)
 					if globalBreakdown then
-						globalBreakdown.BleedAggravatedApprox = {
-							s_format("%.2f ^8(aggravating hits per second)", rate),
-						}
-						if age < m_huge then
-							t_insert(globalBreakdown.BleedAggravatedApprox, s_format("%.2fs ^8(attack hits aggravate Bleeding older than this)", age))
+						globalBreakdown.BleedAggravatedApprox = { }
+						if fromAge > 0 then
+							t_insert(globalBreakdown.BleedAggravatedApprox, s_format("1 - e^-(%.2f x (%.2fs - %.2fs)) = %.1f%% ^8(Bleeding applied per second x time after the age attack hits aggravate)", applications, duration, age, fromAge * 100))
 						end
-						t_insert(globalBreakdown.BleedAggravatedApprox, s_format("%.2fs ^8(Bleeding duration)", duration))
-						t_insert(globalBreakdown.BleedAggravatedApprox, s_format("= %.1f%% ^8(of the duration aggravated, 100%% more damage, approx.)", share * 100))
+						if fromHits > 0 then
+							t_insert(globalBreakdown.BleedAggravatedApprox, s_format("1 - e^-(%.2f x %.3f x %.2fs) = %.1f%% ^8(hits per second x chance to aggravate per hit x duration)", hitRate, perHit, duration, fromHits * 100))
+						end
+						t_insert(globalBreakdown.BleedAggravatedApprox, s_format("= %.1f%% ^8(chance an aggravated Bleeding is on the target, 100%% more damage, approx.)", share * 100))
+						globalBreakdown.BleedMagnitudeEffect = {
+							s_format("%.2f ^8(magnitude modifiers)", globalOutput[ailment .. "MagnitudeEffect"]),
+							s_format("x %.3f ^8(1 + aggravated share, approx.)", 1 + share),
+							s_format("= %.2f", globalOutput[ailment .. "MagnitudeEffect"] * (1 + share)),
+						}
 					end
+					globalOutput[ailment .. "MagnitudeEffect"] = globalOutput[ailment .. "MagnitudeEffect"] * (1 + share)
 				end
 			end
 			local ailmentPercentBase = data.misc[ailment .. "PercentBase"] * globalOutput[ailment .. "MagnitudeEffect"]

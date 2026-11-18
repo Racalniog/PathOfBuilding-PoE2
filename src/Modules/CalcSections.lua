@@ -1046,7 +1046,7 @@ return {
 		{ label = "Enemy modifiers", modName = "SelfBleedChance", modType = "BASE", enemy = true },
 		{ label = "Ailment modifiers", modName = "AilmentChance", cfg = "skill" },
 	}, },
-	{ label = "Magnitude Effect", { format = "x {2:output:BleedMagnitudeEffect}", { modName = "AilmentMagnitude", cfg = "bleed" }, }, },
+	{ label = "Magnitude Effect", { format = "x {2:output:BleedMagnitudeEffect}", { breakdown = "BleedMagnitudeEffect" }, { modName = "AilmentMagnitude", cfg = "bleed" }, }, },
 	{ label = "Source Physical", textSize = 12, notFlag = "attack", haveOutput = "BleedPhysicalMax", { format = "{0:output:BleedPhysicalMin} to {0:output:BleedPhysicalMax}", { breakdown = "BleedPhysical" }, }, },
 	{ label = "MH Source Physical", bgCol = colorCodes.MAINHANDBG, textSize = 12, flag = "weapon1Attack", haveOutput = "MainHand.BleedPhysicalMax", { format = "{0:output:MainHand.BleedPhysicalMin} to {0:output:MainHand.BleedPhysicalMax}", { breakdown = "MainHand.BleedPhysical" }, }, },
 	{ label = "OH Source Physical", bgCol = colorCodes.OFFHANDBG, textSize = 12, flag = "weapon2Attack", haveOutput = "OffHand.BleedPhysicalMax", { format = "{0:output:OffHand.BleedPhysicalMin} to {0:output:OffHand.BleedPhysicalMax}", { breakdown = "OffHand.BleedPhysical" }, }, },

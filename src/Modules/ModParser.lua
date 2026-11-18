@@ -2593,7 +2593,7 @@ local specialModList = {
 	["(%d+)%% chance to aggravate bleeding on targets you critically hit with attacks"] = function(num) return { mod("AggravateBleedOnCritChance", "BASE", num, nil, ModFlag.Attack) } end,
 	["aggravate bleeding on targets you critically hit with attacks"] = { mod("AggravateBleedOnCritChance", "BASE", 100, nil, ModFlag.Attack) },
 	["(%d+)%% chance to aggravate bleeding on hit"] = function(num) return { mod("AggravateBleedOnHitChance", "BASE", num, { type = "Condition", var = "{Hand}Attack" }) } end,
-	["attack hits aggravate any bleeding on targets which is older than (%d+) seconds?"] = function(num) return { mod("AggravateBleedAge", "BASE", num, nil, ModFlag.Attack) } end,
+	["attack hits aggravate any bleeding on targets which is older than ([%d%.]+) seconds?"] = function(num) return { mod("AggravateBleedAge", "BASE", num, nil, ModFlag.Attack) } end,
 	-- base_poison_chance_is_bleed_chance_instead / base_bleed_chance_is_poison_chance_instead: the flat (BASE) chance of the other ailment is used
 	["chance to poison is calculated from your base chance to inflict bleeding instead"] = { flag("PoisonChanceFromBleedChance") },
 	["chance to inflict bleeding is calculated from your base chance to poison instead"] = { flag("BleedChanceFromPoisonChance") },
@@ -4208,7 +4208,7 @@ local specialModList = {
 	["modifiers to chance to avoid being shocked apply to all elemental ailments"] = { flag("ShockAvoidAppliesToElementalAilments") },
 	["enemies permanently take (%d+)%% increased damage for each second they've ever been frozen by you, up to a maximum of (%d+)%%"] = function(num, _, limit) return { mod("EnemyModifier", "LIST", { mod = mod("DamageTaken", "INC", num, { type = "Condition", var = "FrozenByYou" }, { type = "Multiplier", var = "FrozenByYouSeconds", limit = limit / num }) }) } end,
 	["enemies ignited by you permanently take (%d+)%% increased fire damage for each second they have ever been ignited by you, up to a maximum of (%d+)%%"] = function(num, _, limit) return { mod("EnemyModifier", "LIST", { mod = mod("FireDamageTaken", "INC", num, { type = "Condition", var = "IgnitedByYou" }, { type = "Multiplier", var = "IgnitedByYouSeconds", limit = limit / num }) }) } end,
-	["enemies standing on (%a+) ground take (%d+)%% increased (%a+) damage"] = function(_, ground, num, damageType) return { mod("EnemyModifier", "LIST", { mod = mod(firstToUpper(damageType) .. "DamageTaken", "INC", num, { type = "Condition", var = "On" .. firstToUpper(ground) .. "Ground" }) }) } end,
+	["enemies standing on (%a+) ground take (%d+)%% increased (%a+) damage"] = function(_, ground, num, damageType) return { mod("EnemyModifier", "LIST", { mod = mod(firstToUpper(damageType) .. "DamageTaken", "INC", tonumber(num), { type = "Condition", var = "On" .. firstToUpper(ground) .. "Ground" }) }) } end,
 	["become ignited when you deal a critical hit, taking (%d+)%% of your maximum life and energy shield as fire damage per second"] = function(num) return {
 		mod("FireDegen", "BASE", 1, { type = "PercentStat", stat = "Life", percent = num }, { type = "Condition", var = "Ignited" }),
 		mod("FireDegen", "BASE", 1, { type = "PercentStat", stat = "EnergyShield", percent = num }, { type = "Condition", var = "Ignited" }),

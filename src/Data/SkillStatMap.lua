@@ -1296,6 +1296,12 @@ return function(mod, flag, skill)
 ["chance_to_bleed_on_hit_%_vs_maimed"] = {
 	mod("BleedChance", "BASE", nil, 0, 0, { type = "ActorCondition", actor = "enemy", var = "Maimed" })
 },
+["base_poison_chance_is_bleed_chance_instead"] = {
+	flag("PoisonChanceFromBleedChance"),
+},
+["base_bleed_chance_is_poison_chance_instead"] = {
+	flag("BleedChanceFromPoisonChance"),
+},
 ["bleed_chance_+%_vs_full_life_enemy"] = {
 	mod("BleedChance", "INC", nil, 0, 0, { type = "ActorCondition", actor = "enemy", var = "FullLife"}),
 },
