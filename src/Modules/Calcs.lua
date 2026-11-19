@@ -148,7 +148,7 @@ end
 
 -- Output fields harvested from each Full DPS calc pass; captured into plain snapshot
 -- tables so that cached passes can be merged identically to freshly computed ones
-local harvestFields = { "TotalDPS", "BleedDPS", "CorruptingBloodDPS", "IgniteDPS", "BurningGroundDPS", "PoisonDPS", "CausticGroundDPS", "ImpaleDPS", "DecayDPS", "TotalDot", "CullMultiplier" }
+local harvestFields = { "TotalDPS", "BleedDPS", "CorruptingBloodDPS", "IgniteDPS", "BurningGroundDPS", "PoisonDPS", "CausticGroundDPS", "ImpaleDPS", "DecayDPS", "TotalDot", "CullMultiplier", "ThornsOnHitDPS" }
 local function captureFields(output)
 	local captured = { }
 	for _, field in ipairs(harvestFields) do
@@ -165,6 +165,8 @@ local mergeStatsSpec = {
 	{ key = "PoisonDPS", target = "poisonDPS", mode = "max" },
 	{ key = "CausticGroundDPS", target = "causticGroundDPS", mode = "max" },
 	{ key = "ImpaleDPS", target = "impaleDPS", mode = "add", scaled = true },
+	-- on-Hit Thorns belong to the hitting skill (its own mod list holds the chance; the Thorns skill can't be supported)
+	{ key = "ThornsOnHitDPS", target = "thornsOnHitDPS", mode = "add", scaled = true },
 	{ key = "DecayDPS", target = "decayDPS", mode = "add" },
 	{ key = "CullMultiplier", target = "cullingMulti", mode = "cull" },
 }
@@ -295,6 +297,7 @@ function calcs.calcFullDPS(build, mode, override, specEnv)
 		poisonDPS = 0,
 		causticGroundDPS = 0,
 		impaleDPS = 0,
+		thornsOnHitDPS = 0,
 		igniteDPS = 0,
 		burningGroundDPS = 0,
 		bleedDPS = 0,
@@ -351,6 +354,7 @@ function calcs.calcFullDPS(build, mode, override, specEnv)
 					end
 				end
 				skillEnv.player.mainSkill = activeSkill
+				skillEnv.override = override -- for calcs.buildActiveSkill during perform (Thorns hits, buff rates)
 				calcs.perform(skillEnv, true)
 				usedEnv = skillEnv
 				-- Capture this pass's results into a plain snapshot, then merge it into the totals;
@@ -466,6 +470,10 @@ function calcs.calcFullDPS(build, mode, override, specEnv)
 		t_insert(fullDPS.skills, { name = "Full Impale DPS", dps = fullDPS.impaleDPS, count = 1 })
 		fullDPS.combinedDPS = fullDPS.combinedDPS + fullDPS.impaleDPS
 	end
+	if fullDPS.thornsOnHitDPS > 0 then
+		t_insert(fullDPS.skills, { name = "Full Thorns on Hit DPS", dps = fullDPS.thornsOnHitDPS, count = 1 })
+		fullDPS.combinedDPS = fullDPS.combinedDPS + fullDPS.thornsOnHitDPS
+	end
 	if fullDPS.decayDPS > 0 then
 		t_insert(fullDPS.skills, { name = "Full Decay DPS", dps = fullDPS.decayDPS, count = 1 })
 		fullDPS.TotalDotDPS = fullDPS.TotalDotDPS + fullDPS.decayDPS
@@ -489,7 +497,7 @@ end
 function calcs.buildActiveSkill(env, mode, skill, targetUUID, limitedProcessingFlags)
 	local socketGroup = skill.socketGroup
 	local skillOverride = socketGroup and getSocketGroupOverride(env.build, env.override, socketGroup) or env.override
-	local fullEnv, _, _, _ = calcs.initEnv(env.build, mode, skillOverride)
+	local fullEnv, _, _, _ = calcs.initEnv(env.build, mode, skillOverride, env.cachedDBs)
 	fullEnv.buildBreakdown = false
 
 	-- env.limitedSkills contains a map of uuids that should be limited in calculation

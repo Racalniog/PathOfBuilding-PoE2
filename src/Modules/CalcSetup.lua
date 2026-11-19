@@ -2461,6 +2461,19 @@ function calcs.initEnv(build, mode, override, specEnv)
 			t_insert(env.player.activeSkillList, env.player.mainSkill)
 		end
 
+		-- The hidden Thorns group is only made in a MAIN pass. A CALCULATOR pass (optimizer candidates, comparisons) whose override brings the
+		-- first Thorns damage gets its skill without a group, so on-Hit Thorns can be calculated (CalcOffence)
+		if env.mode ~= "MAIN" and modDBHasThornsDamage(env.modDB) then
+			local found = false
+			for _, activeSkill in ipairs(env.player.activeSkillList) do
+				found = found or activeSkill.activeEffect.grantedEffect.id == "ThornsPlayer"
+			end
+			if not found then
+				t_insert(env.player.activeSkillList, calcs.createActiveSkill({ grantedEffect = env.data.skills.ThornsPlayer, level = 1, quality = 0, enabled = true,
+					statSet = { index = 1 }, statSetCalcs = { index = 1 } }, { }, env, env.player))
+			end
+		end
+
 		-- some active skills, like those granted by support gems depend on the stats of other gems,
 		-- which means we have to do them last.
 		local deferredActiveSkills = {}

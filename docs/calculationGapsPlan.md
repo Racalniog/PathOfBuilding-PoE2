@@ -123,10 +123,49 @@ go down.
 - `python OptimizeBuild.py --gaps [lines.tsv]` (run in `src`, script `src/CalcGaps.lua`) prints
   the counts above and the count per mechanic group. With a file name, it also writes every
   unreadable line with its source (unique, passive, affix, rune) and mechanic group.
-- Next: rank the lines by impact:
-  - how often they appear in optimizer results (the *Strong options the engine could not fully
-    evaluate* list in each summary), and
-  - their best "readable part" value from `optimizer.BlindSpotReport`.
+- `--rank <results folder>...` ranks the lines by impact: it reads every optimizer summary (`*.txt`) under the
+  folders, matches their *Strong options the engine could not fully evaluate* and *Parts of this build the engine does
+  not calculate* lines to the census (numbers and ranges become `#`), and appends the columns seen in builds, strong
+  option, best readable part, data frequency and score to the tsv (sorted by score). Score = seen in builds x 3 +
+  strong option + data frequency / 10 (a notable or keystone row counts 5 in the frequency). A line counts once per
+  summary. To rerun: `python OptimizeBuild.py --gaps lines.tsv --rank <folder>...`; check with `--gaps --selftest`.
+- Current to-do order (top 30 of 1,040 lines, November 2026; summaries from top100, top100b, survival, survival2,
+  tank_approx, archon_dps, archon_dps2). Strong option counts are inflated, as stage 1 and stage 2 list the same
+  build; read them as a ranking, not as a count of builds.
+
+| Score | Seen | Strong | Group | Line |
+| ---: | ---: | ---: | --- | --- |
+| 833.0 | 173 | 305 | Other | (10-15)% reduced Slowing Potency of Debuffs on You |
+| 595.5 | 185 | 40 | Other | Offerings cannot be damaged if they have been created Recently |
+| 330.1 | 0 | 330 | Thorns | Gain Physical Thorns damage equal to 8% - 12% of maximum Life |
+| 327.2 | 0 | 327 | Movement, sprint, dodge roll | Your speed is Unaffected by Slows while Sprinting |
+| 320.2 | 0 | 320 | Other | Deal 10% of Overkill damage to enemies within 2 metres of the enemy killed |
+| 320.1 | 0 | 320 | Ailments | Drop Ignited Ground while moving, which lasts 8 seconds and Ignites as though dealing Fire Damage equal to 10% of your maximum Life |
+| 318.6 | 0 | 318 | Minions, companions, totems | You can have two Companions of different types |
+| 217.3 | 0 | 215 | Other | Meta Skills gain (10-16)% increased Energy |
+| 214.5 | 0 | 214 | Other | Echoed Spells have 25% increased Area of Effect |
+| 192.0 | 0 | 191 | On kill, on hit, triggers | Attacks have 10% chance to Maim on Hit |
+| 190.5 | 0 | 190 | Minions, companions, totems | 50% increased Minion Damage while you have at least two different active Offerings |
+| 188.1 | 0 | 188 | Other | Take (25-100)% of Mana Costs you pay for Skills as Physical Damage |
+| 187.5 | 0 | 187 | On kill, on hit, triggers | Invocation Skills cannot gain Energy while Triggering Spells |
+| 187.5 | 0 | 187 | On kill, on hit, triggers | Invocation Skills instead Trigger Spells every 2 seconds |
+| 187.5 | 0 | 187 | Other | Invoked Spells consume 50% less Energy |
+| 185.1 | 0 | 185 | Other | Critical Hits cannot Extract Impale |
+| 185.1 | 0 | 185 | Other | Critical Hits inflict Impale |
+| 181.1 | 0 | 181 | On kill, on hit, triggers | Sacrifice (5-15)% of maximum Life to gain that much Energy Shield when you Cast a Spell |
+| 177.5 | 2 | 170 | On kill, on hit, triggers | (20-39)% chance to build an additional Combo on Hit |
+| 176.1 | 0 | 176 | Other | 10% of Physical damage dealt by your Hits causes Blood Loss |
+| 155.5 | 0 | 155 | Other | 20% chance for Damage of Enemies Hitting you to be Unlucky |
+| 155.5 | 0 | 155 | Other | 40% increased Projectile Damage with Spears while there are no Enemies within 3m |
+| 149.1 | 0 | 149 | Charges | Gain a random Charge on reaching Maximum Rage, no more than once every (3-6) seconds |
+| 136.1 | 0 | 136 | Flasks, charms | (25-50)% increased Corrupted Charms effect duration |
+| 120.3 | 40 | 0 | On kill, on hit, triggers | Alternating every 5 seconds: |
+| 114.2 | 0 | 114 | Ailments | Enemies in your Presence are Ignited as though dealt 100 Base Fire Damage |
+| 111.2 | 37 | 0 | Other | Maim on Critical Hit |
+| 110.2 | 0 | 110 | Other | 250% of Melee Physical Damage taken reflected to Attacker |
+| 109.2 | 0 | 109 | Other | Gain 10 Rage when Critically Hit by an Enemy |
+| 108.5 | 0 | 108 | Other | Volatile Power also grants 1% increased Critical Hit chance per Volatility exploded |
+
 - Output: a sorted to-do list, and numbers that show progress after every phase.
 
 ### Phase 1: Parser gaps (about 370 lines, low risk)
@@ -267,13 +306,36 @@ Order by the Phase 0 ranking. The census suggests this order:
      - **Pack only (Use approximations on, new *Enemies near the target* input, 3 by default, a guess):** Ignite spread gives *Pack DPS
        (approx.)* = Ignite DPS × (1 + enemies near the target); Shock spread gives the average Shocked enemies near the target,
        enemies × (1 − e^(−chance × Shocking Hits/s × Shock duration)). Neither changes single-target DPS or the optimizer score.
-     - Not modelled: ailments on you (chill from damage taken, reflected Poison / Ignite, immunity windows, Electrocute immunity), Presence
-       and ground Ignites "as though dealing" (unclear whether the base damage is scaled), Volatility, Rage on Ignite, Shatter,
+     - Not modelled: ailments on you (chill from damage taken, reflected Poison / Ignite, immunity windows, Electrocute immunity), Volatility,
+       Rage on Ignite, Shatter,
        "per Enemy Ignited / Frozen in the last 8 seconds", Withered not expiring, aggravated Ignites, Beasts (no enemy type option).
      - Census: 1,076 → 1,040; Ailments 98 → 65.
 5. **Guard, block, stun and parry** (60 lines). Moved forward with the defence work. The optimizer
    doesn't score defence yet, which needs a survivability score as well as damage.
 6. **Thorns, ground surfaces, shapeshifting, Presence effects.**
+   - Thorns, Overkill and Ignites not caused by your Hits done (November 2026), rules from the stat descriptions:
+     - **Exact:** Physical Thorns damage equal to 8% - 12% of maximum Life, per Runic Plate (new *# of Runic Plates* option, at most 4
+       from Runic Tempering's `runic_tempering_max_runes`), Lucky Thorns against Fully Broken Armour, and Thorns on melee Hits ("N% chance
+       to deal your Thorns Damage to Enemies you Hit with Melee Attacks", "... you Critically Hit with Melee Attacks"). A Thorns hit is the
+       hidden Thorns skill's Average Damage; on-hit Thorns DPS = chance per landed Hit x Hits per second x that damage. It is damage of the
+       main skill's Hits on the target, like Impale, so it is added to Combined DPS and Full DPS (and so to the optimizer's score); shown as
+       *Thorns on Hit DPS* (Calcs tab, Other Effects; sidebar). Totems and other proxies don't count, and a combined hit of both weapons is one
+       Hit. The Thorns damage comes from a second calculation with the Thorns skill as main skill (with the candidate's override and the
+       optimizer's cached base databases), only for skills with these lines: about 1.5x the time of an evaluation for those builds. A
+       calculation without a MAIN pass (optimizer candidates) adds the Thorns skill without its group when the candidate brings the first
+       Thorns damage. Also fixed: Thorns from "0.08% of Item Armour on Equipped Body Armour" (decimal percentages).
+     - **Approximation (Use approximations on):** Thorns retaliating against Hits you take, at *Enemy hits on you per second* (2 by default,
+       a guess) x 1/2 (assumed Melee share; every Hit with "Thorns can Retaliate against all Hits"). This replaces the Thorns skill's speed
+       (so speed modifiers don't scale it; without approximations it keeps PoB's 1 hit/s placeholder) and shows as that skill's own DPS, never
+       in another skill's Combined DPS.
+     - **Pack only (approximations on):** "Deal N% of Overkill damage to enemies within 2 metres of the enemy killed": *Overkill Pack DPS
+       (approx.)* = kills/s x half an average landed Hit x N% x enemies near the target.
+     - **Per affected enemy, outside Combined DPS:** "Enemies in your Presence are Ignited as though dealt N Base Fire Damage" and the Ignited
+       Ground of "Drop Ignited Ground while moving ... equal to N% of your maximum Life": N x 20%/s (IgniteHitDamagePercentPerMinute) x Ignite
+       Magnitude x the enemy's Fire resistance and damage taken. The base isn't scaled by your damage modifiers (unclear from the texts). An
+       enemy has one Ignite, the strongest, so these don't add to the main skill's Ignite.
+     - Not modelled: Thorns on Stun (no stun rate), Thorns retaliation cooldowns, Overkill's armour mitigation, charm-created Ignited Ground.
+     - Census: 1,040 → 1,028; Thorns 8 → 1, Ailments 65 → 62, Other 467 → 465.
 
 For each mechanic:
 - Write the rule down with its source (patch note, help text or wiki test), in a comment next to

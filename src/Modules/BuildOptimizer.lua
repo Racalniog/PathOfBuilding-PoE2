@@ -128,15 +128,19 @@ local function calcOutput(ctx, override)
 	local signature = baseSignature(build)
 	local base = ctx.baseDB
 	if base and base.signature == signature then
-		local env = ctx.calcs.initEnv(build, "CALCULATOR", override, { cachedPlayerDB = base.player, cachedEnemyDB = base.enemy, cachedMinionDB = base.minion })
+		local cachedDBs = { cachedPlayerDB = base.player, cachedEnemyDB = base.enemy, cachedMinionDB = base.minion }
+		local env = ctx.calcs.initEnv(build, "CALCULATOR", override, cachedDBs)
 		-- A minion that appeared after the cache was built has no base database; rebuild it then
 		if not (env.minion and not base.minion) then
+			-- for skills calculated in their own environment during perform (calcs.buildActiveSkill: Thorns hits, buff rates)
+			env.override, env.cachedDBs = override, cachedDBs
 			ctx.calcs.perform(env, ctx.skipEHP)
 			return env.player.output, env
 		end
 	end
 	local env, player, enemy, minion = ctx.calcs.initEnv(build, "CALCULATOR", override)
 	ctx.baseDB = { signature = signature, player = player, enemy = enemy, minion = minion }
+	env.override = override
 	ctx.calcs.perform(env, ctx.skipEHP)
 	return env.player.output, env
 end
@@ -3195,6 +3199,7 @@ local function newContext(build, options)
 	}
 end
 optimizer.NewContext = newContext
+optimizer.CalcOutput = calcOutput -- for specs: one evaluation with an override
 
 local function runRound(ctx, round, allowUniques)
 	local spec = ctx.build.spec
