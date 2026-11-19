@@ -179,25 +179,52 @@ local function minionCount(ctx, output, env)
 	return free + m_floor(available / (reserved / (current - free)) + 1e-9), free
 end
 
--- Life and Energy Shield recovered per second: regeneration and recovery (flasks, on kill with
+-- Life and Energy Shield recovered per second: regeneration and recovery (on kill with
 -- approximations) net of degeneration, average recoup (the Comprehensive net figures already hold
--- recoup and degeneration from enemies when the engine calculated them) and leech / gain on hit
--- ponytail: Energy Shield recharge, mana and runic ward are left out (recharge stops when hit);
--- upgrade path = add EnergyShieldRecharge x a "not recently hit" share
-local function recoveryRate(output)
+-- recoup and degeneration from enemies when the engine calculated them) and leech / gain on hit.
+-- Flask recovery is taken out: the engine counts a flask as a permanent rate, which would swamp
+-- everything else (918 per second against 70 of regeneration in a Titan build)
+-- ponytail: Energy Shield recharge, mana, runic ward and flasks are left out (recharge stops when
+-- hit; a flask runs while its charges last); upgrade path = flask recovery x the uptime its charge
+-- generation allows, EnergyShieldRecharge x a "not recently hit" share
+local function recoveryRate(output, env)
 	local life = output.ComprehensiveNetLifeRegen or ((output.NetLifeRegen or output.LifeRegenRecovery or 0) + (output.LifeRecoupRecoveryAvg or 0) - (output.LifeLossLostAvg or 0))
 	local shield = output.ComprehensiveNetEnergyShieldRegen or ((output.NetEnergyShieldRegen or output.EnergyShieldRegenRecovery or 0) + (output.EnergyShieldRecoupRecoveryAvg or 0))
+	local flasks = env and env.flasks
+	if flasks and next(flasks) then
+		-- The flask's recovery mods carry the flask's name as their source
+		local names = { }
+		for item in pairs(flasks) do
+			names[item.name] = true
+		end
+		local modDB = env.player.modDB
+		for _, resource in ipairs({ "Life", "EnergyShield" }) do
+			local rate = 0
+			for _, entry in ipairs(modDB:Tabulate("BASE", nil, resource .. "Recovery")) do
+				if names[entry.mod.source] then
+					rate = rate + entry.value
+				end
+			end
+			rate = rate * (output[resource .. "RecoveryRateMod"] or 1)
+			if resource == "Life" then
+				life = life - rate
+			else
+				shield = shield - rate
+			end
+		end
+	end
 	return life + shield + (output.LifeLeechRate or 0) + (output.LifeOnHitRate or 0) + (output.EnergyShieldLeechRate or 0) + (output.EnergyShieldOnHitRate or 0)
 end
 
 -- The survivability of an output: its effective hit pool plus what the horizon's worth of recovery
 -- adds, in the same unit. A point of Life or Energy Shield is worth TotalEHP / pool of hit pool, so
--- TotalEHP + rate x horizon x TotalEHP / pool = TotalEHP x (1 + rate x horizon / pool).
--- ponytail: what recovery adds is capped at one more pool (survivability <= 2 x TotalEHP): you can't
--- usefully recover more than you lost, and without the cap a 1 Life build (Chaos Inoculation) with a
--- life flask scored 3800 x its hit pool. Upgrade path = simulate the damage taken per second instead
+-- TotalEHP + rate x horizon x TotalEHP / pool = TotalEHP x (1 + x), x = rate x horizon / pool.
+-- ponytail: x is saturated as x / (1 + |x|), so the factor is about 1 + x for small x, never more
+-- than 2 (you can't usefully recover more than you lost) and never less than 0 (net degeneration
+-- lowers it): without that a 1 Life build (Chaos Inoculation) with a life flask scored 3800 x its
+-- hit pool. Upgrade path = simulate the damage taken per second instead
 -- Returns the survivability and the recovery per second
-function optimizer.Survivability(output, horizon)
+function optimizer.Survivability(output, horizon, env)
 	-- No (or a broken) hit pool counts as 1, which leaves the damage part alone
 	-- ponytail: a hit pool the engine thinks is endless is capped at 1e12, so such builds rank highest instead of scoring 0
 	local ehp = m_min(tonumber(output.TotalEHP) or 1, 1e12)
@@ -205,9 +232,10 @@ function optimizer.Survivability(output, horizon)
 	if not (horizon > 0) then
 		return ehp, 0
 	end
-	local rate = recoveryRate(output)
+	local rate = recoveryRate(output, env)
 	local pool = m_max((output.LifeRecoverable or output.Life or 0) + (output.EnergyShieldRecoveryCap or output.EnergyShield or 0), 1)
-	local survivability = ehp * (1 + m_max(-pool, m_min(pool, rate * horizon)) / pool)
+	local x = rate * horizon / pool
+	local survivability = ehp * (1 + x / (1 + math.abs(x)))
 	return survivability >= 1 and survivability or 1, rate
 end
 
@@ -238,7 +266,7 @@ local function scoreOutput(ctx, output, env)
 	end
 	local weight = ctx.opts.survivability
 	if weight > 0 and type(value) == "number" and value > 0 then
-		value = value ^ (1 - weight) * (optimizer.Survivability(output, ctx.opts.recoveryHorizon)) ^ weight
+		value = value ^ (1 - weight) * (optimizer.Survivability(output, ctx.opts.recoveryHorizon, env)) ^ weight
 	end
 	if type(value) ~= "number" or value ~= value or value == m_huge or value == -m_huge then
 		return 0
@@ -3481,8 +3509,9 @@ function optimizer.Describe(build, options)
 	-- NetLifeRegen only exists when something degenerates Life; otherwise it is the plain recovery
 	add("Net Life recovery: %.1f per second", output.NetLifeRegen or output.LifeRegenRecovery or 0)
 	local horizon = tonumber(options and options.recoveryHorizon) or 0
-	local survivability, rate = optimizer.Survivability(output, horizon)
-	rate = horizon > 0 and rate or recoveryRate(output)
+	local env = build.calcsTab.mainEnv
+	local survivability, rate = optimizer.Survivability(output, horizon, env)
+	rate = horizon > 0 and rate or recoveryRate(output, env)
 	add("Recovery: %.1f per second (Life and Energy Shield: regeneration, leech, on hit, recoup)", rate)
 	if horizon > 0 then
 		add("Survivability with %g seconds of recovery: %.0f (effective hit pool x %.2f)", horizon, survivability, survivability / m_max(tonumber(output.TotalEHP) or 1, 1))

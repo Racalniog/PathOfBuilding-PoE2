@@ -461,11 +461,13 @@ InfusionRemnantBaseDuration) were already in `data.gameConstants`.
   databases for the second pass (3-9%, changes summation order so not bit-identical).
 - **Recovery in the survivability score:** effective HP is a hit pool and ignores sustain. Done as
   an option (`recoveryHorizon`, `--recovery <seconds>`, default 0 = unchanged): survivability =
-  EHP x (1 + R x horizon / (recoverable Life + ES)), with R the net Life + ES recovery per second
-  (regen/recovery net of degen, average recoup, leech, gain on hit), the recovery part capped at one
-  pool (an uncapped 1 Life Chaos Inoculation build with a life flask scored 3800 x its pool). Still open: Energy Shield
-  recharge, mana and runic ward are not in R; the horizon is a fixed number of seconds instead of a
-  survival simulation against an enemy.
+  EHP x (1 + x / (1 + |x|)), x = R x horizon / (recoverable Life + ES), with R the net Life + ES
+  recovery per second (regen/on-kill recovery net of degen, average recoup, leech, gain on hit). The
+  saturation keeps it below 2 x EHP (an uncapped 1 Life Chaos Inoculation build with a life flask
+  scored 3800 x its pool). Flask recovery is left out of R because the engine counts a flask as a
+  permanent rate; upgrade path = flask recovery x the uptime its charge generation allows. Leech is
+  counted at the engine's rate while hitting (a Titan survivability run reached 1100/s on 3700 Life). Still open: Energy Shield recharge, mana and runic ward
+  are not in R; the horizon is a fixed number of seconds instead of a survival simulation against an enemy.
 
 ## The approximation model
 

@@ -64,7 +64,7 @@ Every setting of the Optimizer tab has a command-line equivalent (see [Command l
 | Passive points | `--points` | Points to spend; empty = everything available at the level |
 | Maximise | `--metric` | Calculation output to maximise: `CombinedDPS` (default; includes damage over time and minions), `TotalDPS`, `FullDPS`, ... |
 | Survivability | `--survivability <0..1>` | Weight of survivability against damage. The score becomes `metric ^ (1 - w) * EHP ^ w`, with EHP the effective hit pool of the Calcs tab; 0 (default) is damage only, 50% / `0.5` weighs both alike |
-| Recovery | `--recovery <seconds>` | Seconds of Life and Energy Shield recovery that count towards the survivability part of the score (default 0 = the hit pool alone; 4 is a reasonable value). EHP is multiplied by `1 + R * seconds / pool`, with R the recovery per second (regeneration and flask / on-kill recovery net of degeneration, average recoup, leech and gain on hit) and pool the recoverable Life plus Energy Shield; the recovery part is capped at one more pool, so EHP can at most double. Only used with *Survivability* above 0 |
+| Recovery | `--recovery <seconds>` | Seconds of Life and Energy Shield recovery that count towards the survivability part of the score (default 0 = the hit pool alone; 4 is a reasonable value). EHP is multiplied by `1 + x / (1 + abs(x))` with `x = R * seconds / pool`, R the recovery per second (regeneration and on-kill recovery net of degeneration, average recoup, leech and gain on hit; flasks are left out) and pool the recoverable Life plus Energy Shield. That is about `1 + x` for small x and approaches, but never reaches, 2 (EHP can at most double); net degeneration lowers it symmetrically. Only used with *Survivability* above 0 |
 | Roll quality | `--roll <0..1>` | Roll of crafted affixes and unique modifiers; 100% / `1` is a perfect roll, 50% / `0.5` an average one |
 | Max affix level | `--item-level` | Highest affix tier level that may be crafted (default 82) |
 | Support gems | `--supports` | Number of supports linked to the skill (default 5) |
@@ -455,7 +455,7 @@ triggers and Invocation, Concentration, charge generation) rather than missing p
   their maximum all raise it, and every search step weighs them against damage. Recovery
   (regeneration, leech, recoup, recovery on kill) is not part of the effective hit pool and is worth
   nothing to the search unless *Recovery* is above 0, which adds that many seconds of it to the hit
-  pool (Energy Shield recharge, mana and runic ward are not counted); the summary's *Survivability*
+  pool (flasks, Energy Shield recharge, mana and runic ward are not counted); the summary's *Survivability*
   section shows the recovery per second either way.
 * Damage depends on the Configuration tab (enemy type, charges, conditions such as "enemy is
   shocked"). The defaults of a new build are used unless `--config` says otherwise.

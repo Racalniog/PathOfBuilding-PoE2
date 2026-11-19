@@ -231,17 +231,45 @@ describe("BuildOptimizer", function()
 		assert.are.equals(math.min(plainOutput.TotalEHP, 1e12), (optimizer.Survivability(plainOutput, 0)))
 
 		local result, output, options = run(4)
-		-- score = damage ^ (1 - w) * (EHP x (1 + recovery per second x horizon / pool, within +-1)) ^ w, from the final build's own outputs
+		-- score = damage ^ (1 - w) * (EHP x (1 + x / (1 + |x|))) ^ w, x = recovery per second x horizon / pool, from the final build's own outputs
+		local env = build.calcsTab.mainEnv
 		local rate = (output.ComprehensiveNetLifeRegen or ((output.NetLifeRegen or output.LifeRegenRecovery or 0) + (output.LifeRecoupRecoveryAvg or 0) - (output.LifeLossLostAvg or 0)))
 			+ (output.ComprehensiveNetEnergyShieldRegen or ((output.NetEnergyShieldRegen or output.EnergyShieldRegenRecovery or 0) + (output.EnergyShieldRecoupRecoveryAvg or 0)))
 			+ (output.LifeLeechRate or 0) + (output.LifeOnHitRate or 0) + (output.EnergyShieldLeechRate or 0) + (output.EnergyShieldOnHitRate or 0)
+		-- ... without the flasks, which the engine counts as a permanent rate
+		local flaskNames = { }
+		for item in pairs(env.flasks) do
+			flaskNames[item.name] = true
+		end
+		for resource, mod in pairs({ Life = output.LifeRecoveryRateMod, EnergyShield = output.EnergyShieldRecoveryRateMod }) do
+			for _, entry in ipairs(env.player.modDB:Tabulate("BASE", nil, resource .. "Recovery")) do
+				if flaskNames[entry.mod.source] then
+					rate = rate - entry.value * mod
+				end
+			end
+		end
 		local pool = output.LifeRecoverable + output.EnergyShieldRecoveryCap
-		local survivability = output.TotalEHP * (1 + math.max(-pool, math.min(pool, rate * 4)) / pool)
-		-- Recovery can double the hit pool at most, whatever the pool: a huge rate on a tiny pool is no exploit
-		assert.is_true(optimizer.Survivability({ TotalEHP = 100, LifeRecoverable = 1, EnergyShieldRecoveryCap = 0, LifeRegenRecovery = 1000 }, 4) == 200)
+		local x = rate * 4 / pool
+		local survivability = output.TotalEHP * (1 + x / (1 + math.abs(x)))
 		local expected = score() ^ 0.5 * survivability ^ 0.5
 		assert.is_true(math.abs(result.score - expected) <= expected * 1e-6)
-		assert.is_true(math.abs(survivability - (optimizer.Survivability(output, 4))) <= survivability * 1e-6)
+		assert.is_true(math.abs(survivability - (optimizer.Survivability(output, 4, env))) <= survivability * 1e-6)
+
+		-- Recovery saturates below doubling the hit pool, whatever the pool: a huge rate on a tiny pool is no exploit,
+		-- a small one counts about linearly, and net degeneration lowers it symmetrically
+		local function factor(rate, pool)
+			return optimizer.Survivability({ TotalEHP = 1e6, LifeRecoverable = pool, EnergyShieldRecoveryCap = 0, LifeRegenRecovery = rate }, 4) / 1e6
+		end
+		assert.is_true(factor(1000, 1) > 1.99 and factor(1000, 1) < 2)
+		assert.is_true(factor(1000, 1) < factor(2000, 1))
+		assert.is_true(math.abs(factor(1, 4000) - 1.001) < 1e-4)
+		assert.is_true(math.abs(factor(-1000, 1) - 0.001) < 1e-3 and factor(-1000, 1) > 0)
+		-- A flask's recovery is left out of the rate; other sources stay
+		local fakeEnv = { flasks = { [{ name = "Flask" }] = true }, player = { modDB = { Tabulate = function(_, _, _, name)
+			return name == "LifeRecovery" and { { value = 100, mod = { source = "Flask" } }, { value = 5, mod = { source = "Other" } } } or { }
+		end } } }
+		local _, flaskRate = optimizer.Survivability({ TotalEHP = 100, LifeRecoverable = 1000, EnergyShieldRecoveryCap = 0, LifeRegenRecovery = 130, LifeRecoveryRateMod = 1 }, 10, fakeEnv)
+		assert.are.equals(30, flaskRate)
 		-- Recovery is worth searching for: the build ends with more of it than the one that ignored it
 		assert.is_true(rate > select(2, optimizer.Survivability(plainOutput, 1)))
 		local text = optimizer.Describe(build, options)
