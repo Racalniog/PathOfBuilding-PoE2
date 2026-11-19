@@ -241,6 +241,37 @@ Progress:
   stale data.
 - Check: the gem lines of the census, plus spot checks of per-level values against poe2db.
 
+Progress:
+- **Triggers by meta skills' Energy** (November 2026, `metaEnergyTrigger` in `CalcTriggers.lua`). PoB2 had the player's trigger
+  calculation switched off (`CalcPerform`, "TURNING OFF CALC TRIGGERS"), so a Spell socketed in a meta skill was calculated as if
+  self-cast. Now `calcs.triggers` runs for the player when the main skill is triggered by a meta skill
+  (`triggered_by_generic_ongoing_trigger`), through PoB's existing trigger handler (source rate, cooldown cap, breakdowns). Rules,
+  from the skill and stat descriptions:
+  - A trigger needs 1 Energy per 10 ms of base cast time of every socketed Spell together and triggers all of them, so each one
+    triggers at Energy per second / that total. Meta skills whose maximum is that total waste what one event gives beyond it (at
+    most one trigger per event); Invocations store up to 500 and spend it when used (a total above their maximum never triggers).
+    "Refund half of Energy spent" with chance r makes a trigger cost 1 − r/2 of it.
+  - Energy per event = the gem's base × the enemy's Power (20 with the boss options, otherwise 1) × increased / more Energy
+    (`energy_generated_+%`, Boundless Energy, "Meta Skills gain N% increased Energy", "Energy Generation is doubled"); Critical
+    Hits, Melee Hits and Ignites also × the percentage of the enemy's Ailment Threshold they deal, read as a number (5% → ×5).
+  - **Exact**, from the build's skill with the highest hit rate (each candidate is calculated, like PoB's other triggers): Cast on
+    Critical (Critical Hits), Cast on Elemental Ailment and Elemental Invocation (Shocks, Ignites), Fire Spell on Melee Hit and
+    Thundergod's Wrath (Melee Hits), Spellslinger (Spells cast, by their base cast time).
+  - **Approximation** (Use approximations on): Cast on Melee Kill and Reaper's Invocation (kills per second, Power 1, with a Melee
+    Attack in the build), Cast on Block and Curse on Block (enemy hits on you per second × block chance). Off: DPS as self-cast,
+    as before, with a message.
+  - Also mapped: the less / more damage of triggered Spells (`trigger_meta_gem_damage_+%_final`, Cast on Critical's 20% less).
+  - Not modelled (no event rate in PoB): Freeze, Stun and Heavy Stun, Dodge Roll, Charm use, Minion death, Energy Shield damage
+    (Barrier Invocation), mana spent (Feral Invocation), "Invocation Skills instead Trigger Spells every 2 seconds" and its
+    keystone partners, "8% increased Energy for each Critical Hit you've dealt with Spells Recently". The supports that trigger
+    their own skill on an event (Mana Flare, Fiery Death, Living Lightning, Coursing Current, ...) still need their skills' rates.
+  - Assumptions to check in the game: the threshold percentage as a number and uncapped, base (not modified) cast time, Power 1
+    for normal monsters, average rather than rounded-up events per trigger.
+  - Cost: each candidate source skill is one extra calculation whenever the main skill is meta-triggered (2.0 against 1.4 ms per
+    evaluation with one candidate); the heap stays flat. Check: `spec/System/TestTriggers_spec.lua`.
+  - Census: support gems with an unmapped stat 291 → 287 (Boundless Energy I/II, Energy Capacitor, Energy Retention), unreadable
+    lines 974 → 943 (Energy lines: "Meta Skills gain N% increased Energy", refund chances, "Energy Generation is doubled").
+
 ### Phase 3: Missing mechanics, in order of impact
 
 Order by the Phase 0 ranking. The census suggests this order:

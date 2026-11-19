@@ -191,6 +191,78 @@ return function(mod, flag, skill)
 ["generic_ongoing_triggerer_is_invocation_skill"] = {
 	flag("Condition:InvocationSkill"),
 },
+-- Meta skills that gain Energy and trigger socketed Spells (CalcTriggers.lua, metaEnergyTrigger)
+["triggered_by_generic_ongoing_trigger"] = {
+	skill("triggeredByMeta", true),
+},
+["generic_ongoing_trigger_1_maximum_energy_per_Xms_total_cast_time"] = {
+	skill("energyPerCastTimeMs", nil),
+},
+["generic_ongoing_trigger_triggers_at_maximum_energy"] = {
+	skill("triggersAtMaximumEnergy", true),
+},
+["generic_ongoing_trigger_maximum_energy_is_total_of_socketed_skills"] = {
+	skill("maximumEnergyIsTotal", true),
+},
+["generic_ongoing_trigger_maximum_energy"] = {
+	skill("maximumEnergy", nil),
+},
+["energy_generated_+%"] = {
+	mod("EnergyGenerated", "INC", nil),
+},
+["skill_maximum_energy_+%"] = {
+	mod("MaximumEnergy", "INC", nil),
+},
+["trigger_skills_refund_half_energy_spent_chance_%"] = {
+	mod("EnergyRefundChance", "BASE", nil),
+},
+["trigger_meta_gem_damage_+%_final"] = {
+	mod("Damage", "MORE", nil),
+},
+["cast_on_crit_gain_X_centienergy_per_monster_power_on_crit"] = {
+	skill("energyOnCrit", nil),
+	div = 100,
+},
+["cast_on_shock_gain_X_centienergy_per_monster_power_on_shock"] = {
+	skill("energyOnShock", nil),
+	div = 100,
+},
+["elemental_invocation_gain_X_centienergy_per_monster_power_on_shock"] = {
+	skill("energyOnShock", nil),
+	div = 100,
+},
+["cast_on_ignite_gain_X_centienergy_per_monster_power_on_ignite"] = {
+	skill("energyOnIgnite", nil),
+	div = 100,
+},
+["elemental_invocation_gain_X_centienergy_per_monster_power_on_ignite"] = {
+	skill("energyOnIgnite", nil),
+	div = 100,
+},
+["cast_fire_spell_on_hit_gain_X_centienergy_per_monster_power_on_hit"] = {
+	skill("energyOnMeleeHit", nil),
+	div = 100,
+},
+["cast_lightning_spell_on_hit_gain_X_centienergy_per_monster_power_on_hit"] = {
+	skill("energyOnMeleeHit", nil),
+	div = 100,
+},
+["cast_on_melee_kill_gain_X_centienergy_per_monster_power_on_melee_kill"] = {
+	skill("energyOnMeleeKill", nil),
+	div = 100,
+},
+["melee_kill_invocation_gain_X_centienergy_per_monster_power_on_melee_kill"] = {
+	skill("energyOnMeleeKill", nil),
+	div = 100,
+},
+["cast_on_block_gain_X_centienergy_on_block"] = {
+	skill("energyOnBlock", nil),
+	div = 100,
+},
+["spellslinger_invocation_gain_X_centienergy_per_10ms_base_cast_time"] = {
+	skill("energyPer10msCastTime", nil),
+	div = 100,
+},
 ["base_skill_cost_life_instead_of_mana_%"] = {
 	mod("HybridManaAndLifeCost_Life", "BASE", nil),
 },

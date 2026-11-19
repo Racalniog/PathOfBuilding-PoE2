@@ -245,6 +245,7 @@ local modNameList = {
 	["armour"] = "Armour",
 	["evasion"] = "Evasion",
 	["evasion rating"] = "Evasion",
+	["energy"] = "EnergyGenerated", -- Meta skills' Energy (CalcTriggers.lua, metaEnergyTrigger)
 	["energy shield"] = "EnergyShield",
 	["ward"] = "Ward",
 	["runic ward"] = "Ward",
@@ -1359,6 +1360,7 @@ local preFlagList = {
 	["^prismatic skills [hd][ae][va][el] "] = { tag = { type = "SkillType", skillType = SkillType.RandomElement } },
 	["^retaliation skills [hd][ae][va][el] "] = { tag = { type = "SkillType", skillType = SkillType.Retaliation } },
 	["^meta skills [hd][ae][va][el] "] = { tag = { type = "SkillType", skillType = SkillType.Meta } },
+	["^meta skills gain "] = { tag = { type = "SkillType", skillType = SkillType.Meta } },
 	["^invocated skills [hd][ae][va][el] "] = { tag = { type = "Condition", var = "InvocationSkill" } },
 	["^invocated spells [hd][ae][va][el] "] = { keywordFlags = KeywordFlag.Spell, tag = { type = "Condition", var = "InvocationSkill" } },
 	["^slam skills [hd][ae][va][el] "] = { tag = { type = "SkillType", skillType = SkillType.Slam } },
@@ -2328,6 +2330,12 @@ local dmgTypes
 -- List of special modifiers
 ---@type table<string, Mod[]|fun(...: any):Mod[]?>
 local specialModList = {
+	-- Meta skills' Energy (CalcTriggers.lua, metaEnergyTrigger)
+	["energy generation is doubled"] = { mod("EnergyGenerated", "MORE", 100) },
+	["(%d+)%% chance for trigger skills to refund half of energy spent"] = function(num) return { mod("EnergyRefundChance", "BASE", num) } end,
+	["trigger skills refund half of energy spent"] = { mod("EnergyRefundChance", "BASE", 100) },
+	["invocated skills have (%d+)%% increased maximum energy"] = function(num) return { mod("MaximumEnergy", "INC", num, { type = "SkillType", skillType = SkillType.Invocation }) } end,
+	["invocated spells have (%d+)%% chance to consume half as much energy"] = function(num) return { mod("EnergyRefundChance", "BASE", num, { type = "SkillType", skillType = SkillType.Invocation }) } end,
 	-- Glory spent a short while ago
 	["consuming glory grants you (%d+)%% increased attack damage per glory consumed for (%d+) seconds, up to (%d+)%%"] = function(num, _, _, limit) return {
 		mod("Damage", "INC", num, nil, ModFlag.Attack, { type = "Multiplier", var = "GloryConsumedRecently", limit = tonumber(limit), limitTotal = true }),

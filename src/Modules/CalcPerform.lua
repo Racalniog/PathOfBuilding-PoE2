@@ -597,6 +597,7 @@ local function approxRates(env, output)
 		manaSpent = (output.Mana or 0) > 0 and (output.ManaPerSecondCost or 0) / output.Mana or 0,
 	}
 end
+calcs.approxRates = approxRates -- also the event rates of meta skills' Energy (CalcTriggers.lua)
 local secondPassNote = "^8(from the first pass's rates, used in the second pass)"
 local doInfusionApprox
 
@@ -4075,6 +4076,10 @@ local function performPass(env, skipEHP)
 
 	-- TURNING OFF CALC TRIGGERS AND MIRAGES FOR TIME BEING
 	--calcs.triggers(env, env.player)
+	-- except for Spells triggered by a PoE2 meta skill's Energy (CalcTriggers.lua, metaEnergyTrigger)
+	if env.player.mainSkill.skillData.triggeredByMeta then
+		calcs.triggers(env, env.player)
+	end
 	--if not calcs.mirages(env) then
 		calcs.offence(env, env.player, env.player.mainSkill)
 		-- the second pass got these estimates before offence
