@@ -1094,6 +1094,8 @@ function calcs.initEnv(build, mode, override, specEnv)
 		env.enemyDB:AddList(build.partyTab.enemyModList)
 
 		cachedPlayerDB, cachedEnemyDB, cachedMinionDB = specCopy(env)
+		-- initModDB put the buff mode's conditions into them
+		cachedPlayerDB.buffMode = buffMode
 	else
 		env.modDB.parent = cachedPlayerDB
 		env.enemyDB.parent = cachedEnemyDB
@@ -2577,10 +2579,12 @@ function calcs.initEnv(build, mode, override, specEnv)
 				contextOverride.mainSocketGroup = otherSetMainGroup
 				contextOverride.skipWeaponSetContexts = true
 				local contextMode = env.mode == "CALCS" and "CALCS" or "CALCULATOR"
-				-- The base databases don't depend on the set. When this environment built them, their mods sit in the parent database
-				-- of the context instead of its own, which only changes the order of summation (last digits)
-				local weaponSetEnv = calcs.initEnv(build, contextMode, contextOverride,
-					{ cachedPlayerDB = cachedPlayerDB, cachedEnemyDB = cachedEnemyDB, cachedMinionDB = cachedMinionDB, pairedEnv = env })
+				-- The base databases don't depend on the set, only on the buff mode, which is the context's too unless they came from
+				-- elsewhere (calcFullDPS gets them from a Calcs tab pass). When this environment built them, their mods sit in the parent
+				-- database of the context instead of its own, which only changes the order of summation (last digits)
+				local sameBase = cachedPlayerDB.buffMode == buffMode
+				local weaponSetEnv = calcs.initEnv(build, contextMode, contextOverride, { cachedPlayerDB = sameBase and cachedPlayerDB or nil,
+					cachedEnemyDB = sameBase and cachedEnemyDB or nil, cachedMinionDB = sameBase and cachedMinionDB or nil, pairedEnv = env })
 				env.weaponSetEnvs = { [otherSet] = weaponSetEnv }
 				-- Preserve the uncomposed lists for checkbox validation; the composed lists
 				-- below intentionally replace groups with their assigned-set versions.
@@ -2589,7 +2593,6 @@ function calcs.initEnv(build, mode, override, specEnv)
 				replaceWeaponSetActiveSkills(env, weaponSetEnv, otherSet)
 				replaceWeaponSetActiveSkills(weaponSetEnv, env, env.weaponSet)
 			end
-			env.nodeModLists = nil
 		end
 	else
 		-- Wipe skillData and readd required data the rest of the data will be added by the rest of code this stops iterative calculations on skillData not being reset
@@ -2616,6 +2619,7 @@ function calcs.initEnv(build, mode, override, specEnv)
 		end
 	end
 
+	env.nodeModLists = nil
 	env.virtuousMoteSkillCount = virtuousMoteSkillCount
 	env.modDB.multipliers.StrengthMoteSkillCount = virtuousMoteSkillCount.Str
 	env.modDB.multipliers.DexterityMoteSkillCount = virtuousMoteSkillCount.Dex

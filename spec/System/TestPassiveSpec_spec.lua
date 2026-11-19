@@ -220,9 +220,10 @@ Item Level: 80
 		assert.are.equals(2, build.calcsTab.mainEnv.weaponSetEnvs[2].weaponSet)
 	end)
 
-	it("builds a weapon set context that calculates like a fresh environment of its set", function()
-		-- The set 2 context of a set 1 environment reuses its base databases and passive node lists (calcs.initEnv). A Time-Lost
-		-- jewel's effect on a set 2 small passive in its radius only applies in set 2, so then the node lists can't be reused
+	-- A weapon set context (the set 2 environment of a set 1 environment, end of calcs.initEnv) reuses its environment's base databases
+	-- and passive node lists. Setup: a Time-Lost jewel with 50% increased effect of small passives, a small passive in its radius
+	-- allocated to `smallSet`, Spark on set 1 (main) and Elemental Weakness on set 2. Returns the passive's first mod
+	local function weaponSetJewelBuild(smallSet)
 		local raw = "Rarity: RARE\nTest Mind\nTime-Lost Diamond\n--------\nRadius: Large\n--------\nItem Level: 80\n--------\n"
 			.. "50% increased Effect of Small Passive Skills in Radius\n"
 		local radiusIndex = new("Item"):Item(raw).jewelRadiusIndex
@@ -245,7 +246,7 @@ Item Level: 80
 		local mod = small.modList[1]
 		build.spec:AllocNode(socket)
 		socketJewel(socket.id, raw)
-		small.alloc, small.allocMode = true, 2
+		small.alloc, small.allocMode = true, smallSet
 		build.spec.allocNodes[small.id] = small
 		build.skillsTab:PasteSocketGroup("Spark 20/0  1")
 		build.skillsTab:PasteSocketGroup("Elemental Weakness 20/0  1")
@@ -254,17 +255,23 @@ Item Level: 80
 		build.mainSocketGroup = 1
 		build.buildFlag = true
 		runCallback("OnFrame")
+		return mod
+	end
 
+	-- The set 1 environment's context against a fresh set 2 environment: the passive's mod and all player output after perform.
+	-- Returns the number of node lists the pair built (4 without reuse), and the three environments
+	local function checkWeaponSetContext(mod, specEnv)
 		local calcs = build.calcsTab.calcs
-		local main = calcs.initEnv(build, "CALCULATOR")
+		local built, buildList = 0, calcs.buildModListForNodeList
+		calcs.buildModListForNodeList = function(...)
+			built = built + 1
+			return buildList(...)
+		end
+		local main = calcs.initEnv(build, "CALCULATOR", nil, specEnv)
+		calcs.buildModListForNodeList = buildList
 		local context = main.weaponSetEnvs[2]
 		local fresh = calcs.initEnv(build, "CALCULATOR", { weaponSet = 2, mainSocketGroup = 2 })
-		local function sum(env)
-			return env.modDB:Sum(mod.type, nil, mod.name)
-		end
-		-- the passive and the jewel's effect on it count in set 2 only
-		assert.True(sum(fresh) - sum(main) > mod.value)
-		assert.are.near(sum(fresh), sum(context), 1e-9)
+		assert.are.near(fresh.modDB:Sum(mod.type, nil, mod.name), context.modDB:Sum(mod.type, nil, mod.name), 1e-9)
 		calcs.perform(context)
 		calcs.perform(fresh)
 		local count = 0
@@ -275,6 +282,30 @@ Item Level: 80
 			end
 		end
 		assert.True(count > 300)
+		return built, main, context, fresh
+	end
+
+	it("rebuilds the node lists of a weapon set context when a jewel's effect depends on the set", function()
+		-- the jewel's effect on a set 2 passive only applies in set 2, so the set 1 environment's merged list doesn't have it
+		local mod = weaponSetJewelBuild(2)
+		local built, main, _, fresh = checkWeaponSetContext(mod)
+		assert.True(fresh.modDB:Sum(mod.type, nil, mod.name) - main.modDB:Sum(mod.type, nil, mod.name) > mod.value)
+		assert.are.equals(3, built)
+	end)
+
+	it("reuses the node lists of a weapon set context with a jewel's effect on a passive of the environment's set", function()
+		-- the set 1 environment's list has the scaled set 1 passive, whose mods don't apply in set 2
+		local built = checkWeaponSetContext(weaponSetJewelBuild(1))
+		assert.are.equals(2, built)
+	end)
+
+	it("builds the base databases of a weapon set context in its own buff mode", function()
+		-- base databases from a Calcs tab pass with another buff mode (as calcFullDPS gets them) aren't the context's
+		local mod = weaponSetJewelBuild(1)
+		build.calcsTab.input.misc_buffMode = "UNBUFFED"
+		local _, player, enemy, minion = build.calcsTab.calcs.initEnv(build, "CALCS")
+		local _, _, context = checkWeaponSetContext(mod, { cachedPlayerDB = player, cachedEnemyDB = enemy, cachedMinionDB = minion })
+		assert.True(context.modDB:GetCondition("Effective"))
 	end)
 
 	it("does not apply jewel socket passive skill effect to jewels in item-granted Zarokh's Gift", function()

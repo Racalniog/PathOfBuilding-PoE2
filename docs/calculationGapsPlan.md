@@ -456,7 +456,8 @@ InfusionRemnantBaseDuration) were already in `data.gameConstants`.
   `AND64` / `MatchKeywordFlags` (-2..10%). Together 2.2 / 3.4 / 2.5 ms -> 1.9 / 2.9 / 2.3 ms per
   evaluation (Blood Mage Hexblast / Titan Hammer of the Gods / Lich Skeletal Sniper, approximations
   off), 2.3 / 3.7 / 2.7 -> 2.2 / 3.0 / 2.4 with them on. Then the weapon set context reuses its
-  environment's work (CalcSetup.lua `buildNodeModList`): the base mod databases, and both passive node
+  environment's work (CalcSetup.lua `buildNodeModList`): the base mod databases when they were built in
+  the context's buff mode, and both passive node
   lists when they're built from the same nodes and radius jewels (only a jewel's effect on a small or
   notable passive allocated to the other set, or on any passive from a jewel in a set socket, depends on
   the set; then the lists are rebuilt). 2.0 / 3.2 / 2.4 -> 1.7 / 2.6 / 2.1 ms (-12 / -20 / -10%) with
