@@ -17,6 +17,8 @@ Usage: OptimizeBuild.lua --class <name> --skill <gem name> [options]
   --points <n>           Passive points to spend (default: all points available at that level)
   --gem-level <n>        Level of the skill gem (default: highest the character can use)
   --rounds <n>           Optimisation passes per variant (default 2)
+  --restarts <n>         Run the whole search n times, each with a different order of steps and tree
+                         variants, and keep the best build (default 1; the run time grows with n)
   --roll <0..1>          Roll quality of crafted affixes and unique ranges (default 1 = perfect)
   --item-level <n>       Highest affix tier level allowed on crafted items (default 82)
   --supports <n>         Number of support gems (default 5)
@@ -204,6 +206,7 @@ local options = {
 	debug = args.debug,
 	points = tonumber(args.points),
 	rounds = tonumber(args.rounds),
+	restarts = tonumber(args.restarts),
 	affixRoll = tonumber(args.roll),
 	itemLevel = tonumber(args["item-level"]),
 	maxSupports = tonumber(args.supports),

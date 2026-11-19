@@ -213,6 +213,49 @@ describe("BuildOptimizer", function()
 		assert.is_truthy(optimizer.Describe(build):match("== Survivability ==\nSurvivability score %(effective hit pool%): %d+"))
 	end)
 
+	it("restarts the search from the starting build and keeps the best result", function()
+		local setup = { class = "Sorceress", ascendancy = "Stormweaver", skill = "Spark" }
+		local function run(options)
+			newBuild()
+			assert.is_true(optimizer.SetupCharacter(build, setup))
+			local result = optimizer.Optimize(build, options)
+			return result, score()
+		end
+		local single = run(quickOptions)
+		local options = copyTable(quickOptions)
+		options.restarts = 1
+		assert.are.equals(single.score, run(options).score)
+		-- more restarts never end lower, and the build that ends up open is the one that was kept
+		options.restarts = 3
+		local multi, multiScore = run(options)
+		assert.is_true(multi.score >= single.score)
+		assert.is_true(multi.evals > single.evals)
+		assert.is_true(math.abs(multi.score - multiScore) <= multi.score * 1e-6)
+	end)
+
+	it("undoes a round that makes the build worse", function()
+		local setup = { class = "Sorceress", ascendancy = "Stormweaver", skill = "Spark" }
+		local function run(rounds)
+			newBuild()
+			assert.is_true(optimizer.SetupCharacter(build, setup))
+			local options = copyTable(quickOptions)
+			options.rounds = rounds
+			-- From the second round on, everything scores half: that round can only look worse
+			local factor, undone = 1, false
+			options.metric = function(output) return (output.CombinedDPS or 0) * factor end
+			options.log = function(text)
+				factor = text:match("^%[round 2%]") and 0.5 or factor
+				undone = undone or text:match("^Last round made the build worse") ~= nil
+			end
+			return optimizer.Optimize(build, options), undone, factor
+		end
+		local first = run(1)
+		local both, undone, factor = run(2)
+		assert.is_true(undone)
+		assert.is_true(math.abs(both.score - first.score * factor) <= first.score * 1e-6)
+		assert.is_true(math.abs(build.calcsTab.mainOutput.CombinedDPS - first.score) <= first.score * 1e-6)
+	end)
+
 	it("survives a save and reload with the same result", function()
 		assert.is_true(optimizer.SetupCharacter(build, { class = "Monk", ascendancy = "Invoker", skill = "Ice Strike" }))
 		local result = optimizer.Optimize(build, quickOptions)

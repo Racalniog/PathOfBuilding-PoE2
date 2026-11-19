@@ -93,6 +93,12 @@ optimizer.defaultOptions = {
 	workers = 0,
 	-- Full passes over supports -> equipment -> tree -> jewels
 	rounds = 2,
+	-- Times the whole search is run from the starting build, the best result is kept. 1 = once.
+	-- Run i (0 = the first, which is the plain search) builds the tree before the equipment when i is
+	-- odd and scales the tree exponents by 1 - 0.05 * i: a different, deterministic path to another
+	-- local optimum. ponytail: a build that already has a tree (the unique stage after the rare one)
+	-- only gets the changed order; upgrade path = perturb the equipment choices too
+	restarts = 1,
 	-- Relative improvement below which a change is not considered worth it
 	epsilon = 1e-6,
 	-- Configuration tab conditions to switch on because the build keeps them up by itself:
@@ -1954,7 +1960,7 @@ local function searchTree(ctx)
 	local spec = ctx.build.spec
 	local exponents = { }
 	for index = 1, m_min(#ctx.opts.treeExponents, m_max(ctx.opts.treeWidth, 1)) do
-		t_insert(exponents, ctx.opts.treeExponents[index])
+		t_insert(exponents, ctx.opts.treeExponents[index] * (ctx.treeScale or 1))
 	end
 	if #exponents <= 1 then
 		ctx.treeExponent = exponents[1] or 1
@@ -3201,25 +3207,8 @@ end
 optimizer.NewContext = newContext
 optimizer.CalcOutput = calcOutput -- for specs: one evaluation with an override
 
-local function runRound(ctx, round, allowUniques)
-	local spec = ctx.build.spec
+local function gearStep(ctx, round, allowUniques)
 	local score
-	if eval(ctx) <= 0 then
-		-- Attacks do nothing without a weapon, so supports can't be compared before one is equipped
-		log(ctx, "[round %d] weapons", round)
-		optimizeWeapons(ctx, allowUniques)
-	end
-	log(ctx, "[round %d] support gems", round)
-	ctx.multiStart = round == 1
-	score = optimizeSupports(ctx)
-	log(ctx, "  -> %.1f", score)
-
-	if ctx.opts.auxSkills then
-		log(ctx, "[round %d] auras, curses, marks and other supporting skills", round)
-		score = optimizeAuxSkills(ctx)
-		log(ctx, "  -> %.1f", score)
-	end
-
 	log(ctx, "[round %d] equipment%s", round, allowUniques and " (uniques allowed)" or "")
 	score = optimizeGear(ctx, allowUniques)
 	if allowUniques and ctx.opts.combos and round == 1 then
@@ -3229,7 +3218,11 @@ local function runRound(ctx, round, allowUniques)
 		score = optimizeUtility(ctx, allowUniques)
 	end
 	log(ctx, "  -> %.1f", score)
+end
 
+local function treeStep(ctx, round)
+	local spec = ctx.build.spec
+	local score
 	log(ctx, "[round %d] passive tree", round)
 	local used = spec:CountAllocNodes()
 	if spec.curAscendClassId == 0 and ctx.autoAscendancy and used == 0 then
@@ -3247,6 +3240,33 @@ local function runRound(ctx, round, allowUniques)
 		score = refineTree(ctx)
 	end
 	log(ctx, "  -> %.1f", score)
+end
+
+local function runRound(ctx, round, allowUniques)
+	local score
+	if eval(ctx) <= 0 then
+		-- Attacks do nothing without a weapon, so supports can't be compared before one is equipped
+		log(ctx, "[round %d] weapons", round)
+		optimizeWeapons(ctx, allowUniques)
+	end
+	log(ctx, "[round %d] support gems", round)
+	ctx.multiStart = round == 1
+	score = optimizeSupports(ctx)
+	log(ctx, "  -> %.1f", score)
+
+	if ctx.opts.auxSkills then
+		log(ctx, "[round %d] auras, curses, marks and other supporting skills", round)
+		score = optimizeAuxSkills(ctx)
+		log(ctx, "  -> %.1f", score)
+	end
+
+	if ctx.treeFirst and round == 1 then
+		treeStep(ctx, round)
+		gearStep(ctx, round, allowUniques)
+	else
+		gearStep(ctx, round, allowUniques)
+		treeStep(ctx, round)
+	end
 
 	log(ctx, "[round %d] jewels", round)
 	score = optimizeJewels(ctx, allowUniques)
@@ -3265,24 +3285,21 @@ local function runRound(ctx, round, allowUniques)
 	return score
 end
 
--- Optimise the build in place.
--- options: see optimizer.defaultOptions, plus
---   allowUniques   = true to let unique items compete with the crafted rares
---   autoAscendancy = true to pick the ascendancy when none is selected
--- Returns a result table { score, evals, errors, lastError }, or nil and an error message
-function optimizer.Optimize(build, options)
+-- A context for searching the build as it is now; perturb > 0 picks another path (see restarts)
+local function startContext(build, options, perturb)
 	local ctx, errMsg = newContext(build, options)
 	if not ctx then
 		return nil, errMsg
 	end
 	ctx.autoAscendancy = options and options.autoAscendancy
+	ctx.treeFirst = perturb % 2 == 1
+	ctx.treeScale = 1 - 0.05 * perturb
 	if ctx.opts.approximations then
 		-- Set in the build's Configuration tab, so the saved build is calculated the same way
 		build.configTab.input.useApproximations = true
 		setConfig(ctx, "approxKillsPerSecond", ctx.opts.killsPerSecond)
 	end
 	ctx.allowUniques = options and options.allowUniques or false
-	local allowUniques = options and options.allowUniques or false
 	for _, item in pairs(build.itemsTab.items) do
 		for _, slot in pairs(build.itemsTab.slots) do
 			if slot.selItemId == item.id then
@@ -3291,8 +3308,25 @@ function optimizer.Optimize(build, options)
 		end
 	end
 	sync(ctx)
+	return ctx
+end
 
+-- Go back to a build saved with SaveDB. The build object stays the same, its tabs are made anew, so
+-- a context has to be started again afterwards
+local function reloadBuild(build, xmlText)
+	loadBuildFromXML(xmlText, build.buildName)
+end
+
+-- One run of the search from the build as it is now, perturb as in startContext
+local function search(build, options, perturb)
+	local ctx, errMsg = startContext(build, options, perturb)
+	if not ctx then
+		return nil, errMsg
+	end
+	local allowUniques = ctx.allowUniques
 	local score = eval(ctx)
+	-- The best build after a round that another round follows, so that a round that makes it worse is undone
+	local best
 	for round = 1, ctx.opts.rounds do
 		local before = score
 		score = runRound(ctx, round, allowUniques)
@@ -3301,9 +3335,20 @@ function optimizer.Optimize(build, options)
 		local assumedNow = applyAssumptions(ctx)
 		if assumedNow then
 			score = eval(ctx)
+			best = nil -- scored differently from here on
 		elseif round > 1 and score <= before * 1.002 then
 			break
 		end
+		if round < ctx.opts.rounds and loadBuildFromXML and (not best or better(ctx, score, best.score)) then
+			best = { score = score, xml = build:SaveDB(build.buildName) }
+		end
+	end
+	if best and better(ctx, best.score, score) then
+		log(ctx, "Last round made the build worse (%.1f < %.1f), going back to the one before", score, best.score)
+		local old = ctx
+		reloadBuild(build, best.xml)
+		ctx = startContext(build, options, perturb)
+		ctx.evals, ctx.errors, ctx.lastError, ctx.assumed = old.evals, old.errors, old.lastError, old.assumed
 	end
 	clearUnusedSockets(ctx)
 	removeDeadItems(ctx)
@@ -3312,6 +3357,52 @@ function optimizer.Optimize(build, options)
 		return nil, "The skill deals no damage in this setup" .. (ctx.lastError and (": " .. tostring(ctx.lastError)) or "")
 	end
 	return { score = score, evals = ctx.evals, errors = ctx.errors, lastError = ctx.lastError }
+end
+
+-- Optimise the build in place.
+-- options: see optimizer.defaultOptions, plus
+--   allowUniques   = true to let unique items compete with the crafted rares
+--   autoAscendancy = true to pick the ascendancy when none is selected
+-- With restarts > 1 the search is run that many times from the build as it was passed in, the best
+-- result is kept (and ends up in the build). Returns a result table { score, evals, errors,
+-- lastError }, or nil and an error message
+function optimizer.Optimize(build, options)
+	local restarts = m_max(1, m_floor(tonumber(options and options.restarts) or optimizer.defaultOptions.restarts))
+	if restarts == 1 or not loadBuildFromXML then
+		return search(build, options, 0)
+	end
+	local startXml = build:SaveDB(build.buildName)
+	local best, bestXml, bestRun, lastErr, evals, errors = nil, nil, nil, nil, 0, 0
+	for run = 0, restarts - 1 do
+		if run > 0 then
+			reloadBuild(build, startXml)
+		end
+		local logFn = options.log
+		if logFn then
+			logFn(s_format("[search %d of %d]", run + 1, restarts))
+		end
+		local result, errMsg = search(build, options, run)
+		if result then
+			evals, errors = evals + result.evals, errors + result.errors
+			if not best or result.score > best.score then
+				best, bestRun = result, run
+				bestXml = run < restarts - 1 and build:SaveDB(build.buildName)
+				if logFn then
+					logFn(s_format("  best so far: %.1f", result.score))
+				end
+			end
+		else
+			lastErr = errMsg
+		end
+	end
+	if not best then
+		return nil, lastErr
+	end
+	if bestRun < restarts - 1 then
+		reloadBuild(build, bestXml)
+	end
+	best.evals, best.errors = evals, errors
+	return best
 end
 
 -- Plain text summary of the build: main skill links, equipment, tree and jewels

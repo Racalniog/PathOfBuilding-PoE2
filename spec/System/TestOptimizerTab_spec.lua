@@ -53,6 +53,7 @@ describe("OptimizerTab", function()
 		select(tab.controls.ascendancy, "Deadeye")
 		select(tab.controls.skill, "Lightning Arrow")
 		tab.controls.rounds:SetText("0")
+		tab.controls.restarts:SetText("3")
 		tab.checks.combos.state = false
 		tab.checks.sustained.state = true
 		tab.checks.approximations.state = true
@@ -65,6 +66,7 @@ describe("OptimizerTab", function()
 		local options = launched.options
 		-- Out-of-range input is clamped: no rounds would mean no search
 		assert.are.equal(1, options.rounds)
+		assert.are.equal(3, options.restarts) -- --restarts 3
 		assert.are.equal(1, options.affixRoll)
 		assert.are.equal(82, options.itemLevel)
 		assert.are.equal(5, options.maxSupports)
