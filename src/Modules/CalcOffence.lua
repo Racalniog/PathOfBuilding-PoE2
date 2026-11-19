@@ -3980,6 +3980,7 @@ function calcs.offence(env, actor, activeSkill)
 			if forcedShare > 0 and output.CritChance < 100 then
 				local before = output.CritChance
 				output.CritChance = forcedShare * 100 + (1 - forcedShare) * before
+				output.PreEffectiveCritChance = forcedShare * 100 + (1 - forcedShare) * output.PreEffectiveCritChance
 				if breakdown then
 					breakdown.CritChance = breakdown.CritChance or { s_format("%.2f%%", before) }
 					t_insert(breakdown.CritChance, s_format("%.2f x 100%% + %.2f x %.2f%% ^8(attacks that find an Endurance Charge crit, approx.)", forcedShare, 1 - forcedShare, before))

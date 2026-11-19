@@ -4187,26 +4187,82 @@ end
 -- Performs the calculation (performPass). With approximations on, some estimates need rates of the main skill that are only known
 -- after its offence calculation, which has already used the values they change: Elemental Infusions (doInfusionApprox), charges from
 -- hits, critical hits and uses (doChargeApprox, doActorCharges), Nebuloch's crits, and Archon sources that wait for an event
--- (doActorMisc). The first pass reports that it has one of them (output.ApproxFeedsSecondPass); the environment is then
--- re-initialised the way calcFullDPS reuses one between skills, and a second pass feeds the estimates in before offence, from the
--- first pass's output (env.approxPrev). The second pass's output has ApproxSecondPass set. Configured values always win: the
--- estimates only fill what the configuration leaves empty. With approximations off this is the single pass it always was.
+-- (doActorMisc). The first pass reports that it has one of them (output.ApproxFeedsSecondPass); the environment is then restored
+-- to its state before the first pass (snapshotEnv), and a second pass feeds the estimates in before offence, from the first pass's
+-- output (env.approxPrev). The second pass's output has ApproxSecondPass set. Configured values always win: the estimates only fill
+-- what the configuration leaves empty. With approximations off this is the single pass it always was, without a snapshot.
 -- ponytail: one extra pass, not a fixed point: the second pass's own rates (with more charges, or another Archon uptime) would move
 -- the estimates again; upgrade path = repeat while they change by more than a tolerance, at one full pass per repeat
+
+-- Snapshot of the state performPass changes in an environment set up by initEnv; the returned function restores it once. Tables are
+-- copied one level deep and restored in place, so references to them stay valid: the environment and its actors (fields such as
+-- weaponData, buffs, minion), the modifier databases (the lists per modifier name too, which NewMod appends to) of the environment and
+-- of its weapon set contexts, items, warnings, and each active skill with its data, flags, conditions and minion.
+-- Checked by TestApproxSecondPass: perform, restore, perform gives the first output again. The databases' parents (the cached base,
+-- configuration and party modifiers) aren't copied: a pass only changes them through ReplaceMod falling through to the parent, which
+-- the calculation uses for idempotent caps (Momentum stacks), so the second pass computes the same value again.
+-- Approximations on cost a snapshot per calculation, about a fifth of one pass, whether or not a second pass follows.
+function calcs.snapshotEnv(env)
+	local saved = { }
+	local function keep(t)
+		if t then
+			t_insert(saved, { t, copyTable(t, true) })
+		end
+	end
+	local function keepDB(db)
+		local mods = { }
+		for name, list in pairs(db.mods) do
+			mods[name] = copyTable(list, true)
+		end
+		t_insert(saved, { db.mods, mods })
+		keep(db.conditions)
+		keep(db.multipliers)
+	end
+	local envs = { env }
+	for _, weaponSetEnv in pairs(env.weaponSetEnvs or { }) do
+		t_insert(envs, weaponSetEnv)
+	end
+	for _, e in ipairs(envs) do
+		keep(e)
+		keep(e.player)
+		keep(e.enemy)
+		keep(e.player.itemList)
+		keep(e.player.weaponData1)
+		keep(e.player.weaponData2)
+		keep(e.itemWarnings)
+		keepDB(e.modDB)
+		keepDB(e.enemyDB)
+		for _, activeSkill in ipairs(e.player.activeSkillList) do
+			keep(activeSkill)
+			keep(activeSkill.skillData)
+			keep(activeSkill.skillFlags)
+			keep(activeSkill.skillCfg)
+			keep(activeSkill.skillCfg and activeSkill.skillCfg.skillCond)
+			keep(activeSkill.minion)
+		end
+	end
+	return function()
+		for _, entry in ipairs(saved) do
+			local t = wipeTable(entry[1])
+			for k, v in pairs(entry[2]) do
+				t[k] = v
+			end
+		end
+	end
+end
+
 ---@param env Env
 ---@param skipEHP? boolean
 function calcs.perform(env, skipEHP)
+	local restore = env.modDB:Flag(nil, "Condition:UseApproximations") and calcs.snapshotEnv(env)
 	performPass(env, skipEHP)
 	local output = env.player.output
 	if not output.ApproxFeedsSecondPass then
 		return
 	end
-	-- Re-initialising drops the weapon set contexts (built with the skills, which are kept) and keeps the warnings of the first pass
-	local weaponSetEnvs, validationList = env.weaponSetEnvs, env.weaponSetValidationSkillList
-	calcs.initEnv(env.build, env.mode, env.initOverride, { env = env, cachedPlayerDB = env.modDB.parent, cachedEnemyDB = env.enemyDB.parent,
-		accelerate = { nodeAlloc = true, requirementsItems = true, requirementsGems = true, skills = true, everything = true } })
-	env.weaponSetEnvs, env.weaponSetValidationSkillList = weaponSetEnvs, validationList
-	env.itemWarnings.gemGroupCountWarning, env.itemWarnings.lineageSupportGemLimitWarning = nil, nil
+	restore()
+	-- the first pass's cached skill data (getCachedOutputValue) is out of date; the second pass caches it again
+	GlobalCache.cachedData[env.mode][cacheSkillUUID(env.player.mainSkill, env)] = nil
 	env.approxPrev = output
 	performPass(env, skipEHP)
 	env.approxPrev = nil

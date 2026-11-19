@@ -289,8 +289,9 @@ section.
 Progress:
 - **Second pass** (November 2026, `calcs.perform` in `CalcPerform.lua`): estimates that need the main skill's rates, known only after
   its offence calculation, used to be report-only. Now the first pass marks that it has one (`output.ApproxFeedsSecondPass`); the
-  environment is re-initialised the way `calcFullDPS` reuses one between skills (accelerated `initEnv`, same table, so every caller
-  and the optimizer get it), and a second pass feeds the first pass's estimates in before offence (`output.ApproxSecondPass`):
+  environment is restored to a snapshot taken before the first pass (`calcs.snapshotEnv`: the environment, its actors, modifier
+  databases, items and skills, one level deep, in place, so every caller and the optimizer get it), and a second pass feeds the
+  first pass's estimates in before offence (`output.ApproxSecondPass`):
   - average Elemental Infusions → `Multiplier:<Element>Infusion` for counts left empty;
   - charges from hits, critical hits and uses → the charge count (charges per use for a consuming main skill), the charges consumed
     Recently → their multiplier; Nebuloch's crit share → crit chance, share × 100% + (1 − share) × the attack's own chance;
@@ -301,8 +302,13 @@ Progress:
     immediate assumption.
   - Configured values win, as before; the breakdowns of fed values say "from the first pass's rates, used in the second pass".
   - Ceiling: one extra pass, not a fixed point (the second pass's rates would move the estimates again). Cost: approximations off
-    is one pass, bit-identical; on, a build that needs the second pass takes about 1.75× per evaluation (4.3 ms against 2.4 ms on
-    the Lightning Arrow test build), one that doesn't stays at one pass.
+    is one pass, bit-identical, without a snapshot; on, the snapshot costs about a fifth of a pass (3.4 ms against 2.8 ms per
+    evaluation on the Lightning Arrow test build), and a build that needs the second pass takes about 1.6× (4.5 ms).
+  - A first version re-initialised the environment with an accelerated `initEnv` instead; that drops what `initEnv` writes
+    straight into the modifier database in the skipped steps (item Spirit, charm slots, The Adorned multipliers, group properties,
+    Hollow Palm, node counts from the optimizer's added nodes). Known pre-existing issue: `calcFullDPS` reuses an environment
+    between skills that way (`Calcs.lua`, the accelerated `initEnv` before the next skill), so the Full DPS of the second and later
+    skills of one weapon set can miss those values; upgrade path = restore a `calcs.snapshotEnv` there instead.
   - Still report-only: the infused share of casts (no infused skill variants), Ignite / Shock spread pack values (by design).
 
 ### Phase 5: Exporter extensions (as needed)
