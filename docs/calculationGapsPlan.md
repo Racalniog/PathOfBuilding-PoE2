@@ -218,6 +218,11 @@ Progress:
     cooldown has no effect yet (no Command skill condition). With several Archon sources the first one is
     used. Whether increased Archon effect scales the conversion is untested.
   - Census: 1,170 → about 1,126.
+- Fifth pass ("Other" group, 994 → 973 unreadable lines, Other 465 → 453): Armour Break sources, Rage gained on any event,
+  damage / crit chance per time pierced, two additional Projectiles while moving, Chaos taken as a random element,
+  enemies on full life can't evade, and stun / chill immunity conditions. Most of the rest of the group needs a new
+  mechanic: Slow Potency / Magnitude, Remnants, Meta-skill Energy, Glory, chance-based Fork / Maim, Impale (a legacy
+  PoE1 stat the engine zeroes) and non-calculation lines (crafting, fishing, gold).
 
 - Join modifiers that span two lines before parsing.
 - Accept negative ranges.

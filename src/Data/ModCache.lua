@@ -6744,21 +6744,20 @@ c["Break 33% increased Armour"]={{[1]={flags=0,keywordFlags=0,name="ArmourBreakP
 c["Break 35% increased Armour"]={{[1]={flags=0,keywordFlags=0,name="ArmourBreakPerHit",type="INC",value=35}},nil}
 c["Break 40% increased Armour"]={{[1]={flags=0,keywordFlags=0,name="ArmourBreakPerHit",type="INC",value=40}},nil}
 c["Break 50% of Armour on Heavy Stunning an Enemy"]={{[1]={[1]={effectName="ArmourBreak",effectType="Buff",type="GlobalEffect"},flags=0,keywordFlags=0,name="Condition:CanArmourBreak",type="FLAG",value=true}},nil}
-c["Break 50% of Armour on Pinning an Enemy"]={nil,"Break 50% of Armour on Pinning an Enemy "}
+c["Break 50% of Armour on Pinning an Enemy"]={{[1]={[1]={effectName="ArmourBreak",effectType="Buff",type="GlobalEffect"},flags=0,keywordFlags=0,name="Condition:CanArmourBreak",type="FLAG",value=true}},nil}
 c["Break 6% increased Armour"]={{[1]={flags=0,keywordFlags=0,name="ArmourBreakPerHit",type="INC",value=6}},nil}
 c["Break 60% increased Armour"]={{[1]={flags=0,keywordFlags=0,name="ArmourBreakPerHit",type="INC",value=60}},nil}
 c["Break Armour equal to 10% of Hit Damage dealt"]={{[1]={[1]={effectName="ArmourBreak",effectType="Buff",type="GlobalEffect"},flags=0,keywordFlags=0,name="Condition:CanArmourBreak",type="FLAG",value=true}},nil}
 c["Break Armour equal to 15% of Fire Damage dealt"]={nil,"Break Armour equal to 15% of Fire Damage dealt "}
-c["Break Armour equal to 3% of Physical Damage dealt"]={nil,"Break Armour equal to 3% of Physical Damage dealt "}
-c["Break Armour equal to 6% of Physical Damage dealt"]={nil,"Break Armour equal to 6% of Physical Damage dealt "}
+c["Break Armour equal to 3% of Physical Damage dealt"]={{[1]={[1]={effectName="ArmourBreak",effectType="Buff",type="GlobalEffect"},flags=0,keywordFlags=0,name="Condition:CanArmourBreak",type="FLAG",value=true}},nil}
+c["Break Armour equal to 6% of Physical Damage dealt"]={{[1]={[1]={effectName="ArmourBreak",effectType="Buff",type="GlobalEffect"},flags=0,keywordFlags=0,name="Condition:CanArmourBreak",type="FLAG",value=true}},nil}
 c["Break Armour on Critical Hit with Spells equal to 10% of Physical Damage dealt"]={{[1]={[1]={effectName="ArmourBreak",effectType="Buff",type="GlobalEffect"},[2]={neg=true,type="Condition",var="NeverCrit"},flags=0,keywordFlags=0,name="Condition:CanArmourBreak",type="FLAG",value=true}},nil}
 c["Break Armour on Critical Hit with Spells equal to 15% of Physical Damage dealt"]={{[1]={[1]={effectName="ArmourBreak",effectType="Buff",type="GlobalEffect"},[2]={neg=true,type="Condition",var="NeverCrit"},flags=0,keywordFlags=0,name="Condition:CanArmourBreak",type="FLAG",value=true}},nil}
 c["Break Armour on Critical Hit with Spells equal to 5% of Physical Damage dealt"]={{[1]={[1]={effectName="ArmourBreak",effectType="Buff",type="GlobalEffect"},[2]={neg=true,type="Condition",var="NeverCrit"},flags=0,keywordFlags=0,name="Condition:CanArmourBreak",type="FLAG",value=true}},nil}
 c["Break enemy Concentration on Hit equal to 100% of Damage Dealt"]={nil,"Break enemy Concentration on Hit equal to 100% of Damage Dealt "}
 c["Break enemy Concentration on Hit equal to 100% of Damage Dealt Enemies regain 10% of Concentration every second if they haven't lost Concentration in the past 5 seconds"]={nil,"Break enemy Concentration on Hit equal to 100% of Damage Dealt Enemies regain 10% of Concentration every second if they haven't lost Concentration in the past 5 seconds "}
 c["Breaks 450 Armour on Critical Hit"]={nil,"Breaks 450 Armour on Critical Hit "}
-c["Breaks Armour equal to 40% of damage from Hits with this weapon"]={nil,"Breaks Armour equal to 40% of damage from Hits with this weapon "}
-c["Breaks Armour equal to 40% of damage from Hits with this weapon Fully Armour Broken enemies you kill with Hits Shatter"]={nil,"Breaks Armour equal to 40% of damage from Hits with this weapon Fully Armour Broken enemies you kill with Hits Shatter "}
+c["Breaks Armour equal to 40% of damage from Hits with this weapon"]={{[1]={[1]={effectName="ArmourBreak",effectType="Buff",type="GlobalEffect"},flags=0,keywordFlags=0,name="Condition:CanArmourBreak",type="FLAG",value=true}},nil}
 c["Buffs on you expire 10% slower"]={{[1]={[1]={skillType=5,type="SkillType"},flags=0,keywordFlags=0,name="Duration",type="INC",value=10}},nil}
 c["Bulwark"]={{[1]={flags=0,keywordFlags=0,name="Keystone",type="LIST",value="Bulwark"},[2]={flags=0,keywordFlags=0,name="Condition:HaveBulwark",type="FLAG",value=true}},nil}
 c["Burning Enemies you kill have a 5% chance to Explode, dealing a"]={nil,"Burning Enemies you kill have a 5% chance to Explode, dealing a "}
@@ -7455,9 +7454,8 @@ c["Gain 1 Life on Kill per Level"]={{[1]={[1]={type="Condition",var="KilledRecen
 c["Gain 1 Mana on Kill per Level"]={{[1]={[1]={type="Condition",var="KilledRecently"},[2]={type="Multiplier",var="Level"},flags=0,keywordFlags=0,name="Mana",type="BASE",value=1}},nil}
 c["Gain 1 Rage on Melee Axe Hit"]={{[1]={flags=0,keywordFlags=0,name="Condition:CanGainRage",type="FLAG",value=true}},nil}
 c["Gain 1 Rage on Melee Hit"]={{[1]={flags=0,keywordFlags=0,name="Condition:CanGainRage",type="FLAG",value=true}},nil}
-c["Gain 1 Rage when you kill an enemy affected by Abyssal Wasting"]={{}," Rage  affected by Abyssal Wasting "}
-c["Gain 1 Rage when you kill an enemy affected by Abyssal Wasting Abyssal Wasting also applies -10% to Fire Resistance"]={{[1]={[1]={type="Condition",var="KilledRecently"},flags=0,keywordFlags=0,name="FireResist",type="BASE",value=1}}," Rage  affected by Abyssal Wasting Abyssal Wasting also applies -10% to  "}
-c["Gain 1 Rage when your Hit Ignites a target"]={{}," Rage when your Hit Ignites a target "}
+c["Gain 1 Rage when you kill an enemy affected by Abyssal Wasting"]={{[1]={flags=0,keywordFlags=0,name="Condition:CanGainRage",type="FLAG",value=true}},nil}
+c["Gain 1 Rage when your Hit Ignites a target"]={{[1]={flags=0,keywordFlags=0,name="Condition:CanGainRage",type="FLAG",value=true}},nil}
 c["Gain 1 Runefather's Boast per Power of targets affected by Runefather's Challenge you kill"]={{}," Runefather's Boast per Power of targets affected by Runefather's Challenge you kill "}
 c["Gain 1 Runic Binding on Hit with Spells, no more than once every 0.5 seconds"]={{}," Runic Binding , no more than once every 0.5 seconds "}
 c["Gain 1 Runic Binding on Hit with Spells, no more than once every 0.5 seconds Lose all Runic Bindings when you Shapeshift to gain that much Unbound Potential"]={{}," Runic Binding , no more than once every 0.5 seconds Lose all Runic Bindings when you Shapeshift to gain that much Unbound Potential "}
@@ -7477,7 +7475,7 @@ c["Gain 10 Energy Shield when you Block"]={{[1]={flags=0,keywordFlags=0,name="En
 c["Gain 10 Life per Ignited Enemy Killed"]={{[1]={[1]={actor="enemy",type="ActorCondition",var="Ignited"},flags=0,keywordFlags=0,name="LifeOnKill",type="BASE",value=10}},nil}
 c["Gain 10 Life per enemy killed"]={{[1]={flags=0,keywordFlags=0,name="LifeOnKill",type="BASE",value=10}},nil}
 c["Gain 10 Mana per enemy killed"]={{[1]={flags=0,keywordFlags=0,name="ManaOnKill",type="BASE",value=10}},nil}
-c["Gain 10 Rage when Critically Hit by an Enemy"]={{}," Rage when Critically Hit by an Enemy "}
+c["Gain 10 Rage when Critically Hit by an Enemy"]={{[1]={flags=0,keywordFlags=0,name="Condition:CanGainRage",type="FLAG",value=true}},nil}
 c["Gain 10% of Damage as Extra Chaos Damage"]={{[1]={flags=0,keywordFlags=0,name="DamageGainAsChaos",type="BASE",value=10}},nil}
 c["Gain 10% of Damage as Extra Cold Damage"]={{[1]={flags=0,keywordFlags=0,name="DamageGainAsCold",type="BASE",value=10}},nil}
 c["Gain 10% of Damage as Extra Cold Damage with Spells"]={{[1]={flags=0,keywordFlags=131072,name="DamageGainAsCold",type="BASE",value=10}},nil}
@@ -7597,7 +7595,7 @@ c["Gain 35% of Physical Damage as Extra Fire Damage with Attacks"]={{[1]={flags=
 c["Gain 35% of Physical Damage as extra Chaos Damage"]={{[1]={flags=0,keywordFlags=0,name="PhysicalDamageGainAsChaos",type="BASE",value=35}},nil}
 c["Gain 39 Life per enemy killed"]={{[1]={flags=0,keywordFlags=0,name="LifeOnKill",type="BASE",value=39}},nil}
 c["Gain 4 Life per Enemy Hit with Spells"]={{[1]={flags=4,keywordFlags=131072,name="LifeOnHit",type="BASE",value=4}},nil}
-c["Gain 4 Rage when Hit by an Enemy during effect"]={{}," Rage when Hit by an Enemy  "}
+c["Gain 4 Rage when Hit by an Enemy during effect"]={{[1]={flags=0,keywordFlags=0,name="Condition:CanGainRage",type="FLAG",value=true}},nil}
 c["Gain 4% of Damage as Extra Chaos Damage"]={{[1]={flags=0,keywordFlags=0,name="DamageGainAsChaos",type="BASE",value=4}},nil}
 c["Gain 4% of Damage as Extra Cold Damage"]={{[1]={flags=0,keywordFlags=0,name="DamageGainAsCold",type="BASE",value=4}},nil}
 c["Gain 4% of Damage as Extra Fire Damage for"]={{[1]={flags=0,keywordFlags=0,name="DamageGainAsFire",type="BASE",value=4}},"   for "}
@@ -7622,8 +7620,7 @@ c["Gain 5 Mana per enemy killed"]={{[1]={flags=0,keywordFlags=0,name="ManaOnKill
 c["Gain 5 Rage on Hit"]={{[1]={flags=0,keywordFlags=0,name="Condition:CanGainRage",type="FLAG",value=true}},nil}
 c["Gain 5 Rage on Melee Hit"]={{[1]={flags=0,keywordFlags=0,name="Condition:CanGainRage",type="FLAG",value=true}},nil}
 c["Gain 5 Rage when Hit by an Enemy"]={{[1]={flags=0,keywordFlags=0,name="Condition:CanGainRage",type="FLAG",value=true}},nil}
-c["Gain 5 Rage when Hit by an Enemy during effect"]={{}," Rage when Hit by an Enemy  "}
-c["Gain 5 Rage when Hit by an Enemy during effect No Inherent loss of Rage during effect"]={{}," Rage when Hit by an Enemy  No Inherent loss of Rage  "}
+c["Gain 5 Rage when Hit by an Enemy during effect"]={{[1]={flags=0,keywordFlags=0,name="Condition:CanGainRage",type="FLAG",value=true}},nil}
 c["Gain 5% of Damage as Chaos Damage per Undead Minion"]={{[1]={[1]={type="Multiplier",var="UndeadMinion"},flags=0,keywordFlags=0,name="DamageAsChaos",type="BASE",value=5}},nil}
 c["Gain 5% of Damage as Extra Chaos Damage"]={{[1]={flags=0,keywordFlags=0,name="DamageGainAsChaos",type="BASE",value=5}},nil}
 c["Gain 5% of Damage as Extra Cold Damage"]={{[1]={flags=0,keywordFlags=0,name="DamageGainAsCold",type="BASE",value=5}},nil}
@@ -7656,7 +7653,7 @@ c["Gain 70% of Physical Damage as Extra Fire Damage"]={{[1]={flags=0,keywordFlag
 c["Gain 750 Guard for 0.5 seconds per Combo expended when using Skills"]={{[1]={[1]={type="Multiplier",var="ComboStacks"},[2]={type="Condition",var="HaveGuard"},[3]={type="Condition",var="UseApproximations"},flags=0,keywordFlags=0,name="Guard",type="MAX",value=750}},nil}
 c["Gain 8 Life per enemy killed"]={{[1]={flags=0,keywordFlags=0,name="LifeOnKill",type="BASE",value=8}},nil}
 c["Gain 8 Rage after Spending a total of 200 Mana"]={{[1]={flags=0,keywordFlags=0,name="Condition:CanGainRage",type="FLAG",value=true}},nil}
-c["Gain 8 Rage when you use a Life Flask"]={{[1]={flags=0,keywordFlags=0,name="Life",type="BASE",value=8}}," Rage when you use a  Flask "}
+c["Gain 8 Rage when you use a Life Flask"]={{[1]={flags=0,keywordFlags=0,name="Condition:CanGainRage",type="FLAG",value=true}},nil}
 c["Gain 8% of Cold Damage as Extra Chaos Damage"]={{[1]={flags=0,keywordFlags=0,name="ColdDamageGainAsChaos",type="BASE",value=8}},nil}
 c["Gain 8% of Damage as Extra Cold Damage while Shapeshifted"]={{[1]={[1]={type="Condition",var="Shapeshifted"},flags=0,keywordFlags=0,name="DamageGainAsCold",type="BASE",value=8}},nil}
 c["Gain 8% of Damage as Extra Damage of a random Element while Shapeshifted"]={{[1]={[1]={type="Condition",var="Shapeshifted"},flags=0,keywordFlags=0,name="DamageGainAsRandom",type="BASE",value=8}},nil}
@@ -8160,9 +8157,8 @@ c["Hit damage is taken from Mana before Life if your current Mana is higher than
 c["Hit damage is taken from Mana before Life if your current Mana is higher than your current Life 15% less maximum Life"]={nil,"Hit damage is taken from Mana before Life if your current Mana is higher than your current Life 15% less maximum Life "}
 c["Hit damage is taken from Mana before Life if your current Mana is higher than your current Life 15% less maximum Life 15% less maximum Mana"]={nil,"Hit damage is taken from Mana before Life if your current Mana is higher than your current Life 15% less maximum Life 15% less maximum Mana "}
 c["Hits Break 30% increased Armour on targets with Ailments"]={{[1]={[1]={actor="enemy",type="ActorCondition",varList={[1]="Frozen",[2]="Chilled",[3]="Shocked",[4]="Electrocuted",[5]="Ignited",[6]="Poisoned",[7]="Bleeding"}},flags=0,keywordFlags=0,name="ArmourBreakPerHit",type="INC",value=30}},nil}
-c["Hits Break 40 Armour"]={nil,"Hits Break 40 Armour "}
-c["Hits Break 50 Armour"]={nil,"Hits Break 50 Armour "}
-c["Hits Break 50 Armour Inflicts Elemental Exposure when this Weapon Fully Breaks Armour"]={nil,"Hits Break 50 Armour Inflicts Elemental Exposure when this Weapon Fully Breaks Armour "}
+c["Hits Break 40 Armour"]={{[1]={[1]={effectName="ArmourBreak",effectType="Buff",type="GlobalEffect"},flags=0,keywordFlags=0,name="Condition:CanArmourBreak",type="FLAG",value=true},[2]={flags=0,keywordFlags=0,name="ArmourBreakPerHit",type="BASE",value=40}},nil}
+c["Hits Break 50 Armour"]={{[1]={[1]={effectName="ArmourBreak",effectType="Buff",type="GlobalEffect"},flags=0,keywordFlags=0,name="Condition:CanArmourBreak",type="FLAG",value=true},[2]={flags=0,keywordFlags=0,name="ArmourBreakPerHit",type="BASE",value=50}},nil}
 c["Hits Break 50% increased Armour on targets with Ailments"]={{[1]={[1]={actor="enemy",type="ActorCondition",varList={[1]="Frozen",[2]="Chilled",[3]="Shocked",[4]="Electrocuted",[5]="Ignited",[6]="Poisoned",[7]="Bleeding"}},flags=0,keywordFlags=0,name="ArmourBreakPerHit",type="INC",value=50}},nil}
 c["Hits against you have 12% reduced Critical Damage Bonus"]={{[1]={flags=0,keywordFlags=0,name="EnemyModifier",type="LIST",value={mod={flags=4,keywordFlags=0,name="CritMultiplier",type="INC",value=-12}}}},nil}
 c["Hits against you have 15% reduced Critical Damage Bonus per Socket filled"]={{[1]={flags=0,keywordFlags=0,name="EnemyModifier",type="LIST",value={mod={[1]={type="Multiplier",var="RunesSocketedIn{SlotName}"},flags=4,keywordFlags=0,name="CritMultiplier",type="INC",value=-15}}}},nil}
@@ -8907,9 +8903,9 @@ c["Prevent +6% of Damage from Deflected Hits"]={{[1]={flags=0,keywordFlags=0,nam
 c["Primal Hunger"]={{[1]={flags=0,keywordFlags=0,name="Keystone",type="LIST",value="Primal Hunger"},[2]={flags=0,keywordFlags=0,name="Condition:HavePrimalHunger",type="FLAG",value=true}},nil}
 c["Primordial"]={{[1]={flags=0,keywordFlags=0,name="Multiplier:PrimordialItem",type="BASE",value=1}},nil}
 c["Projectile Attack Skills have 50% increased Critical Hit Chance"]={{[1]={[1]={skillType=41,type="SkillType"},flags=0,keywordFlags=0,name="CritChance",type="INC",value=50}},nil}
-c["Projectile Attacks have a 10% chance to fire two additional Projectiles while moving"]={nil,"Projectile Attacks have a 10% chance to fire two additional Projectiles while moving "}
-c["Projectile Attacks have a 12% chance to fire two additional Projectiles while moving"]={nil,"Projectile Attacks have a 12% chance to fire two additional Projectiles while moving "}
-c["Projectile Attacks have a 14% chance to fire two additional Projectiles while moving"]={nil,"Projectile Attacks have a 14% chance to fire two additional Projectiles while moving "}
+c["Projectile Attacks have a 10% chance to fire two additional Projectiles while moving"]={{[1]={[1]={type="Condition",var="Moving"},flags=1025,keywordFlags=0,name="TwoAdditionalProjectilesChance",type="BASE",value=10}},nil}
+c["Projectile Attacks have a 12% chance to fire two additional Projectiles while moving"]={{[1]={[1]={type="Condition",var="Moving"},flags=1025,keywordFlags=0,name="TwoAdditionalProjectilesChance",type="BASE",value=12}},nil}
+c["Projectile Attacks have a 14% chance to fire two additional Projectiles while moving"]={{[1]={[1]={type="Condition",var="Moving"},flags=1025,keywordFlags=0,name="TwoAdditionalProjectilesChance",type="BASE",value=14}},nil}
 c["Projectile Damage builds Pin"]={{[1]={flags=1024,keywordFlags=0,name="CanPin",type="FLAG",value=true}},nil}
 c["Projectiles Pierce 5 additional Targets while you have Phasing"]={{[1]={[1]={type="Condition",var="Phasing"},flags=0,keywordFlags=0,name="PierceCount",type="BASE",value=5}},nil}
 c["Projectiles Pierce all Ignited enemies"]={{[1]={[1]={actor="enemy",type="ActorCondition",var="Ignited"},flags=0,keywordFlags=0,name="PierceAllTargets",type="FLAG",value=true}},nil}
@@ -8922,9 +8918,8 @@ c["Projectiles deal 15% increased Damage with Hits against Enemies within 2m"]={
 c["Projectiles deal 20% more Hit damage to targets in the first 3.5 metres of their movement, scaling down with distance travelled to reach 0% after 7 metres"]={{[1]={[1]={ramp={[1]={[1]=35,[2]=0.2},[2]={[1]=70,[2]=0}},type="DistanceRamp"},flags=1028,keywordFlags=0,name="Damage",type="MORE",value=100}},nil}
 c["Projectiles deal 25% increased Damage with Hits against Enemies further than 6m"]={{[1]={[1]={threshold=60,type="MultiplierThreshold",var="enemyDistance"},flags=1024,keywordFlags=262144,name="Damage",type="INC",value=25}},nil}
 c["Projectiles deal 25% increased Damage with Hits against Enemies within 2m"]={{[1]={[1]={threshold=20,type="MultiplierThreshold",upper=true,var="enemyDistance"},flags=1024,keywordFlags=262144,name="Damage",type="INC",value=25}},nil}
-c["Projectiles deal 53% increased Damage with Hits for each time they have Pierced"]={{[1]={flags=1024,keywordFlags=262144,name="Damage",type="INC",value=53}},"   for each time they have Pierced "}
-c["Projectiles deal 64% increased Damage with Hits for each time they have Pierced"]={{[1]={flags=1024,keywordFlags=262144,name="Damage",type="INC",value=64}},"   for each time they have Pierced "}
-c["Projectiles deal 64% increased Damage with Hits for each time they have Pierced Projectiles have 64% increased Critical Hit chance for each time they have Pierced"]={{[1]={flags=1024,keywordFlags=262144,name="Damage",type="INC",value=64}},"   for each time they have Pierced Projectiles have 64% increased Critical Hit chance for each time they have Pierced "}
+c["Projectiles deal 53% increased Damage with Hits for each time they have Pierced"]={{[1]={[1]={stat="PiercedCount",type="PerStat"},[2]={skillType=3,type="SkillType"},flags=0,keywordFlags=262144,name="Damage",type="INC",value=53}},nil}
+c["Projectiles deal 64% increased Damage with Hits for each time they have Pierced"]={{[1]={[1]={stat="PiercedCount",type="PerStat"},[2]={skillType=3,type="SkillType"},flags=0,keywordFlags=262144,name="Damage",type="INC",value=64}},nil}
 c["Projectiles deal 70% increased Damage with Hits against Enemies further than 6m"]={{[1]={[1]={threshold=60,type="MultiplierThreshold",var="enemyDistance"},flags=1024,keywordFlags=262144,name="Damage",type="INC",value=70}},nil}
 c["Projectiles deal 75% increased Damage against Heavy Stunned Enemies"]={{[1]={[1]={actor="enemy",type="ActorCondition",var="HeavyStunned"},flags=1024,keywordFlags=0,name="Damage",type="INC",value=75}},nil}
 c["Projectiles deal 97% increased Damage with Hits against Enemies within 2m"]={{[1]={[1]={threshold=20,type="MultiplierThreshold",upper=true,var="enemyDistance"},flags=1024,keywordFlags=262144,name="Damage",type="INC",value=97}},nil}
@@ -8972,10 +8967,10 @@ c["Projectiles have 50% chance for an additional Projectile when Forking"]={{[1]
 c["Projectiles have 50% chance for an additional Projectile when Forking 100% increased Attack Speed"]={{[1]={flags=1024,keywordFlags=0,name="ProjectileCount",type="BASE",value=50}}," for an additional  when Forking 100% increased Attack Speed "}
 c["Projectiles have 50% chance for an additional Projectile when Forking 25% increased Critical Damage Bonus"]={{[1]={flags=1024,keywordFlags=0,name="ProjectileCount",type="BASE",value=50}}," for an additional  when Forking 25% increased Critical Damage Bonus "}
 c["Projectiles have 50% chance for an additional Projectile when Forking Projectiles have 20% chance to Chain an additional time from terrain"]={{[1]={flags=1024,keywordFlags=0,name="ProjectileCount",type="BASE",value=50}}," for an additional  when Forking Projectiles have 20% chance to Chain an additional time from terrain "}
-c["Projectiles have 53% increased Critical Hit chance for each time they have Pierced"]={{[1]={flags=1024,keywordFlags=0,name="CritChance",type="INC",value=53}},"  for each time they have Pierced "}
+c["Projectiles have 53% increased Critical Hit chance for each time they have Pierced"]={{[1]={[1]={stat="PiercedCount",type="PerStat"},[2]={skillType=3,type="SkillType"},flags=0,keywordFlags=0,name="CritChance",type="INC",value=53}},nil}
 c["Projectiles have 6% chance to Chain an additional time from terrain"]={{[1]={flags=1024,keywordFlags=0,name="TerrainChainChance",type="BASE",value=6}},nil}
 c["Projectiles have 63% chance to Fork if you've dealt a Melee Hit in the past eight seconds"]={{}," to Fork  "}
-c["Projectiles have 64% increased Critical Hit chance for each time they have Pierced"]={{[1]={flags=1024,keywordFlags=0,name="CritChance",type="INC",value=64}},"  for each time they have Pierced "}
+c["Projectiles have 64% increased Critical Hit chance for each time they have Pierced"]={{[1]={[1]={stat="PiercedCount",type="PerStat"},[2]={skillType=3,type="SkillType"},flags=0,keywordFlags=0,name="CritChance",type="INC",value=64}},nil}
 c["Projectiles have 75% chance for an additional Projectile when Forking"]={{[1]={flags=1024,keywordFlags=0,name="ProjectileCount",type="BASE",value=75}}," for an additional  when Forking "}
 c["Properties are doubled while in a Breach"]={{},"Properties are d while in a Breach "}
 c["Punishment has no Reservation if Cast as an Aura"]={{[1]={[1]={type="SkillId"},[2]={skillType=39,type="SkillType"},[3]={neg=true,skillType=109,type="SkillType"},flags=0,keywordFlags=0,name="SkillData",type="LIST",value={key="manaReservationFlat",value=0}},[2]={[1]={type="SkillId"},[2]={skillType=39,type="SkillType"},[3]={neg=true,skillType=109,type="SkillType"},flags=0,keywordFlags=0,name="SkillData",type="LIST",value={key="lifeReservationFlat",value=0}},[3]={[1]={type="SkillId"},[2]={skillType=39,type="SkillType"},[3]={neg=true,skillType=109,type="SkillType"},flags=0,keywordFlags=0,name="SkillData",type="LIST",value={key="manaReservationPercent",value=0}},[4]={[1]={type="SkillId"},[2]={skillType=39,type="SkillType"},[3]={neg=true,skillType=109,type="SkillType"},flags=0,keywordFlags=0,name="SkillData",type="LIST",value={key="lifeReservationPercent",value=0}}},nil}
@@ -9621,7 +9616,7 @@ c["Triggers Level 20 Physical Aegis when Equipped"]={{},nil}
 c["Triggers Level 7 Abberath's Fury when Equipped"]={{},nil}
 c["Triple Attribute requirements of Martial Weapons"]={{[1]={flags=0,keywordFlags=0,name="GlobalWeaponAttributeRequirements",type="MORE",value=200}},nil}
 c["Trusted Kinship"]={{[1]={flags=0,keywordFlags=0,name="Keystone",type="LIST",value="Trusted Kinship"},[2]={flags=0,keywordFlags=0,name="Condition:HaveTrustedKinship",type="FLAG",value=true}},nil}
-c["Unaffected by Chill during Dodge Roll"]={nil,"Unaffected by Chill during Dodge Roll "}
+c["Unaffected by Chill during Dodge Roll"]={{[1]={[1]={type="Condition",var="InDodgeRoll"},flags=0,keywordFlags=0,name="ChillImmune",type="FLAG",value=true}},nil}
 c["Unaffected by Chill while Leeching Mana"]={{[1]={[1]={type="Condition",var="LeechingMana"},flags=0,keywordFlags=0,name="SelfChillEffect",type="MORE",value=-100}},nil}
 c["Unaffected by Curses"]={{[1]={[1]={effectType="Global",type="GlobalEffect",unscalable=true},flags=0,keywordFlags=0,name="CurseEffectOnSelf",type="MORE",value=-100}},nil}
 c["Unaffected by Ignite or Shock if Maximum Life and Maximum Mana are within 500"]={nil,"Unaffected by Ignite or Shock if Maximum Life and Maximum Mana are within 500 "}
@@ -9811,7 +9806,7 @@ c["You cannot be Frozen for 6 seconds after being Frozen You cannot be Ignited f
 c["You cannot be Hindered"]={{[1]={flags=0,keywordFlags=0,name="HinderImmune",type="FLAG",value=true}},nil}
 c["You cannot be Ignited for 6 seconds after being Ignited"]={nil,"You cannot be Ignited for 6 seconds after being Ignited "}
 c["You cannot be Ignited for 6 seconds after being Ignited You cannot be Shocked for 6 seconds after being Shocked"]={nil,"You cannot be Ignited for 6 seconds after being Ignited You cannot be Shocked for 6 seconds after being Shocked "}
-c["You cannot be Light Stunned if you've been Stunned Recently"]={nil,"You cannot be Light Stunned if you've been Stunned Recently "}
+c["You cannot be Light Stunned if you've been Stunned Recently"]={{[1]={[1]={type="Condition",var="StunnedRecently"},flags=0,keywordFlags=0,name="StunImmune",type="FLAG",value=true}},nil}
 c["You cannot be Shocked for 6 seconds after being Shocked"]={nil,"You cannot be Shocked for 6 seconds after being Shocked "}
 c["You cannot be Shocked for 6 seconds after being Shocked Curses you inflict are reflected back to you"]={nil,"You cannot be Shocked for 6 seconds after being Shocked Curses you inflict are reflected back to you "}
 c["You cannot be Shocked while Frozen"]={{[1]={[1]={type="Condition",var="Frozen"},flags=0,keywordFlags=0,name="ShockImmune",type="FLAG",value=true}},nil}

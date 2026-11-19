@@ -2821,6 +2821,8 @@ local specialModList = {
 	["brands have (%d+)%% increased area of effect if (%d+)%% of attached duration expired"] = function(num) return { mod("AreaOfEffect", "INC", num, { type = "Condition", var = "BrandLastHalf" }, { type = "SkillType", skillType = SkillType.Brand }) } end,
 	["corrupted blood cannot be inflicted on you"] = { flag("CorruptedBloodImmune") },
 	["cannot be light stunned"] = { flag("StunImmune") },
+	["you cannot be light stunned if you've been stunned recently"] = { flag("StunImmune", { type = "Condition", var = "StunnedRecently" }) },
+	["unaffected by chill during dodge roll"] = { flag("ChillImmune", { type = "Condition", var = "InDodgeRoll" }) },
 	["you cannot be hindered"] = { flag("HinderImmune") },
 	["you cannot be maimed"] = { flag("MaimImmune") },
 	["you cannot be impaled"] = { flag("ImpaleImmune") },
@@ -2961,6 +2963,9 @@ local specialModList = {
 		flag("Condition:CanGainRage"),
 	},
 	["gain %d+ rage when hit by an enemy"] = {
+		flag("Condition:CanGainRage"),
+	},
+	["gain %d+ rage when ([%D]+)"] = {
 		flag("Condition:CanGainRage"),
 	},
 	["gain %d+ rage on hit with retaliation skills"] = {
@@ -3471,6 +3476,10 @@ local specialModList = {
 	-- Warrior - Warbringer
 	["ignore warcry cooldowns"] ={ mod("CooldownRecovery", "OVERRIDE", 0, { type = "SkillType", skillType = SkillType.Warcry}) },
 	["break armour equal to (%d+)%% of hit damage dealt"] = { flag("Condition:CanArmourBreak", { type = "GlobalEffect", effectType = "Buff", effectName = "ArmourBreak" })}, -- 'Anvil's Weight'
+	["break armour equal to (%d+)%% of physical damage dealt"] = { flag("Condition:CanArmourBreak", { type = "GlobalEffect", effectType = "Buff", effectName = "ArmourBreak" }) },
+	["breaks armour equal to (%d+)%% of damage from hits with this weapon"] = { flag("Condition:CanArmourBreak", { type = "GlobalEffect", effectType = "Buff", effectName = "ArmourBreak" }) },
+	["break (%d+)%% of armour on pinning an enemy"] = { flag("Condition:CanArmourBreak", { type = "GlobalEffect", effectType = "Buff", effectName = "ArmourBreak" }) },
+	["hits break (%d+) armour"] = function(num) return { flag("Condition:CanArmourBreak", { type = "GlobalEffect", effectType = "Buff", effectName = "ArmourBreak" }), mod("ArmourBreakPerHit", "BASE", num) } end,
 	["you can break enemy armour to below 0"] = { flag("Condition:CanArmourBreakBelowZero", { type = "GlobalEffect", effectType = "Buff", effectName = "ImplodingImpacts" })}, -- 'Imploding Impacts'
 	["fully broken armour you inflict increases all damage taken from hits instead"] = { flag("FullyBrokenArmourIncreasesAllDamageFromHits", { type = "GlobalEffect", effectType = "Buff", effectName = "ImplodingImpacts" })},
 	["trigger ancestral spirits when you summon a totem"] = { },
@@ -5164,6 +5173,8 @@ local specialModList = {
 	["projectiles deal (%d+)%% increased damage with hits to targets at the start of their movement, reducing to (%d+)%% as they travel farther"] = function(num) return { mod("Damage", "INC", num, nil, bor(ModFlag.Hit, ModFlag.Projectile), { type = "DistanceRamp", ramp = {{35,1},{70,0}} }) } end,
 	["projectiles deal (%d+)%% increased damage with hits and ailments for each time they have chained"] = function(num) return { mod("Damage", "INC", num, nil, 0, bor(KeywordFlag.Hit, KeywordFlag.Ailment), { type = "PerStat", stat = "Chain" }, { type = "SkillType", skillType = SkillType.Projectile }) } end,
 	["projectiles deal (%d+)%% increased damage with hits and ailments for each enemy pierced"] = function(num) return { mod("Damage", "INC", num, nil, 0, bor(KeywordFlag.Hit, KeywordFlag.Ailment), { type = "PerStat", stat = "PiercedCount" }, { type = "SkillType", skillType = SkillType.Projectile }) } end,
+	["projectiles deal (%d+)%% increased damage with hits for each time they have pierced"] = function(num) return { mod("Damage", "INC", num, nil, 0, KeywordFlag.Hit, { type = "PerStat", stat = "PiercedCount" }, { type = "SkillType", skillType = SkillType.Projectile }) } end,
+	["projectiles have (%d+)%% increased critical hit chance for each time they have pierced"] = function(num) return { mod("CritChance", "INC", num, nil, 0, 0, { type = "PerStat", stat = "PiercedCount" }, { type = "SkillType", skillType = SkillType.Projectile }) } end,
 	["(%d+)%% increased bonuses gained from equipped quiver"] = function(num) return {mod("EffectOfBonusesFromQuiver", "INC", num)} end,
 	["(%d+)%% reduced bonuses gained from equipped focus"] = function(num) return {mod("EffectOfBonusesFromFocus", "INC", -num)} end,
 	["(%d+)%% increased bonuses gained from equipped rings"] = function(num) return {
@@ -5181,6 +5192,7 @@ local specialModList = {
 		mod("EffectOfBonusesFromRing" .. (side == "left" and " 1" or " 2"), "INC", num)
 	} end,
 	["(%d+)%% chance for spell skills to fire 2 additional projectiles"] = function(num) return { mod("TwoAdditionalProjectilesChance", "BASE", num, nil , ModFlag.Spell) } end,
+	["projectile attacks have a (%d+)%% chance to fire two additional projectiles while moving"] = function(num) return { mod("TwoAdditionalProjectilesChance", "BASE", num, nil, bor(ModFlag.Attack, ModFlag.Projectile), 0, { type = "Condition", var = "Moving" }) } end,
 	-- Strike Skills
 	["non%-vaal strike skills target (%d+) additional nearby enem[yi]e?s?"] = function(num) return { mod("AdditionalStrikeTarget", "BASE", num, { type = "SkillType", skillType = SkillType.MeleeSingleTarget}, { type = "SkillType", skillType = SkillType.Vaal, neg = true}) } end,
 	-- Leech/Gain on Hit/Kill
@@ -5996,6 +6008,11 @@ local specialModList = {
 		mod("PhysicalDamageFromHitsTakenAsCold", "BASE", num / 3),
 		mod("PhysicalDamageFromHitsTakenAsLightning", "BASE", num / 3),
 	} end,
+	["(%d+)%% of chaos damage from hits taken as damage of a random element"] = function(num) return {
+		mod("ChaosDamageFromHitsTakenAsFire", "BASE", num / 3),
+		mod("ChaosDamageFromHitsTakenAsCold", "BASE", num / 3),
+		mod("ChaosDamageFromHitsTakenAsLightning", "BASE", num / 3),
+	} end,
 	["equipment and skill gems have (%d+)%% reduced attribute requirements"] = function(num) return { mod("GlobalAttributeRequirements", "INC", -num) } end,
 	["equipment and skill gems have (%d+)%% increased attribute requirements"] = function(num) return { mod("GlobalAttributeRequirements", "INC", num) } end,
 	["skill gems have (%d+)%% more attribute requirements"] = function(num) return { mod("GlobalGemAttributeRequirements", "MORE", num) } end,
@@ -6125,6 +6142,7 @@ local specialModList = {
 	["your hits can't be evaded by blinded enemies"] = { flag("CannotBeEvaded", { type = "ActorCondition", actor = "enemy", var = "Blinded" }) },
 	["your hits cannot be evaded by pinned enemies"] = { flag("CannotBeEvaded", { type = "ActorCondition", actor = "enemy", var = "Pinned" }) },
 	["your hits cannot be evaded by heavy stunned enemies"] = { flag("CannotBeEvaded", { type = "ActorCondition", actor = "enemy", var = "HeavyStunned" }) },
+	["enemies which are on full life cannot evade your hits"] = { flag("CannotBeEvaded", { type = "ActorCondition", actor = "enemy", var = "FullLife" }) },
 	["cannot immobilise enemies"] = {
 		flag("CannotElectrocute"),
 		flag("CannotFreeze"),
