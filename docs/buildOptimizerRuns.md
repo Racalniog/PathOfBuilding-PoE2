@@ -16,6 +16,7 @@ How the optimizer works and what it cannot see is described in the [build optimi
 - [Survivability runs](#survivability-runs)
 - [Tankiest builds](#tankiest-builds)
 - [Damage builds with approximations](#damage-builds-with-approximations)
+- [Runs on the full engine](#runs-on-the-full-engine)
 - [Caveats](#caveats)
 
 ## Settings
@@ -535,6 +536,39 @@ Every result is identical to the earlier runs of the same build, to the last dig
 so far only cover defence and recovery, and the new defence mechanics don't change damage. Damage
 approximations, such as Elemental Infusion and Archon uptime, are the next step of the
 [calculation gaps plan](calculationGapsPlan.md).
+
+## Runs on the full engine
+
+The ten best damage builds and four survivability builds, run again after Archon Buff effects,
+Elemental Infusions, charges, ailments, Thorns and the second approximation pass were added
+(commit d53814ae9). Approximations on (1 kill per second), same realistic settings.
+
+| Build | Before (approximations, defence only) | Full engine |
+|---|---:|---:|
+| Blood Mage Hexblast | 164.4M | 164.4M |
+| Blood Mage Comet | 84.1M | 78.0M |
+| Blood Mage Ember Fusillade | 73.1M | 77.4M |
+| Titan Hammer of the Gods | 67.2M | 68.3M |
+| Infernalist Comet | 74.2M | 64.9M |
+| Blood Mage Firestorm | 58.5M | 63.7M |
+| Lich Hexblast | 56.4M | 58.4M |
+| Smith of Kitava Hammer of the Gods | 51.1M | 51.1M |
+| Warbringer Hammer of the Gods | 47.1M | 48.6M |
+| Stormweaver Comet | 47.1M | 35.6M |
+
+| Survivability 50% | Combined DPS | Effective HP |
+|---|---:|---:|
+| Titan Hammer of the Gods | 7.9M | 914,468 |
+| Blood Mage Hexblast | 21.9M | 75,895 |
+| Deadeye Rain of Arrows | 15.2M | 85,212 |
+| Lich Skeletal Sniper | 3.2M | 235,837 |
+
+- **Gains** come from Archon Buffs (25% more spell damage of the element, with an estimated uptime)
+  and the other new mechanics: Ember Fusillade, Firestorm, Lich Hexblast, Titan and Warbringer.
+- **The drops are search variance, not lost damage.** The earlier Comet and Stormweaver builds still
+  calculate to 84.1M, 74.2M and 47.6M on the full engine; the optimizer simply didn't find them again.
+  With more options, its greedy search can end in a weaker local optimum. See the optimizer item in
+  the [calculation gaps plan](calculationGapsPlan.md).
 
 ## Caveats
 

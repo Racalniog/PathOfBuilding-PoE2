@@ -390,6 +390,20 @@ InfusionRemnantBaseDuration) were already in `data.gameConstants`.
 - Check Phase 3 mechanics and calibrate Phase 4 defaults against the game, as described under
   [Validation](#validation).
 
+### Optimizer and performance follow-ups
+
+- **Search variance:** with more mechanics the optimizer's greedy search sometimes ends in a clearly
+  weaker build (Stormweaver Comet 47.6M → 35.6M, Infernalist Comet 74.2M → 64.9M, although the
+  earlier builds still calculate the same). Options: start from known good builds as seeds, several
+  restarts with different first choices, or keep the best result across rounds.
+- **Speed:** one evaluation takes about 2–4 ms of branchy Lua over modifier tables; a GPU port would
+  mean a second engine and isn't worth it. In order: (1) profile an optimizer run to find the hot
+  paths (likely modifier lookups and environment setup), (2) recalculate only what a candidate
+  changes, (3) screen candidates with a fast stand-in model of stat totals (vectorisable, NumPy is
+  enough) and verify the best few with the full calculation, (4) more parallel workers per run.
+- **Recovery in the survivability score:** effective HP is a hit pool; regeneration, leech and
+  recovery on kill still don't count.
+
 ## The approximation model
 
 For effects that depend on events, PoB calculates an **expected value** from a few
