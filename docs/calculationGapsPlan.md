@@ -280,21 +280,29 @@ Progress:
   approximations on** (like the meta skills' Energy, `calcs.triggers` only runs for the player then; off is bit-identical), the granted
   skill triggers at the event rate of the skill it supports in the same group, through PoB's trigger handler (cooldown cap on server
   ticks, breakdowns). Rules, from the support and skill descriptions:
-  - Source: the group's supported skill with the most triggering events per second; never a triggered skill. Chance per event = the
-    support's chance (Fiery Death 60%) x the granted skill's own "triggered by" chance (100%). No supported skill, or one without the
-    event: 0 triggers, with a message.
+  - Source: the group's supported skill with the most triggering events per second; never a triggered skill (a support on a
+    meta-triggered Spell gives 0, with a message). Two supported skills in one group count only the larger event rate, a deliberate
+    choice: PoB calculates one skill used at a time, and a sum would let one cast trigger twice. Chance per event = the support's chance
+    (Fiery Death 60%) x the granted skill's own "triggered by" chance (100%). No supported skill, or one without the event: 0 triggers,
+    with a message.
   - Mana Flare: Critical Hits per second. Coursing Current, Static Shocks: Hits x Shock chance. Fan the Flames I / II, Volcanic Eruption:
     Hits x the share of time the enemy is Ignited (1 with *Is the enemy Ignited?*, else 1 − e^(−Ignites/s × Ignite duration) from the
-    source's own Ignites). Fiery Death: kills per second x that share (its explosion is 10% of the configured enemy's Life, a boss's by
+    source's own Ignites). Fiery Death ("enemies it Ignites"): kills per second x that share, 0 for a source that can't Ignite even
+    with *Is the enemy Ignited?* (its explosion is 10% of the configured enemy's Life, a boss's by
     default, not the pack monster that dies: unchanged). Impending Doom's Doom Blast ("when the Curse expires"): one per Curse
     duration, at most the curse's cast rate.
   - Cooldown: with stored uses (Coursing Current 6, Static Shocks 3, Fan the Flames 5, Doom Blast 7) min(rate, 1 / cooldown); with one
-    stored use (Mana Flare, Volcanic Eruption) PoB's cooldown alignment simulation; without a cooldown (Fiery Death) every event.
+    stored use (Mana Flare, Volcanic Eruption) PoB's cooldown alignment simulation, at most the event rate; without a cooldown (Fiery
+    Death) every event.
+  - Cost: each source skill is one extra calculation per evaluation; three support-triggered skills in Full DPS cost about 30-50% more
+    per evaluation (measured in review). The heap stays flat.
   - The granted skill's damage stays its own skill's DPS (Full DPS adds it when its group is included); the supported skill's Combined
     DPS is unchanged, as for PoB's other triggered skills.
   - Also fixed: the Full DPS result cache reused a meta- or support-triggered skill's result when only its source skill changed (the
-    gem-sorting fast path); those skills are now always recalculated. PoE1's Vixen's Entrapment branch no longer runs for Doom Blast
-    (an error that silently showed the curse instead).
+    gem-sorting fast path); with approximations on those skills are now always recalculated, and the fast path's reused environment
+    gets a fresh override per call, so the source rates cached per evaluation don't outlive one hovered gem. PoE1's Vixen's Entrapment
+    branch no longer runs for Doom Blast (an error that silently showed the curse instead), and PoE1's *Doom Blast Trigger Source*
+    option is gone (it changed nothing in PoE2).
   - Not modelled, with the reason: Elemental Discharge (its damage stats, % of Intelligence, aren't mapped, and the ailments it consumes
     come from other skills), Corrupting Cry I / II, Paquate's Pact, Decaying Hex (damage over time debuffs: PoB treats a debuff as
     applied, so the rate changes nothing), Living Lightning I / II, Skittering Stone I / II (Minions: their count, not the trigger rate,
@@ -519,6 +527,7 @@ InfusionRemnantBaseDuration) were already in `data.gameConstants`.
     does it refresh it (one Doom Blast per duration, the modelled rule)? Does the 1.5 s Curse delay add to the cycle?
   - Mana Flare, Volcanic Eruption (one stored use): is an event during the cooldown lost, as modelled, or queued?
   - Fan the Flames / Volcanic Eruption: do Ignites from other skills count (they do in the model only through *Is the enemy Ignited?*)?
+  - Do Critical Hits of a meta-triggered Spell (Cast on Critical + Fireball + Mana Flare) trigger Mana Flare? The model says no.
 
 ### Optimizer and performance follow-ups
 

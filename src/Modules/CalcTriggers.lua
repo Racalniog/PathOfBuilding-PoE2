@@ -803,6 +803,10 @@ local function defaultTriggerHandler(env, config)
 					output.SkillTriggerRate = output.EffectiveSourceRate
 				else -- Triggers like Cast on Crit go through simulation to calculate the trigger rate of each skill in the trigger group
 					output.SkillTriggerRate, simBreakdown = calcMultiSpellRotationImpact(env, config.triggeredSkillCond and triggeredSkills or {packageSkillDataForSimulation(actor.mainSkill, env)}, output.EffectiveSourceRate, (not actor.mainSkill.skillData.triggeredByBrand and ( triggerCD or triggeredCD ) or 0), triggerChance, actor)
+					if actor.mainSkill.skillData.supportTriggerChance then
+						-- the simulation's 1000 events can count 1001 triggers; one event triggers at most once
+						output.SkillTriggerRate = m_min(output.SkillTriggerRate, output.EffectiveSourceRate)
+					end
 					local triggerBotsEffective = actor.modDB:Flag(nil, "HaveTriggerBots") and actor.mainSkill.skillTypes[SkillType.Spell]
 					if triggerBotsEffective then
 						output.SkillTriggerRate = 2 * output.SkillTriggerRate
@@ -1697,15 +1701,18 @@ local function supportTrigger(env, actor)
 	local srcInstance = mainSkill.activeEffect.srcInstance
 	local supportName = srcInstance and srcInstance.gemData and srcInstance.gemData.name or triggeredName
 	local ignitedConfigured = env.enemyDB:Flag(nil, "Condition:Ignited")
-	local source, rate, lines = nil, 0, { }
+	local source, rate, lines, triggeredSource = nil, 0, { }, nil
 	for _, skill in ipairs(env.player.activeSkillList) do
 		local flags = (env.mode == "CALCS" and skill.activeEffect.statSetCalcs or skill.activeEffect.statSet).skillFlags
 		local chance = skill.skillData[chanceKey]
-		if chance and skill ~= mainSkill and skill.socketGroup == mainSkill.socketGroup and flags and not flags.disable and not isTriggered(skill) then
+		if chance and skill ~= mainSkill and skill.socketGroup == mainSkill.socketGroup and flags and not flags.disable and isTriggered(skill) then
+			triggeredSource = skill
+		elseif chance and skill ~= mainSkill and skill.socketGroup == mainSkill.socketGroup and flags and not flags.disable then
 			local record = cachedSourceRecord(env, skill)
 			if record then
 				local ignited, ignitedText = 1, "the enemy is Ignited"
-				if not ignitedConfigured then
+				-- Fiery Death: "enemies it Ignites", so the configured Ignite only counts for a source that can Ignite
+				if not ignitedConfigured or event.key == "supportTriggerOnIgnitedKill" and record.rates.ignites == 0 then
 					ignited = calcLib.approxUptime(record.rates.ignites, record.igniteDuration)
 					ignitedText = s_format("share of time Ignited, 1 - e^(-%.2f Ignites/s x %.2f s)", record.rates.ignites, record.igniteDuration)
 				end
@@ -1721,12 +1728,15 @@ local function supportTrigger(env, actor)
 			end
 		end
 	end
-	-- no supported skill and a supported skill without the event both trigger 0 times
-	if not source then
+	-- no supported skill and a supported skill without the event both trigger 0 times; a triggered skill is never a source
+	-- ponytail: a meta-triggered Spell's Critical Hits may trigger Mana Flare in the game (plan Phase 6); upgrade path = its trigger rate
+	if not source and triggeredSource then
+		lines = { s_format("%s is triggered: triggers by a triggered skill are not modelled", triggeredSource.activeEffect.grantedEffect.name) }
+	elseif not source then
 		lines = { s_format("No skill in the group is supported by %s", supportName) }
 	end
 	if rate == 0 then
-		mainSkill.infoMessage2 = s_format("No %s to trigger %s: no triggers", event.name, triggeredName)
+		mainSkill.infoMessage2 = not source and triggeredSource and "Supported skill is triggered: no triggers modelled" or s_format("No %s to trigger %s: no triggers", event.name, triggeredName)
 	end
 	-- nothing to align without a cooldown: every event triggers (the simulation would only add rounding)
 	return { source = source or mainSkill, trigRate = rate, triggerName = supportName, sourceRateBreakdown = lines, accumulatingSource = not mainSkill.skillData.cooldown }
