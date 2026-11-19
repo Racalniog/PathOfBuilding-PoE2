@@ -4307,7 +4307,9 @@ end
 -- of its weapon set contexts, items, warnings, and each active skill with its data, flags, conditions and minion.
 -- Checked by TestApproxSecondPass: perform, restore, perform gives the first output again. The databases' parents (the cached base,
 -- configuration and party modifiers) aren't copied: a pass only changes them through ReplaceMod falling through to the parent, which
--- the calculation uses for idempotent caps (Momentum stacks), so the second pass computes the same value again.
+-- the calculation uses for idempotent caps (Momentum stacks), so the second pass computes the same value again. A weapon set context
+-- shares the base parent with its environment (calcs.initEnv), so its ReplaceMod can fall through into that one too; equally
+-- idempotent today (the Impale stack cap is a constant 5), but a ReplaceMod with a pass-dependent value would leak between them.
 -- Approximations on cost a snapshot per calculation, about a fifth of one pass, whether or not a second pass follows.
 function calcs.snapshotEnv(env)
 	local saved = { }
