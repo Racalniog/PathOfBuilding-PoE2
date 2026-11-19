@@ -1083,8 +1083,20 @@ function escapeGGGString(text)
 	return line
 end
 
+-- Radius jewels are hashed again on every calculation; the hash of a given string never changes.
+-- ponytail: when full the whole cache is dropped (4096 jewel texts is a few MB); upgrade path = LRU
+local hashCache, hashCacheCount = { }, 0
 function getHashFromString(string)
-	return common.sha1(string)
+	local hash = hashCache[string]
+	if not hash then
+		if hashCacheCount >= 4096 then
+			hashCache, hashCacheCount = { }, 0
+		end
+		hash = common.sha1(string)
+		hashCache[string] = hash
+		hashCacheCount = hashCacheCount + 1
+	end
+	return hash
 end
 
 -- Returns virtual screen size

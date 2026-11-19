@@ -135,6 +135,8 @@ local function or2(a, b)
 end
 
 local function and2(a, b)
+	-- Almost every mod has no flags, and 0 & x is 0 without the 32-bit splitting below
+	if a == 0 or b == 0 then return 0 end
 	-- Split into high and low 32-bit parts and perform AND operation on both parts
 	local high = bit_band(m_floor(a / 0x100000000), m_floor(b / 0x100000000))
 	local low = bit_band(a % 0x100000000, b % 0x100000000)
@@ -315,6 +317,8 @@ local MatchAllMask = bnot(KeywordFlag.MatchAll)
 ---@param modKeywordFlags number The KeywordFlags stored in the mod.
 ---@return boolean Whether the KeywordFlags in the mod are satisfied.
 function MatchKeywordFlags(keywordFlags, modKeywordFlags)
+	-- A mod without keyword flags matches anything (the general path below gives true for 0 as well)
+	if modKeywordFlags == 0 then return true end
 	-- Cache lookup
 	local matchAll = band(modKeywordFlags, KeywordFlag.MatchAll) ~= 0
 	local modMasked = band(modKeywordFlags, MatchAllMask)

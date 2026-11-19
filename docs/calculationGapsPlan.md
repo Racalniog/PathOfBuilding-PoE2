@@ -447,6 +447,18 @@ InfusionRemnantBaseDuration) were already in `data.gameConstants`.
   paths (likely modifier lookups and environment setup), (2) recalculate only what a candidate
   changes, (3) screen candidates with a fast stand-in model of stat totals (vectorisable, NumPy is
   enough) and verify the best few with the full calculation, (4) more parallel workers per run.
+  Progress on (1): the profile is flat (no function above ~10%), about two thirds of the time runs in
+  JIT-compiled code, and the one big structural cost is that a build with skill groups in both weapon
+  sets runs initEnv twice per evaluation (the other set's context, CalcSetup.lua weaponSetEnv): 27-35%
+  of an evaluation. Done, outputs bit-identical: the default of 100 side traces per root trace
+  (`jit.opt maxside`) ran out in the calculation code, now 5000 (Launch.lua, -8..15%); the radius jewel
+  hash is cached (`getHashFromString`, -6% with radius jewels); zero flags skip the 64-bit splitting in
+  `AND64` / `MatchKeywordFlags` (-2..10%). Together 2.2 / 3.4 / 2.5 ms -> 1.9 / 2.9 / 2.3 ms per
+  evaluation (Blood Mage Hexblast / Titan Hammer of the Gods / Lich Skeletal Sniper, approximations
+  off), 2.3 / 3.7 / 2.7 -> 2.2 / 3.0 / 2.4 with them on. Still open, in order of estimated gain: reuse or
+  share work between the two initEnv passes (up to 25%), a per-candidate stat-total delta instead of
+  rebuilding all node mod lists (`buildModListForNodeList` runs twice per initEnv, 5-20%), the base mod
+  databases for the second pass (3-9%, changes summation order so not bit-identical).
 - **Recovery in the survivability score:** effective HP is a hit pool; regeneration, leech and
   recovery on kill still don't count.
 
