@@ -4235,7 +4235,8 @@ function calcs.snapshotEnv(env)
 		for name, list in pairs(db.mods) do
 			mods[name] = copyTable(list, true)
 		end
-		t_insert(saved, { db.mods, mods })
+		-- the lists are copied again on every restore, so a snapshot can be restored more than once
+		t_insert(saved, { db.mods, mods, lists = true })
 		keep(db.conditions)
 		keep(db.multipliers)
 	end
@@ -4266,7 +4267,7 @@ function calcs.snapshotEnv(env)
 		for _, entry in ipairs(saved) do
 			local t = wipeTable(entry[1])
 			for k, v in pairs(entry[2]) do
-				t[k] = v
+				t[k] = entry.lists and copyTable(v, true) or v
 			end
 		end
 	end

@@ -88,6 +88,16 @@ describe("TestApproxSecondPass", function()
 			end
 		end
 		assert.is_true(count > 500)
+		-- a snapshot can be restored more than once (Full DPS restores it before every skill)
+		restore()
+		calcs.perform(env)
+		restore()
+		calcs.perform(env)
+		for key, value in pairs(first) do
+			if type(value) ~= "table" then
+				assert.are.equals(value, env.player.output[key])
+			end
+		end
 		-- with approximations on the second pass sees the same items
 		local on = setup(nil, "20% chance to gain a Power Charge on Hit", { useApproximations = true })
 		assert.is_true(on.ApproxSecondPass)
