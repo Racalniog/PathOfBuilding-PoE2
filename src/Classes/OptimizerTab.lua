@@ -121,6 +121,9 @@ function OptimizerTabClass:OptimizerTab(build)
 	self.controls.treeWidth = new("DropDownControl"):DropDownControl({ "TOPLEFT", search, "TOPLEFT" }, { 120, 144, 80, 20 }, { "1", "2", "3", "4" },
 		nil, "Number of differently-minded passive trees that are built and compared. Each one adds to the run time.")
 	self.controls.treeWidth:SetSel(4)
+	self.controls.restartsLabel = new("LabelControl"):LabelControl({ "TOPLEFT", search, "TOPLEFT" }, { 212, 146, 0, 16 }, "^7Restarts:")
+	self.controls.restarts = new("EditControl"):EditControl({ "TOPLEFT", search, "TOPLEFT" }, { 270, 144, 70, 20 }, "1", nil, "%D", 1)
+	self.controls.restarts.tooltipText = "Runs the whole search this many times, each with a different order of steps and tree variants, and keeps the best build. 1 runs it once. Each restart multiplies the run time."
 	self.controls.survivabilityLabel = label(search, 170, "Survivability:")
 	self.controls.survivability = new("SliderControl"):SliderControl({ "TOPLEFT", search, "TOPLEFT" }, { 120, 172, 160, 16 })
 	self.controls.survivabilityValue = new("LabelControl"):LabelControl({ "LEFT", self.controls.survivability, "RIGHT" }, { 8, 0, 0, 16 }, function()
@@ -297,7 +300,7 @@ function OptimizerTabClass:ApplySettings(settings)
 		self.controls.ascendancy:SelByValue(settings.ascendancy, "name")
 	end
 	self.controls.skill:SelByValue(settings.skill)
-	for _, key in ipairs({ "level", "points", "itemLevel", "supports", "rounds" }) do
+	for _, key in ipairs({ "level", "points", "itemLevel", "supports", "rounds", "restarts" }) do
 		self.controls[key]:SetText(settings[key])
 	end
 	self.controls.metric:SelByValue(settings.metric)
@@ -341,6 +344,7 @@ function OptimizerTabClass:Launch()
 	local options = {
 		points = num(self.controls.points, 0, 200),
 		rounds = num(self.controls.rounds, 1, 9),
+		restarts = num(self.controls.restarts, 1, 9),
 		affixRoll = self.controls.roll.val,
 		survivability = self.controls.survivability.val,
 		itemLevel = num(self.controls.itemLevel, 1, 100),
@@ -367,7 +371,7 @@ function OptimizerTabClass:Launch()
 		class = class.label, ascendancy = setup.ascendancy, skill = skill, metric = options.metric,
 		roll = self.controls.roll.val, survivability = options.survivability, treeWidth = options.treeWidth, checks = { },
 	}
-	for _, key in ipairs({ "level", "points", "itemLevel", "supports", "rounds" }) do
+	for _, key in ipairs({ "level", "points", "itemLevel", "supports", "rounds", "restarts" }) do
 		lastSettings[key] = self.controls[key].buf
 	end
 	for key, check in pairs(self.checks) do

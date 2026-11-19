@@ -270,7 +270,7 @@ local function findActiveSkillInEnv(env, sourceSkill)
 end
 
 function calcs.calcFullDPS(build, mode, override, specEnv)
-	local fullEnv, cachedPlayerDB, cachedEnemyDB, cachedMinionDB = calcs.initEnv(build, mode, override, specEnv)
+	local fullEnv = calcs.initEnv(build, mode, override, specEnv)
 	local usedEnv = nil
 	-- Optional per-skill result cache driven by input diffing (specEnv.fullDPSCache):
 	-- with capture set, each skill's harvested results are stored in the cache store along
@@ -311,6 +311,9 @@ function calcs.calcFullDPS(build, mode, override, specEnv)
 	local sources = { }
 	local initialWeaponSet = fullEnv.weaponSet
 	local initialActiveSkillList = fullEnv.player.activeSkillList
+	-- Restores fullEnv to its state before the skill being calculated, which is its state after initEnv (set when a later skill
+	-- needs it; see the end of the loop). A snapshot restores once, so it is taken again before every skill.
+	local restoreFullEnv
 
 	for activeSkillIndex, sourceSkill in ipairs(initialActiveSkillList) do
 		local activeSkill = sourceSkill
@@ -352,6 +355,17 @@ function calcs.calcFullDPS(build, mode, override, specEnv)
 					for i, mod in ipairs(activeSkill.baseSkillModList) do
 						ownRef[i] = mod
 					end
+				end
+				local nextSkill
+				for nextIndex = activeSkillIndex + 1, #initialActiveSkillList do
+					local candidate = initialActiveSkillList[nextIndex]
+					if candidate.socketGroup and candidate.socketGroup.includeInFullDPS then
+						nextSkill = candidate
+						break
+					end
+				end
+				if nextSkill and skillEnv == fullEnv and not fullEnv.weaponSetEnvs then
+					restoreFullEnv = calcs.snapshotEnv(fullEnv)
 				end
 				skillEnv.player.mainSkill = activeSkill
 				skillEnv.override = override -- for calcs.buildActiveSkill during perform (Thorns hits, buff rates)
@@ -412,28 +426,17 @@ function calcs.calcFullDPS(build, mode, override, specEnv)
 					cacheStore.refs[uuid] = ownRef
 				end
 
-				local nextSkill
-				for nextIndex = activeSkillIndex + 1, #initialActiveSkillList do
-					local candidate = initialActiveSkillList[nextIndex]
-					if candidate.socketGroup and candidate.socketGroup.includeInFullDPS then
-						nextSkill = candidate
-						break
-					end
-				end
 				if nextSkill then
 					if fullEnv.weaponSetEnvs or nextSkill.socketGroup.usingSkillSet ~= fullEnv.weaponSet then
 						-- Per-set databases cannot be reused across a set transition, and paired
 						-- environments share auxiliary skill objects mutated by perform().
-						fullEnv, cachedPlayerDB, cachedEnemyDB, cachedMinionDB = calcs.initEnv(build, mode, getSocketGroupOverride(build, override, nextSkill.socketGroup))
-					else
-						local accelerationTbl = {
-							nodeAlloc = true,
-							requirementsItems = true,
-							requirementsGems = true,
-							skills = true,
-							everything = true,
-						}
-						fullEnv, _, _, _ = calcs.initEnv(build, mode, override, { cachedPlayerDB = cachedPlayerDB, cachedEnemyDB = cachedEnemyDB, cachedMinionDB = cachedMinionDB, env = fullEnv, accelerate = accelerationTbl })
+						fullEnv = calcs.initEnv(build, mode, getSocketGroupOverride(build, override, nextSkill.socketGroup))
+						restoreFullEnv = nil
+					elseif restoreFullEnv then
+						-- Back to the state after initEnv, including what initEnv wrote straight into the modDB (item Spirit, charm
+						-- limit, The Adorned, group properties, Hollow Palm): an accelerated initEnv wipes those and doesn't redo them.
+						-- (restoreFullEnv is stale or unset only while fullEnv is untouched: the skills since ran in a separate environment.)
+						restoreFullEnv()
 					end
 				end
 			end

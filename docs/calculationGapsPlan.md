@@ -403,9 +403,11 @@ Progress:
     evaluation on the Lightning Arrow test build), and a build that needs the second pass takes about 1.6× (4.5 ms).
   - A first version re-initialised the environment with an accelerated `initEnv` instead; that drops what `initEnv` writes
     straight into the modifier database in the skipped steps (item Spirit, charm slots, The Adorned multipliers, group properties,
-    Hollow Palm, node counts from the optimizer's added nodes). Known pre-existing issue: `calcFullDPS` reuses an environment
-    between skills that way (`Calcs.lua`, the accelerated `initEnv` before the next skill), so the Full DPS of the second and later
-    skills of one weapon set can miss those values; upgrade path = restore a `calcs.snapshotEnv` there instead.
+    Hollow Palm, node counts from the optimizer's added nodes). `calcFullDPS` used to reuse an environment between skills that
+    way, so the Full DPS of the second and later skills of one weapon set missed those values (item Spirit, for one). Fixed:
+    it takes a `calcs.snapshotEnv` of the environment before each skill and restores it before the next one of the same weapon
+    set (paired weapon-set environments and a change of set still get a full `initEnv`). A snapshot restores once, hence one
+    per skill; TestFullDPSCache checks every skill's Full DPS against its own main calculation, with item Spirit.
   - Still report-only: the infused share of casts (no infused skill variants), Ignite / Shock spread pack values (by design).
 
 ### Phase 5: Exporter extensions (as needed)
@@ -429,8 +431,12 @@ InfusionRemnantBaseDuration) were already in `data.gameConstants`.
 
 - **Search variance:** with more mechanics the optimizer's greedy search sometimes ends in a clearly
   weaker build (Stormweaver Comet 47.6M → 35.6M, Infernalist Comet 74.2M → 64.9M, although the
-  earlier builds still calculate the same). Options: start from known good builds as seeds, several
-  restarts with different first choices, or keep the best result across rounds.
+  earlier builds still calculate the same). Done: a round that makes the build worse is undone
+  (the best build after each round is kept), and `--restarts n` / *Restarts* runs the whole search
+  n times, each time with another order (the tree before the equipment on every second run) and
+  tree exponents scaled by 1 - 0.05 per run, and keeps the best; the run time grows with n.
+  Still open: seeding the search from a known good build, and making ties in the search
+  deterministic (reruns of one setup differ because some steps iterate tables in memory order).
 - **Speed:** one evaluation takes about 2–4 ms of branchy Lua over modifier tables; a GPU port would
   mean a second engine and isn't worth it. In order: (1) profile an optimizer run to find the hot
   paths (likely modifier lookups and environment setup), (2) recalculate only what a candidate

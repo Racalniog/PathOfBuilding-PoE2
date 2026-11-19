@@ -67,7 +67,8 @@ Every setting of the Optimizer tab has a command-line equivalent (see [Command l
 | Roll quality | `--roll <0..1>` | Roll of crafted affixes and unique modifiers; 100% / `1` is a perfect roll, 50% / `0.5` an average one |
 | Max affix level | `--item-level` | Highest affix tier level that may be crafted (default 82) |
 | Support gems | `--supports` | Number of supports linked to the skill (default 5) |
-| Rounds | `--rounds` | Passes over the whole search (default 2); later rounds let earlier choices react to later ones |
+| Rounds | `--rounds` | Passes over the whole search (default 2); later rounds let earlier choices react to later ones. A round that makes the build worse is undone |
+| Restarts | `--restarts <n>` | Runs the whole search n times (default 1) and keeps the best build. Every run after the first takes another path: odd runs build the passive tree before the equipment, and each scales the tree variants' travel appetite by 5% more. The run time grows with n |
 | Tree variants | `--tree-width <1-4>` | Number of differently-minded passive trees that are built and compared (default 4) |
 | Unique items | `--no-uniques` (off) | Also make the build with unique items allowed |
 | Lineage supports | `--no-lineage` (off) | Allow lineage support gems |

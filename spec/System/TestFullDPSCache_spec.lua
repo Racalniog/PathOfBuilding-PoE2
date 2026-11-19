@@ -154,6 +154,37 @@ describe("TestFullDPSCache", function()
 		end
 	end)
 
+	it("calculates every skill with what the first initEnv wrote into the modDB (item Spirit)", function()
+		-- Spirit from the sceptre is written straight into env.modDB by initEnv; re-initialising between skills with the
+		-- accelerated initEnv loses it, and the Spirit-scaled damage of the later skills with it
+		build.itemsTab:CreateDisplayItemFromRaw("New Item\nRattling Sceptre\n")
+		build.itemsTab:AddDisplayItem()
+		build.configTab.input.customMods = "50% increased Damage per 10 Spirit"
+		build.configTab:BuildModList()
+		buildTwoGroups()
+		build.skillsTab:PasteSocketGroup("Frost Bomb 20/0  1")
+		runCallback("OnFrame")
+		local third = build.skillsTab.socketGroupList[3]
+		third.mainActiveSkill = 1
+		third.includeInFullDPS = true
+		build.buildFlag = true
+		runCallback("OnFrame")
+		assert.is_true(build.calcsTab.mainOutput.Spirit > 0)
+		local fullDPS = runFullDPS(nil)
+		local perSkill = { }
+		for _, entry in ipairs(fullDPS.skills) do
+			perSkill[entry.name] = entry
+		end
+		for index, name in ipairs({ "Spark", "Fireball", "Frost Bomb" }) do
+			build.mainSocketGroup = index
+			build.buildFlag = true
+			runCallback("OnFrame")
+			local output = build.calcsTab.mainOutput
+			assert.is_true(perSkill[name] ~= nil, name .. " missing from Full DPS")
+			assertClose(output.TotalDPS * perSkill[name].count, perSkill[name].dps, name .. " Full DPS vs its main calculation")
+		end
+	end)
+
 	it("a stale cache is not reused after the build changes when recaptured", function()
 		local sparkGroup, fireballGroup = buildTwoGroups()
 		local gemData = findGem("Controlled Destruction")
