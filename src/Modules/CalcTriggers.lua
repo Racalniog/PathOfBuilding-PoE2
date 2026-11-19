@@ -691,7 +691,8 @@ local function defaultTriggerHandler(env, config)
 				end
 			end
 
-			if env.player.mainSkill.activeEffect.grantedEffect.name == "Doom Blast" and env.build.configTab.input["doomBlastSource"] == "vixen" then
+			-- (PoE1's Vixen's Entrapment; PoE2's data has no such skill, and Impending Doom's Doom Blast goes through supportTrigger)
+			if env.player.mainSkill.activeEffect.grantedEffect.name == "Doom Blast" and env.build.configTab.input["doomBlastSource"] == "vixen" and env.data.skills["SupportUniqueCastCurseOnCurse"] then
 				if not env.player.itemList["Gloves"] or env.player.itemList["Gloves"].title ~= "Vixen's Entrapment" then
 					output.VixenModeNoVixenGlovesWarn = true
 				end
@@ -1462,10 +1463,55 @@ end
 -- known Ailment Threshold, counting hits per trigger (plan Phase 6). Also assumptions: base (unmodified) cast time, Power 2 of
 -- magic monsters not selectable, the average instead of the rounded-up number of events per trigger.
 -- ponytail: each candidate source skill is a full calculation; one evaluation (its passes and its Full DPS pass share the override
--- table) calculates them once (energySources); upgrade path = reuse the Full DPS pass's own result for a source skill.
+-- table) calculates them once (cachedSourceRecord); upgrade path = reuse the Full DPS pass's own result for a source skill.
 -- Not modelled (no event rate): Freeze, Stun, Dodge Roll, Charm use, Minion death, Energy Shield damage taken, mana spent.
 local energyEvents = { "energyOnCrit", "energyOnShock", "energyOnIgnite", "energyOnMeleeHit", "energyPer10msCastTime", "energyOnMeleeKill", "energyOnBlock" }
-local energySources = setmetatable({ }, { __mode = "k" })
+
+-- What a trigger needs from a source skill's calculation, as plain numbers: the cache is weak-keyed by the override table, which
+-- the calculation's environment references (a value referring to its key would keep the entry alive)
+local function sourceRecord(cached)
+	local output = cached.Env.player.output
+	local passOutput, critAverage = output.MainHand or output, 0
+	for _, damageType in ipairs({ "Physical", "Lightning", "Cold", "Fire", "Chaos" }) do
+		critAverage = critAverage + (passOutput[damageType .. "CritAverage"] or 0)
+	end
+	-- percentage of the enemy's Ailment Threshold a hit of this size deals
+	local threshold = output.EnemyAilmentThreshold or 0
+	local function percent(damage)
+		return threshold > 0 and 100 * damage / threshold or 0
+	end
+	return {
+		name = cached.ActiveSkill.activeEffect.grantedEffect.name,
+		rates = calcs.approxRates(cached.Env, output),
+		speed = cached.Speed or 0,
+		hitSpeed = cached.HitSpeed or cached.Speed,
+		castTime = cached.ActiveSkill.activeEffect.grantedEffect.castTime or 0,
+		shockChance = m_min(output.ShockChance or 0, 100),
+		igniteDuration = output.IgniteDuration or 0,
+		duration = output.Duration or 0,
+		critPercent = percent(critAverage),
+		hitPercent = percent(output.AverageHit or 0),
+		ignitePercent = percent((output.IgniteDPS or 0) * (output.IgniteDuration or 0)),
+	}
+end
+-- A source skill's record, calculated once per evaluation: its passes and its Full DPS pass share the override table
+local sourceRecords = setmetatable({ }, { __mode = "k" })
+local function cachedSourceRecord(env, skill)
+	local evaluation = env.override or env
+	local cache = sourceRecords[evaluation] or { }
+	sourceRecords[evaluation] = cache
+	local uuid = cacheSkillUUID(skill, env)
+	local key = uuid .. env.mode
+	if cache[key] == nil then
+		if not GlobalCache.cachedData[env.mode][uuid] or env.mode == "CALCULATOR" then
+			calcs.buildActiveSkill(env, env.mode, skill, uuid)
+		end
+		local cached = GlobalCache.cachedData[env.mode][uuid]
+		cache[key] = cached and cached.Env and (cached.HitSpeed or cached.Speed) and sourceRecord(cached) or false
+	end
+	return cache[key] or nil
+end
+
 local function metaEnergyTrigger(env, actor)
 	local mainSkill = actor.mainSkill
 	local meta
@@ -1513,57 +1559,20 @@ local function metaEnergyTrigger(env, actor)
 		end
 		return list
 	end
-	-- what the Energy needs from a source skill's calculation, as plain numbers: the cache is weak-keyed by the override table, which
-	-- the calculation's environment references (a value referring to its key would keep the entry alive)
-	local function sourceRecord(cached)
-		local output = cached.Env.player.output
-		local passOutput, critAverage = output.MainHand or output, 0
-		for _, damageType in ipairs({ "Physical", "Lightning", "Cold", "Fire", "Chaos" }) do
-			critAverage = critAverage + (passOutput[damageType .. "CritAverage"] or 0)
-		end
-		-- percentage of the enemy's Ailment Threshold a hit of this size deals
-		local threshold = output.EnemyAilmentThreshold or 0
-		local function percent(damage)
-			return threshold > 0 and 100 * damage / threshold or 0
-		end
-		return {
-			name = cached.ActiveSkill.activeEffect.grantedEffect.name,
-			rates = calcs.approxRates(cached.Env, output),
-			speed = cached.Speed or 0,
-			castTime = cached.ActiveSkill.activeEffect.grantedEffect.castTime or 0,
-			shockChance = m_min(output.ShockChance or 0, 100),
-			critPercent = percent(critAverage),
-			hitPercent = percent(output.AverageHit or 0),
-			ignitePercent = percent((output.IgniteDPS or 0) * (output.IgniteDuration or 0)),
-		}
-	end
 	-- the candidate with the highest hit (or use) rate, Full DPS skills first
 	local function eventSource(name, cond)
-		local evaluation = env.override or env
-		local cache = energySources[evaluation] or { }
-		energySources[evaluation] = cache
-		local key = name .. tostring(env.weaponSet)
-		if cache[key] == nil then
-			local best, bestRate
-			for _, fullDPSOnly in ipairs({ true, false }) do
-				for _, skill in ipairs(candidates(cond, fullDPSOnly)) do
-					local uuid = cacheSkillUUID(skill, env)
-					if not GlobalCache.cachedData[env.mode][uuid] or env.mode == "CALCULATOR" then
-						calcs.buildActiveSkill(env, env.mode, skill, uuid)
-					end
-					local cached = GlobalCache.cachedData[env.mode][uuid]
-					local rate = cached and cached.Env and (cached.HitSpeed or cached.Speed)
-					if rate and (not bestRate or rate > bestRate) then
-						best, bestRate = cached, rate
-					end
-				end
-				if best then
-					break
+		for _, fullDPSOnly in ipairs({ true, false }) do
+			local best
+			for _, skill in ipairs(candidates(cond, fullDPSOnly)) do
+				local record = cachedSourceRecord(env, skill)
+				if record and (not best or record.hitSpeed > best.hitSpeed) then
+					best = record
 				end
 			end
-			cache[key] = best and sourceRecord(best) or false
+			if best then
+				return best
+			end
 		end
-		return cache[key] or nil
 	end
 	local function hits(skill, flags) return flags.hit end
 	local function meleeHits(skill, flags) return flags.hit and skill.skillTypes[SkillType.Melee] and skill.skillTypes[SkillType.Attack] end
@@ -1636,6 +1645,93 @@ local function metaEnergyTrigger(env, actor)
 	return { source = meta, trigRate = rate, triggerName = metaName, sourceRateBreakdown = lines, accumulatingSource = true }
 end
 
+-- Supports that grant a skill of their own and trigger it on an event of the skill they support in the same group. Like the meta
+-- skills' Energy, CalcPerform only calls this with Use approximations on; off, PoB keeps the granted skill's self-cast rate. Rules,
+-- from the support and skill descriptions:
+-- * The source is the supported skill of the group (it carries "triggerChance:<granted skill>", SkillStatMap.lua) with the most
+--   triggering events per second, never a triggered skill. Chance per event = the support's chance (Fiery Death 60%, others 100%)
+--   x the granted skill's own "triggered by" chance (100%).
+-- * Mana Flare: the source's Critical Hits per second. Coursing Current, Static Shocks: its Hits x Shock chance.
+--   Fan the Flames I / II, Volcanic Eruption: its Hits x the share of time the enemy is Ignited: 1 with "Is the enemy Ignited?",
+--   else 1 - e^(-Ignites/s x Ignite duration) from the source's own Ignites (calcLib.approxUptime).
+--   Fiery Death: kills per second x that share. Impending Doom's Doom Blast ("when the Curse expires"): one per Curse duration,
+--   at most the curse's cast rate.
+-- * The granted skill's cooldown caps the rate (defaultTriggerHandler: server ticks; with stored uses min(rate, 1 / cooldown), with
+--   one use the cooldown alignment simulation); without a cooldown each event triggers.
+-- ponytail: Critical Hits and Shocks are random, the simulation spaces them evenly; Hits on the one target PoB calculates, all kills
+-- by the supported skill, Ignites only from the source itself, and a Curse recast as it expires (its delay ignored); upgrade path =
+-- the in-game checks of plan Phase 6.
+local supportTriggerEvents = {
+	{ key = "supportTriggerOnCrit", name = "Critical Hits", rate = function(env, source)
+		return source.rates.crits, s_format("%.2f ^8(Critical Hits per second of %s)", source.rates.crits, source.name)
+	end },
+	{ key = "supportTriggerOnShock", name = "Shocks", rate = function(env, source)
+		return source.rates.hits * source.shockChance / 100, s_format("%.2f x %.2f%% ^8(Hits per second x Shock chance of %s)", source.rates.hits, source.shockChance, source.name)
+	end },
+	{ key = "supportTriggerOnHitVsIgnited", name = "Hits against Ignited enemies", rate = function(env, source, ignited, ignitedText)
+		return source.rates.hits * ignited, s_format("%.2f x %.3f ^8(Hits per second of %s x %s)", source.rates.hits, ignited, source.name, ignitedText)
+	end },
+	{ key = "supportTriggerOnIgnitedKill", name = "Ignited enemies dying", rate = function(env, source, ignited, ignitedText)
+		local kills = env.player.modDB:GetMultiplier("ApproxKillsPerSecond")
+		return kills * ignited, s_format("%.2f x %.3f ^8(kills per second x %s)", kills, ignited, ignitedText)
+	end },
+	{ key = "supportTriggerOnCurseExpiry", name = "Curse expiries", rate = function(env, source)
+		local rate = m_min(source.speed, source.duration > 0 and 1 / source.duration or 0)
+		return rate, s_format("min(%.2f, 1 / %.2f) ^8(cast rate of %s, once per Curse duration)", source.speed, source.duration, source.name)
+	end },
+}
+local function supportTrigger(env, actor)
+	local mainSkill = actor.mainSkill
+	local event
+	for _, rule in ipairs(supportTriggerEvents) do
+		if mainSkill.skillData[rule.key] then
+			event = rule
+			break
+		end
+	end
+	if not event then
+		return
+	end
+	local triggeredName = mainSkill.activeEffect.grantedEffect.name
+	local chanceKey = "triggerChance:" .. triggeredName
+	local srcInstance = mainSkill.activeEffect.srcInstance
+	local supportName = srcInstance and srcInstance.gemData and srcInstance.gemData.name or triggeredName
+	local ignitedConfigured = env.enemyDB:Flag(nil, "Condition:Ignited")
+	local source, rate, lines = nil, 0, { }
+	for _, skill in ipairs(env.player.activeSkillList) do
+		local flags = (env.mode == "CALCS" and skill.activeEffect.statSetCalcs or skill.activeEffect.statSet).skillFlags
+		local chance = skill.skillData[chanceKey]
+		if chance and skill ~= mainSkill and skill.socketGroup == mainSkill.socketGroup and flags and not flags.disable and not isTriggered(skill) then
+			local record = cachedSourceRecord(env, skill)
+			if record then
+				local ignited, ignitedText = 1, "the enemy is Ignited"
+				if not ignitedConfigured then
+					ignited = calcLib.approxUptime(record.rates.ignites, record.igniteDuration)
+					ignitedText = s_format("share of time Ignited, 1 - e^(-%.2f Ignites/s x %.2f s)", record.rates.ignites, record.igniteDuration)
+				end
+				local events, line = event.rate(env, record, ignited, ignitedText)
+				chance = m_min(chance * (mainSkill.skillData.supportTriggerChance or 100) / 100, 100)
+				if not source or events * chance / 100 > rate then
+					source, rate = skill, events * chance / 100
+					lines = { line }
+					if chance < 100 then
+						t_insert(lines, s_format("x %d%% ^8(chance to trigger %s)", chance, triggeredName))
+					end
+				end
+			end
+		end
+	end
+	-- no supported skill and a supported skill without the event both trigger 0 times
+	if not source then
+		lines = { s_format("No skill in the group is supported by %s", supportName) }
+	end
+	if rate == 0 then
+		mainSkill.infoMessage2 = s_format("No %s to trigger %s: no triggers", event.name, triggeredName)
+	end
+	-- nothing to align without a cooldown: every event triggers (the simulation would only add rounding)
+	return { source = source or mainSkill, trigRate = rate, triggerName = supportName, sourceRateBreakdown = lines, accumulatingSource = not mainSkill.skillData.cooldown }
+end
+
 function calcs.triggers(env, actor)
 	local skillFlags
 	if env.mode == "CALCS" then
@@ -1653,10 +1749,10 @@ function calcs.triggers(env, actor)
 		local uniqueNameLower = uniqueName and uniqueName:lower()
 		local config
 		if actor == env.player then
-			-- PoE2: CalcPerform calls this for the player only for Spells triggered by a meta skill's Energy
-			-- (the handlers use activeSkill.skillFlags, which PoE2 keeps per stat set)
+			-- PoE2: CalcPerform calls this for the player only for Spells triggered by a meta skill's Energy and skills a support grants
+			-- and triggers (the handlers use activeSkill.skillFlags, which PoE2 keeps per stat set)
 			actor.mainSkill.skillFlags = actor.mainSkill.skillFlags or skillFlags
-			config = metaEnergyTrigger(env, actor)
+			config = actor.mainSkill.skillData.supportTriggerChance and supportTrigger(env, actor) or metaEnergyTrigger(env, actor)
 		else
 			config = skillNameLower and configTable[skillNameLower] and configTable[skillNameLower](env)
 			config = config or triggerNameLower and configTable[triggerNameLower] and configTable[triggerNameLower](env)

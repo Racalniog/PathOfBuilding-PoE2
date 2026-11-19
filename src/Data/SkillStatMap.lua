@@ -220,6 +220,58 @@ return function(mod, flag, skill)
 	-- only when triggered: a meta-triggered Spell PoB calculates as self-cast (approximations off) keeps its damage
 	mod("Damage", "MORE", nil, 0, 0, { type = "Condition", var = "SkillIsTriggered" }),
 },
+-- Supports that grant a skill and trigger it on an event of the skill they support (CalcTriggers.lua, supportTrigger), only with
+-- Use approximations on. The granted skill's own "triggered by" chance names the event; the support's chance goes on the supported
+-- skill under "triggerChance:<granted skill's name>", which also marks it as the event source.
+["triggered_by_mana_flare_support_%"] = {
+	skill("supportTriggerChance", nil),
+	skill("supportTriggerOnCrit", nil),
+},
+["triggered_by_deadly_current_support"] = {
+	skill("supportTriggerChance", nil),
+	skill("supportTriggerOnShock", nil),
+	value = 100,
+},
+["triggered_by_grounding_shocks_support_on_shock_%"] = {
+	skill("supportTriggerChance", nil),
+	skill("supportTriggerOnShock", nil),
+},
+["triggered_by_support_fan_the_flames_%"] = {
+	skill("supportTriggerChance", nil),
+	skill("supportTriggerOnHitVsIgnited", nil),
+},
+["chance_to_trigger_volcanic_eruption"] = {
+	skill("supportTriggerChance", nil),
+	skill("supportTriggerOnHitVsIgnited", nil),
+},
+["triggered_by_fiery_death_support_%"] = {
+	skill("supportTriggerChance", nil),
+	skill("supportTriggerOnIgnitedKill", nil),
+},
+["support_trigger_mana_flare_on_crit"] = {
+	skill("triggerChance:Mana Flare", nil),
+	value = 100,
+},
+["support_%_chance_to_trigger_deadly_current_on_shock"] = {
+	skill("triggerChance:Coursing Current", nil),
+},
+["grounding_shocks_chance_%_to_create_orb_on_shocking_enemy"] = {
+	skill("triggerChance:Static Shocks", nil),
+},
+["support_fan_the_flames_trigger_explosion_on_hit_vs_ignited_enemies"] = {
+	skill("triggerChance:Fan the Flames", nil),
+	value = 100,
+},
+["support_volcanic_eruption_%_chance_to_trigger_vs_ignited_enemies"] = {
+	skill("triggerChance:Volcanic Eruption", nil),
+},
+["chance_to_trigger_fiery_death_on_ignited_enemy_death_%"] = {
+	skill("triggerChance:Fiery Death", nil),
+},
+["trigger_vicious_hex_explosion_when_curse_ends"] = {
+	skill("triggerChance:Doom Blast", nil),
+	value = 100,
+},
 ["cast_on_crit_gain_X_centienergy_per_monster_power_on_crit"] = {
 	skill("energyOnCrit", nil),
 	div = 100,
@@ -2854,6 +2906,10 @@ return function(mod, flag, skill)
 },
 ["triggered_vicious_hex_explosion"] = {
 	skill("triggeredWhenHexEnds", nil, { type = "SkillType", skillType = SkillType.Triggerable }, { type = "SkillType", skillType = SkillType.Spell }),
+	-- Impending Doom's Doom Blast (CalcTriggers.lua, supportTrigger)
+	skill("supportTriggerChance", nil),
+	skill("supportTriggerOnCurseExpiry", nil),
+	value = 100,
 },
 -- Aura
 ["non_curse_aura_effect_+%"] = {

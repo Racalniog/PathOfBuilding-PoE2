@@ -329,7 +329,8 @@ function calcs.calcFullDPS(build, mode, override, specEnv)
 			end
 			activeSkill = findActiveSkillInEnv(skillEnv, sourceSkill) or activeSkill
 			local uuid = cacheStore and cacheSkillUUID(activeSkill, skillEnv)
-			local canCacheSkill = not crossSetSkill and not (activeSkill.triggeredBy or activeSkill.skillData.triggered)
+			-- (a meta- or support-triggered skill's rate comes from another skill's calculation, outside its own mod list)
+			local canCacheSkill = not crossSetSkill and not (activeSkill.triggeredBy or activeSkill.skillData.triggered or activeSkill.skillData.triggeredByMeta or activeSkill.skillData.supportTriggerChance)
 			local cachedPasses
 			if canCacheSkill and surfaceSame and activeSkill.baseSkillModList then
 				local ref = cacheStore.refs[uuid]
