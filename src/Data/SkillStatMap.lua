@@ -217,7 +217,8 @@ return function(mod, flag, skill)
 	mod("EnergyRefundChance", "BASE", nil),
 },
 ["trigger_meta_gem_damage_+%_final"] = {
-	mod("Damage", "MORE", nil),
+	-- only when triggered: a meta-triggered Spell PoB calculates as self-cast (approximations off) keeps its damage
+	mod("Damage", "MORE", nil, 0, 0, { type = "Condition", var = "SkillIsTriggered" }),
 },
 ["cast_on_crit_gain_X_centienergy_per_monster_power_on_crit"] = {
 	skill("energyOnCrit", nil),

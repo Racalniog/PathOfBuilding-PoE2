@@ -4076,8 +4076,8 @@ local function performPass(env, skipEHP)
 
 	-- TURNING OFF CALC TRIGGERS AND MIRAGES FOR TIME BEING
 	--calcs.triggers(env, env.player)
-	-- except for Spells triggered by a PoE2 meta skill's Energy (CalcTriggers.lua, metaEnergyTrigger)
-	if env.player.mainSkill.skillData.triggeredByMeta then
+	-- except for Spells triggered by a PoE2 meta skill's Energy, an approximation (CalcTriggers.lua, metaEnergyTrigger)
+	if env.player.mainSkill.skillData.triggeredByMeta and env.player.modDB:Flag(nil, "Condition:UseApproximations") then
 		calcs.triggers(env, env.player)
 	end
 	--if not calcs.mirages(env) then

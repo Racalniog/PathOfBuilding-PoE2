@@ -81,9 +81,7 @@ local function findTriggerSkill(env, skill, source, triggerRate, comparer)
 		calcs.buildActiveSkill(env, env.mode, skill, uuid)
 	end
 
-	-- PoE2 keeps the flags per stat set
-	local skillFlags = skill.skillFlags or (env.mode == "CALCS" and skill.activeEffect.statSetCalcs or skill.activeEffect.statSet).skillFlags
-	if GlobalCache.cachedData[env.mode][uuid] and comparer(env, uuid, source, triggerRate) and (skillFlags and not skillFlags.disable) and (skill.skillCfg and not skill.skillCfg.skillCond["usedByMirage"]) and not skill.skillTypes[SkillType.OtherThingUsesSkill] then
+	if GlobalCache.cachedData[env.mode][uuid] and comparer(env, uuid, source, triggerRate) and (skill.skillFlags and not skill.skillFlags.disable) and (skill.skillCfg and not skill.skillCfg.skillCond["usedByMirage"]) and not skill.skillTypes[SkillType.OtherThingUsesSkill] then
 		return skill, GlobalCache.cachedData[env.mode][uuid].HitSpeed or GlobalCache.cachedData[env.mode][uuid].Speed, uuid
 	end
 	return source, triggerRate, source and cacheSkillUUID(source, env)
@@ -1443,39 +1441,49 @@ local function getUniqueItemTriggerName(skill)
 end
 
 -- PoE2 meta skills (Cast on Critical, Cast on Elemental Ailment, the Invocations, ...) gain Energy from events and trigger the Spells
--- socketed in them. Rules, from the skill and stat descriptions:
--- * A trigger needs the Energy of all socketed Spells together: 1 per 10 ms of each Spell's cast time
+-- socketed in them. An approximation: CalcPerform only calls this with Use approximations on; off, a meta-triggered Spell keeps
+-- PoB's self-cast rate. Rules, from the skill and stat descriptions:
+-- * A trigger needs the Energy of all socketed Spells together: 1 per 10 ms of each Spell's base cast time
 --   (generic_ongoing_trigger_1_maximum_energy_per_Xms_total_cast_time), and triggers all of them, so each Spell triggers at
 --   Energy per second / that total. "Refund half of Energy spent" (chance r) makes a trigger cost 1 - r / 2 of it.
--- * Meta skills whose maximum is that total (triggers_at_maximum_energy) lose what one event gives beyond it, so an event triggers
---   at most once. Invocations store up to their maximum Energy (500) and spend it when used: no cap per event, but a total above
---   the maximum never triggers.
--- * Energy per event = the gem's base x the enemy's Power (Multiplier:EnemyPower, 20 for the boss options, else 1) x increased /
---   more Energy, and for Critical Hits, Melee Hits and Ignites also x the percentage of the enemy's Ailment Threshold the Hit (the
---   Ignite) deals, as a number (a Hit for 5% of the threshold counts 5 times).
--- * Exact event rates come from the build's own skill with the highest hit rate (findTriggerSkill, like PoB's other triggers):
---   Critical Hits, Shocks, Ignites, Melee Hits, Spells cast (Spellslinger: base x 10 ms steps of the cast Spell's base cast time).
---   Kills and Blocks need approximations: kills per second (pack monsters, Power 1) and enemy hits on you per second x block chance.
--- ponytail: the cast time is the base one (unmodified by cast speed), the threshold factor is uncapped and its "percentage as a
--- number" reading, the Power of normal monsters (1) and the average instead of the rounded-up number of events per trigger are
--- assumptions from the descriptions; upgrade path = measure Energy gains in the game (plan Phase 6).
--- ponytail: each candidate source skill is a full calculation (findTriggerSkill), about one extra pass per damaging skill in the
--- build whenever the main skill is meta-triggered; upgrade path = cache the source rates per evaluation.
+-- * Energy beyond the maximum is lost: an event adds at most the maximum. Meta skills whose maximum is that total
+--   (triggers_at_maximum_energy) trigger at most once per event. Invocations store up to their maximum (500) and spend it when
+--   used, triggering the Spells as often as the stored Energy pays for: at most floor(maximum / total) times per use, one use per
+--   cooldown (0.2 s, tick-rounded); a total above the maximum never triggers.
+-- * Energy per event = the gem's base x the enemy's Power (poe2db Monster_Power: 20 with the boss options, 5 for "Is the enemy
+--   Rare?", else 1) x increased / more Energy, and for Critical Hits, Melee Hits and Ignites also x the percentage of the enemy's
+--   Ailment Threshold the Hit (the Ignite) deals, as a number (a Hit for 5% of the threshold counts 5 times).
+-- * Event rates come from the build's own skill with the highest hit rate, Full DPS skills first, in the main skill's weapon set,
+--   an unused Default Attack never: Critical Hits, Shocks, Ignites, Melee Hits, Spells cast (Spellslinger: base x 10 ms steps of
+--   the cast Spell's base cast time). Kills per second (pack monsters, Power 1) with a Melee Attack in the build; enemy hits on you
+--   per second x block chance.
+-- ponytail: the threshold factor's "percentage as a number" reading is unverified (no source states it); the in-game test that
+-- settles it: Cast on Critical with one known Spell (e.g. Fireball, 120 Energy), Critical Hits of known damage against an enemy of
+-- known Ailment Threshold, counting hits per trigger (plan Phase 6). Also assumptions: base (unmodified) cast time, Power 2 of
+-- magic monsters not selectable, the average instead of the rounded-up number of events per trigger.
+-- ponytail: each candidate source skill is a full calculation; one evaluation (its passes and its Full DPS pass share the override
+-- table) calculates them once (energySources); upgrade path = reuse the Full DPS pass's own result for a source skill.
 -- Not modelled (no event rate): Freeze, Stun, Dodge Roll, Charm use, Minion death, Energy Shield damage taken, mana spent.
+local energyEvents = { "energyOnCrit", "energyOnShock", "energyOnIgnite", "energyOnMeleeHit", "energyPer10msCastTime", "energyOnMeleeKill", "energyOnBlock" }
+local energySources = setmetatable({ }, { __mode = "k" })
 local function metaEnergyTrigger(env, actor)
 	local mainSkill = actor.mainSkill
 	local meta
 	for _, skill in ipairs(env.player.activeSkillList) do
-		if skill.socketGroup == mainSkill.socketGroup and skill.skillTypes[SkillType.GeneratesEnergy] then
+		if skill.socketGroup == mainSkill.socketGroup and skill.skillTypes[SkillType.Meta] and skill.skillTypes[SkillType.GeneratesEnergy] then
 			meta = skill
 			break
 		end
 	end
-	if not meta then
+	local metaData = meta and meta.skillData
+	local modelled = false
+	for _, key in ipairs(energyEvents) do
+		modelled = modelled or (metaData and metaData[key] and true)
+	end
+	if not modelled then
 		return
 	end
 	local metaName = meta.activeEffect.grantedEffect.name
-	local metaData = meta.skillData
 	local required = 0
 	for _, skill in ipairs(env.player.activeSkillList) do
 		if skill.socketGroup == mainSkill.socketGroup and skill.skillData.triggeredByMeta then
@@ -1485,100 +1493,146 @@ local function metaEnergyTrigger(env, actor)
 	local refund = m_min(meta.skillModList:Sum("BASE", meta.skillCfg, "EnergyRefundChance"), 100)
 	local cost = required * (1 - refund / 200)
 	local maximum = metaData.maximumEnergyIsTotal and required or metaData.maximumEnergy and metaData.maximumEnergy * calcLib.mod(meta.skillModList, meta.skillCfg, "MaximumEnergy")
-	local cap = metaData.triggersAtMaximumEnergy and maximum or m_huge
 	local energyMod = calcLib.mod(meta.skillModList, meta.skillCfg, "EnergyGenerated")
-	local power = m_max(env.player.modDB:GetMultiplier("EnemyPower"), 1)
+	local power = env.player.modDB:GetMultiplier("EnemyPower")
+	if power <= 0 then
+		power = env.enemyDB:Flag(nil, "Condition:RareOrUnique") and 5 or 1
+	end
 
-	-- the build's skill with the highest hit (or use) rate among those cond accepts, and its cached calculation
-	local function eventSource(cond)
-		local source, rate, uuid
+	-- skills of the build that can cause the event: in the main skill's weapon set, not a Default Attack left out of Full DPS
+	local function candidates(cond, fullDPSOnly)
+		local list = { }
 		for _, skill in ipairs(env.player.activeSkillList) do
+			local group = skill.socketGroup
 			local flags = (env.mode == "CALCS" and skill.activeEffect.statSetCalcs or skill.activeEffect.statSet).skillFlags
-			if skill ~= mainSkill and flags and not isTriggered(skill) and not skill.skillTypes[SkillType.Meta] and not flags.minion and not flags.totem and cond(skill, flags) then
-				source, rate, uuid = findTriggerSkill(env, skill, source, rate)
+			if group and flags and not flags.disable and not flags.minion and not flags.totem and not isTriggered(skill) and not skill.skillTypes[SkillType.Meta]
+				and (group.usingSkillSet or env.weaponSet) == env.weaponSet and (group.source ~= "Default Attack" or group.includeInFullDPS)
+				and (group.includeInFullDPS or not fullDPSOnly) and cond(skill, flags) then
+				t_insert(list, skill)
 			end
 		end
-		local cached = source and GlobalCache.cachedData[env.mode][uuid]
-		return cached and cached.Env and cached
+		return list
+	end
+	-- what the Energy needs from a source skill's calculation, as plain numbers: the cache is weak-keyed by the override table, which
+	-- the calculation's environment references (a value referring to its key would keep the entry alive)
+	local function sourceRecord(cached)
+		local output = cached.Env.player.output
+		local passOutput, critAverage = output.MainHand or output, 0
+		for _, damageType in ipairs({ "Physical", "Lightning", "Cold", "Fire", "Chaos" }) do
+			critAverage = critAverage + (passOutput[damageType .. "CritAverage"] or 0)
+		end
+		-- percentage of the enemy's Ailment Threshold a hit of this size deals
+		local threshold = output.EnemyAilmentThreshold or 0
+		local function percent(damage)
+			return threshold > 0 and 100 * damage / threshold or 0
+		end
+		return {
+			name = cached.ActiveSkill.activeEffect.grantedEffect.name,
+			rates = calcs.approxRates(cached.Env, output),
+			speed = cached.Speed or 0,
+			castTime = cached.ActiveSkill.activeEffect.grantedEffect.castTime or 0,
+			shockChance = m_min(output.ShockChance or 0, 100),
+			critPercent = percent(critAverage),
+			hitPercent = percent(output.AverageHit or 0),
+			ignitePercent = percent((output.IgniteDPS or 0) * (output.IgniteDuration or 0)),
+		}
+	end
+	-- the candidate with the highest hit (or use) rate, Full DPS skills first
+	local function eventSource(name, cond)
+		local evaluation = env.override or env
+		local cache = energySources[evaluation] or { }
+		energySources[evaluation] = cache
+		local key = name .. tostring(env.weaponSet)
+		if cache[key] == nil then
+			local best, bestRate
+			for _, fullDPSOnly in ipairs({ true, false }) do
+				for _, skill in ipairs(candidates(cond, fullDPSOnly)) do
+					local uuid = cacheSkillUUID(skill, env)
+					if not GlobalCache.cachedData[env.mode][uuid] or env.mode == "CALCULATOR" then
+						calcs.buildActiveSkill(env, env.mode, skill, uuid)
+					end
+					local cached = GlobalCache.cachedData[env.mode][uuid]
+					local rate = cached and cached.Env and (cached.HitSpeed or cached.Speed)
+					if rate and (not bestRate or rate > bestRate) then
+						best, bestRate = cached, rate
+					end
+				end
+				if best then
+					break
+				end
+			end
+			cache[key] = best and sourceRecord(best) or false
+		end
+		return cache[key] or nil
 	end
 	local function hits(skill, flags) return flags.hit end
 	local function meleeHits(skill, flags) return flags.hit and skill.skillTypes[SkillType.Melee] and skill.skillTypes[SkillType.Attack] end
 	local function spells(skill) return skill.skillTypes[SkillType.Spell] and (skill.activeEffect.grantedEffect.castTime or 0) > 0 end
 
-	local gain, lines, found = 0, { }, false
+	local gain, events, lines = 0, 0, { }
 	local function add(label, rate, perEvent, sourceName)
-		found = true
-		perEvent = m_min(perEvent * energyMod, cap)
+		perEvent = m_min(perEvent * energyMod, maximum or m_huge)
 		gain = gain + rate * perEvent
+		events = events + rate
 		t_insert(lines, s_format("%.2f/s x %.1f Energy ^8(%s%s)", rate, perEvent, label, sourceName and " of " .. sourceName or ""))
 	end
-	-- percentage of the enemy's Ailment Threshold a hit of this size deals
-	local function thresholdPercent(output, damage)
-		return output.EnemyAilmentThreshold and output.EnemyAilmentThreshold > 0 and 100 * damage / output.EnemyAilmentThreshold or 0
-	end
-	local function sourceRates(cached)
-		local output = cached.Env.player.output
-		return calcs.approxRates(cached.Env, output), output, cached.ActiveSkill.activeEffect.grantedEffect.name
-	end
 	if metaData.energyOnCrit or metaData.energyOnShock or metaData.energyOnIgnite then
-		local cached = eventSource(hits)
-		if cached then
-			local rates, output, name = sourceRates(cached)
+		local source = eventSource("hits", hits)
+		if source then
 			if metaData.energyOnCrit then
-				local passOutput, critAverage = output.MainHand or output, 0
-				for _, damageType in ipairs({ "Physical", "Lightning", "Cold", "Fire", "Chaos" }) do
-					critAverage = critAverage + (passOutput[damageType .. "CritAverage"] or 0)
-				end
-				add("Critical Hits", rates.crits, metaData.energyOnCrit * power * thresholdPercent(output, critAverage), name)
+				add("Critical Hits", source.rates.crits, metaData.energyOnCrit * power * source.critPercent, source.name)
 			end
 			if metaData.energyOnShock then
-				add("Shocks", rates.hits * m_min(output.ShockChance or 0, 100) / 100, metaData.energyOnShock * power, name)
+				add("Shocks", source.rates.hits * source.shockChance / 100, metaData.energyOnShock * power, source.name)
 			end
 			if metaData.energyOnIgnite then
-				add("Ignites", rates.ignites, metaData.energyOnIgnite * power * thresholdPercent(output, (output.IgniteDPS or 0) * (output.IgniteDuration or 0)), name)
+				add("Ignites", source.rates.ignites, metaData.energyOnIgnite * power * source.ignitePercent, source.name)
 			end
 		end
 	end
 	if metaData.energyOnMeleeHit then
-		local cached = eventSource(meleeHits)
-		if cached then
-			local rates, output, name = sourceRates(cached)
-			add("Melee Hits", rates.hits, metaData.energyOnMeleeHit * power * thresholdPercent(output, output.AverageHit or 0), name)
+		local source = eventSource("meleeHits", meleeHits)
+		if source then
+			add("Melee Hits", source.rates.hits, metaData.energyOnMeleeHit * power * source.hitPercent, source.name)
 		end
 	end
 	if metaData.energyPer10msCastTime then
-		local cached = eventSource(spells)
-		if cached then
-			local _, _, name = sourceRates(cached)
-			add("Spells cast", cached.Speed or 0, metaData.energyPer10msCastTime * cached.ActiveSkill.activeEffect.grantedEffect.castTime * 100, name)
+		local source = eventSource("spells", spells)
+		if source then
+			add("Spells cast", source.speed, metaData.energyPer10msCastTime * source.castTime * 100, source.name)
 		end
 	end
-	local approx = env.player.modDB:Flag(nil, "Condition:UseApproximations")
-	if metaData.energyOnMeleeKill and approx then
-		-- ponytail: every kill counts as a Melee kill of a Power 1 monster if the build has a Melee Attack; upgrade path = kill rate per skill
-		for _, skill in ipairs(env.player.activeSkillList) do
-			if skill ~= mainSkill and not isTriggered(skill) and skill.skillTypes[SkillType.Melee] and skill.skillTypes[SkillType.Attack] then
-				add("kills, approx.", env.player.modDB:GetMultiplier("ApproxKillsPerSecond"), metaData.energyOnMeleeKill)
-				break
-			end
-		end
+	-- ponytail: every kill counts as a Melee kill of a Power 1 monster if the build has a Melee Attack; upgrade path = kill rate per skill
+	if metaData.energyOnMeleeKill and #candidates(meleeHits) > 0 then
+		add("kills", env.player.modDB:GetMultiplier("ApproxKillsPerSecond"), metaData.energyOnMeleeKill)
 	end
-	if metaData.energyOnBlock and approx then
-		add("Blocks, approx.: enemy hits on you x block chance", env.player.modDB:GetMultiplier("ApproxEnemyHitsOnYouPerSecond") * (env.player.output.BlockChance or 0) / 100, metaData.energyOnBlock)
+	if metaData.energyOnBlock then
+		add("Blocks: enemy hits on you x block chance", env.player.modDB:GetMultiplier("ApproxEnemyHitsOnYouPerSecond") * (env.player.output.BlockChance or 0) / 100, metaData.energyOnBlock)
 	end
 
-	if not found or required <= 0 then
-		mainSkill.infoMessage = s_format("%s: no Energy source PoB can calculate%s", metaName, (metaData.energyOnMeleeKill or metaData.energyOnBlock) and not approx and " (needs approximations)" or "")
-		mainSkill.infoMessage2 = "DPS reported assuming Self-Cast"
-		return
+	local rate = cost > 0 and gain / cost or 0
+	if #lines == 0 then
+		t_insert(lines, s_format("No skill of the build gives %s Energy", metaName))
+		mainSkill.infoMessage2 = s_format("No Energy source for %s: no triggers", metaName)
+	else
+		t_insert(lines, s_format("= %.1f ^8(Energy per second)", gain))
+		t_insert(lines, s_format("/ %.1f ^8(Energy to trigger the socketed Spells: 1 per %d ms of their base cast time%s)", cost, mainSkill.skillData.energyPerCastTimeMs or 10, refund > 0 and s_format(", %d%% chance to refund half", refund) or ""))
 	end
-	local rate = gain / cost
+	if metaData.triggersAtMaximumEnergy and rate > events then
+		rate = events
+		t_insert(lines, s_format("= %.2f ^8(at most one trigger per event)", rate))
+	end
 	if maximum and required > maximum then
 		rate = 0
 		t_insert(lines, s_format("The socketed Spells need %.0f Energy, more than %s can hold (%.0f)", required, metaName, maximum))
+	elseif maximum and not metaData.triggersAtMaximumEnergy and metaData.cooldown and required > 0 then
+		local cooldown = m_ceil(metaData.cooldown / calcLib.mod(meta.skillModList, meta.skillCfg, "CooldownRecovery") * data.misc.ServerTickRate) / data.misc.ServerTickRate
+		local perUse = m_floor(maximum / required)
+		if rate > perUse / cooldown then
+			rate = perUse / cooldown
+			t_insert(lines, s_format("= %d / %.3f ^8(at most %d triggers per use of %s, one use per cooldown)", perUse, cooldown, perUse, metaName))
+		end
 	end
-	t_insert(lines, s_format("= %.1f ^8(Energy per second)", gain))
-	t_insert(lines, s_format("/ %.1f ^8(Energy to trigger the socketed Spells: 1 per %d ms of their base cast time%s)", cost, mainSkill.skillData.energyPerCastTimeMs or 10, refund > 0 and s_format(", %d%% chance to refund half", refund) or ""))
 	return { source = meta, trigRate = rate, triggerName = metaName, sourceRateBreakdown = lines, accumulatingSource = true }
 end
 
