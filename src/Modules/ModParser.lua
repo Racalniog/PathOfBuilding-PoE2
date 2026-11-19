@@ -3479,7 +3479,6 @@ local specialModList = {
 	["break armour equal to (%d+)%% of physical damage dealt"] = { flag("Condition:CanArmourBreak", { type = "GlobalEffect", effectType = "Buff", effectName = "ArmourBreak" }) },
 	["breaks armour equal to (%d+)%% of damage from hits with this weapon"] = { flag("Condition:CanArmourBreak", { type = "GlobalEffect", effectType = "Buff", effectName = "ArmourBreak" }) },
 	["break (%d+)%% of armour on pinning an enemy"] = { flag("Condition:CanArmourBreak", { type = "GlobalEffect", effectType = "Buff", effectName = "ArmourBreak" }) },
-	["hits break (%d+) armour"] = function(num) return { flag("Condition:CanArmourBreak", { type = "GlobalEffect", effectType = "Buff", effectName = "ArmourBreak" }), mod("ArmourBreakPerHit", "BASE", num) } end,
 	["you can break enemy armour to below 0"] = { flag("Condition:CanArmourBreakBelowZero", { type = "GlobalEffect", effectType = "Buff", effectName = "ImplodingImpacts" })}, -- 'Imploding Impacts'
 	["fully broken armour you inflict increases all damage taken from hits instead"] = { flag("FullyBrokenArmourIncreasesAllDamageFromHits", { type = "GlobalEffect", effectType = "Buff", effectName = "ImplodingImpacts" })},
 	["trigger ancestral spirits when you summon a totem"] = { },

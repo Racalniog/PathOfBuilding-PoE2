@@ -32,9 +32,7 @@ describe("TestParserOther", function()
 			check(list[1], "Condition:CanArmourBreak", "FLAG", true)
 			assert.are.equals("ArmourBreak", list[1][1].effectName, line)
 		end
-		local list = parse("Hits Break 50 Armour")
-		check(list[1], "Condition:CanArmourBreak", "FLAG", true)
-		check(list[2], "ArmourBreakPerHit", "BASE", 50)
+		-- "Hits Break N Armour" is a local weapon modifier (Wylund's Stake) and stays unread until it can be limited to that weapon
 	end)
 
 	it("reads Rage gained on any event as Rage generation", function()
