@@ -1597,7 +1597,6 @@ local modTagList = {
 	["per minion"] = { tag = { type = "Multiplier", var = "SummonedMinion" } },
 	["per undead minion"] = { tag = { type = "Multiplier", var = "UndeadMinion" } },
 	["per persistent minion"] = { tag = { type = "Multiplier", var = "PersistentMinions" } },
-	["per each different companion in your presence"] = { tag = { type = "Multiplier", var = "CompanionTypes" } },
 	["for each different type of persistent minion in your presence"] = { tag = { type = "Multiplier", var =  "PersistentMinionTypes" } },
 	["for each minion in your presence, up to a maximum of (%d+)%%"] = function(num) return { tag = { type = "Multiplier", var = "MinionPresenceCount", limit = tonumber(num), limitTotal = true } } end,
 	["for each type of ammunition fired in the past (%d+) seconds"] = { tag = { type = "Multiplier", var = "DifferentAmmoFired", limitVar = "AmmoTypes" } },
@@ -4886,7 +4885,10 @@ local specialModList = {
 	["minions revive (%d+)%% slower"] = function(num) return { mod("MinionRevivalSpeed", "INC", -num) } end,
 	["minions revive (%d+)%% faster if all your minions are companions"] = function(num) return { mod("MinionRevivalSpeed", "INC", num, { type = "Condition", var = "AllMinionsAreCompanions" }) } end,
 	-- Companion limit (CalcPerform): one Companion unless a modifier raises it, "of different types" counts each Companion type once
-	["you can have two companions of different types"] = { mod("CompanionLimit", "BASE", 1) },
+	["you can have two companions of different types"] = { flag("TwoCompanions") },
+	["(%d+)%% increased damage per each different companion in your presence"] = function(num) return {
+		mod("Damage", "INC", num, { type = "Multiplier", var = "CompanionTypes" }, { type = "Condition", var = "CompanionInPresence" }),
+	} end,
 	["you can have any number of companions of different types"] = { flag("UnlimitedCompanions") },
 	["companions deal (%d+)%% more damage for each different type of dead companion you have"] = function(num) return {
 		mod("MinionModifier", "LIST", { mod = mod("Damage", "MORE", num, { type = "Multiplier", var = "DeadCompanionTypes", actor = "parent" }) }, { type = "SkillType", skillType = SkillType.CreatesCompanion }),

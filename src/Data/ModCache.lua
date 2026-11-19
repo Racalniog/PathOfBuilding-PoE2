@@ -9785,7 +9785,7 @@ c["You can apply one fewer Curse"]={{[1]={flags=0,keywordFlags=0,name="EnemyCurs
 c["You can equip a Focus while wielding a Staff"]={{[1]={flags=0,keywordFlags=0,name="InstrumentsOfPower",type="FLAG",value=true}},nil}
 c["You can equip a non-Unique Sceptre while wielding a Talisman"]={{[1]={flags=0,keywordFlags=0,name="LordOfTheWilds",type="FLAG",value=true}},nil}
 c["You can have any number of Companions of different types"]={{[1]={flags=0,keywordFlags=0,name="UnlimitedCompanions",type="FLAG",value=true}},nil}
-c["You can have two Companions of different types"]={{[1]={flags=0,keywordFlags=0,name="CompanionLimit",type="BASE",value=1}},nil}
+c["You can have two Companions of different types"]={{[1]={flags=0,keywordFlags=0,name="TwoCompanions",type="FLAG",value=true}},nil}
 c["You can only Socket 1 Emerald Jewel in this item"]={nil,"You can only Socket 1 Emerald Jewel in this item "}
 c["You can only Socket 1 Emerald Jewel in this item +10% to Cold and Lightning Resistances per Equipped Item with a Fire Resistance Modifier"]={nil,"You can only Socket 1 Emerald Jewel in this item +10% to Cold and Lightning Resistances per Equipped Item with a Fire Resistance Modifier "}
 c["You can only Socket 1 Ruby Jewel in this item"]={nil,"You can only Socket 1 Ruby Jewel in this item "}

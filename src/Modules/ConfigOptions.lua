@@ -1091,6 +1091,9 @@ Huge sets the radius to 11.
 	{ var = "multiplierActiveOfferingTypes", type = "count", label = "# of different active Offerings (if not all):", ifMult = "ActiveOfferingTypes", tooltip = "PoB counts the Offering skills (Bone, Pain and Soul Offering) you have enabled, as it does for other buffs. Use this to override the count if you do not keep them all up", apply = function(val, modList, enemyModList)
 		modList:NewMod("Multiplier:ActiveOfferingTypes", "OVERRIDE", val, "Config")
 	end },
+	{ var = "multiplierCompanionTypes", type = "count", label = "# of different Companions (if not all):", ifMult = "CompanionTypes", tooltip = "PoB counts the Companion skills you have enabled, up to your Companion limit (the main skill's first). Use this to override the count", apply = function(val, modList, enemyModList)
+		modList:NewMod("Multiplier:CompanionTypes", "OVERRIDE", val, "Config")
+	end },
 	{ var = "multiplierDeadCompanionTypes", type = "count", label = "# of different types of dead Companions:", ifMult = "DeadCompanionTypes", apply = function(val, modList, enemyModList)
 		modList:NewMod("Multiplier:DeadCompanionTypes", "BASE", val, "Config")
 	end },

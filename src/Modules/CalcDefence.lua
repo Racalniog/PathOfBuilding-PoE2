@@ -1668,7 +1668,7 @@ function calcs.defence(env, actor)
 	-- ponytail: the duration is the Arcane Surge support's (support_arcane_surge_base_duration_ms, 10 s in Data/Skills/sup_int.lua),
 	-- the Minion death texts give none; upgrade path = in-game check
 	local surgeUptime = (modDB.conditions["AffectedByArcaneSurge"] or modDB:Flag(nil, "Condition:ArcaneSurge")) and 1 or 0
-	if surgeUptime == 0 and actor == env.player and modDB:Flag(nil, "ArcaneSurgeOnMinionDeath") and modDB:Flag(nil, "Condition:UseApproximations") then
+	if surgeUptime == 0 and actor == env.player and modDB:Flag(nil, "ArcaneSurgeOnMinionDeath") and modDB:Flag(nil, "Condition:UseApproximations") and modDB:GetMultiplier("MortalMinionSkills") > 0 then
 		surgeUptime = calcLib.approxUptime(modDB:GetMultiplier("ApproxMinionDeathsPerSecond"), 10)
 	end
 	if surgeUptime > 0 then
@@ -1798,10 +1798,13 @@ function calcs.defence(env, actor)
 		-- n x d / (1 + d x T) times per second (calcLib.approxRateWhileUnaffected), at most one revival per minion per T.
 		local onRevive = actor == env.player and modDB:Flag(nil, "Condition:UseApproximations") and modDB:Sum("BASE", nil, resource.."OnMinionRevive") or 0
 		local onReviveRecovery = 0
-		local minions = modDB:GetMultiplier("PersistentMinions")
+		-- Undead Minions are persistent, so a configured Undead count raises n. ponytail: Minions that can't be damaged are counted in n when
+		-- another Minion can die. The main skill's own base revival time wins, as in the Minion Revival Time stat.
+		local minions = modDB:GetMultiplier("MortalMinionSkills") > 0 and m_max(modDB:GetMultiplier("PersistentMinions"), modDB:GetMultiplier("UndeadMinion")) or 0
 		local revivalSpeed = calcLib.mod(modDB, nil, "MinionRevivalSpeed")
 		if onRevive ~= 0 and canGain and minions > 0 and revivalSpeed > 0 then
-			local revivalTime = data.misc.MinionRevivalTimeBase / revivalSpeed
+			local skill = env.player.mainSkill
+			local revivalTime = (skill and skill.skillModList:Override(skill.skillCfg, "BaseReviveTime") or data.misc.MinionRevivalTimeBase) / revivalSpeed
 			local revives = minions * calcLib.approxRateWhileUnaffected(modDB:GetMultiplier("ApproxMinionDeathsPerSecond") / minions, revivalTime)
 			onReviveRecovery = onRevive * revives
 			output[resource.."OnMinionReviveApproxRecovery"] = onReviveRecovery

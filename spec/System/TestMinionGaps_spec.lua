@@ -33,7 +33,7 @@ describe("TestMinionGaps", function()
 		assert.are.equals("TotemPlacementRange", parse("20% increased Totem Placement range")[1].name)
 		assert.are.equals("ActiveTotemLimit", parse("Your Totem Limit is doubled")[1].name)
 		assert.are.equals(100, parse("Your Totem Limit is doubled")[1].value)
-		assert.are.equals("CompanionLimit", parse("You can have two Companions of different types")[1].name)
+		assert.are.equals("TwoCompanions", parse("You can have two Companions of different types")[1].name)
 		assert.are.equals("UnlimitedCompanions", parse("You can have any number of Companions of different types")[1].name)
 		assert.are.equals(-25, parse("Minions Revive 25% slower")[1].value)
 		assert.are.equals(-20, parse("20% reduced Reservation Efficiency of Skills which create Undead Minions")[1].value)
@@ -65,21 +65,32 @@ describe("TestMinionGaps", function()
 	end)
 
 	it("limits Companions to one unless a modifier allows more, and counts the different ones", function()
-		local _, env = setup("15% increased Damage per each different Companion in your Presence", nil, { "Azmerian Wolf", "Rhoa Mount", "Wild Protector" })
-		-- one Companion by default: the first one in the skill list
-		assert.are.equals(1, env.player.modDB:GetMultiplier("CompanionTypes"))
-		assert.are.equals(1, env.player.modDB:GetMultiplier("PersistentMinionTypes"))
-		assert.are.equals(1, env.player.modDB:GetMultiplier("PersistentMinions"))
-		assert.are.equals(15, env.player.modDB:Sum("INC", nil, "Damage"))
-		-- the keystone and the unique: two, then any number (here three) of different types
-		_, env = setup("15% increased Damage per each different Companion in your Presence\nYou can have two Companions of different types")
+		local line = "15% increased Damage per each different Companion in your Presence"
+		-- Wild Protector's Bear Spirit takes no slot: with the Wolf, two Companions count by default
+		local _, env = setup(line, nil, { "Azmerian Wolf", "Rhoa Mount", "Wolf Pack", "Wild Protector" })
 		assert.are.equals(2, env.player.modDB:GetMultiplier("CompanionTypes"))
 		assert.are.equals(2, env.player.modDB:GetMultiplier("PersistentMinionTypes"))
+		assert.are.equals(2, env.player.modDB:GetMultiplier("PersistentMinions"))
 		assert.are.equals(30, env.player.modDB:Sum("INC", nil, "Damage"))
-		_, env = setup("15% increased Damage per each different Companion in your Presence\nYou can have any number of Companions of different types")
+		-- the keystone and Yriel's Fostering are the same "two" and don't add up; Sylvan's Effigy allows any number
+		_, env = setup(line .. "\nYou can have two Companions of different types\nYou can have two Companions of different types")
 		assert.are.equals(3, env.player.modDB:GetMultiplier("CompanionTypes"))
-		assert.are.equals(3, env.player.modDB:GetMultiplier("PersistentMinions"))
+		assert.are.equals(3, env.player.modDB:GetMultiplier("PersistentMinionTypes"))
 		assert.are.equals(45, env.player.modDB:Sum("INC", nil, "Damage"))
+		_, env = setup(line .. "\nYou can have any number of Companions of different types")
+		assert.are.equals(4, env.player.modDB:GetMultiplier("CompanionTypes"))
+		assert.are.equals(4, env.player.modDB:GetMultiplier("PersistentMinions"))
+		assert.are.equals(60, env.player.modDB:Sum("INC", nil, "Damage"))
+		-- the damage needs a Companion in your Presence; the configuration overrides the count
+		_, env = setup(line, { companionInPresence = false })
+		assert.are.equals(0, env.player.modDB:Sum("INC", nil, "Damage"))
+		_, env = setup(line, { companionInPresence = true, multiplierCompanionTypes = 1 })
+		assert.are.equals(15, env.player.modDB:Sum("INC", nil, "Damage"))
+		-- the same Companion from two socket groups is one Minion and one type
+		build.configTab.input.multiplierCompanionTypes = nil
+		_, env = setup(line, nil, { "Azmerian Wolf" })
+		assert.are.equals(2, env.player.modDB:GetMultiplier("CompanionTypes"))
+		assert.are.equals(2, env.player.modDB:GetMultiplier("PersistentMinions"))
 	end)
 
 	it("counts the different active Offerings and gives Minion Damage with at least two", function()
@@ -196,6 +207,14 @@ describe("TestMinionGaps", function()
 		_, env = setup(onslaught .. "\n" .. surge, { useApproximations = true, approxMinionDeathsPerSecond = 0 })
 		assert.are.equals(move, env.player.modDB:Sum("INC", nil, "MovementSpeed"))
 		assert.are.equals(cast, env.player.modDB:Sum("INC", { flags = ModFlag.Cast }, "Speed"))
+		-- no Minions, nothing can die: no uptime either
+		newBuild()
+		_, env = setup("", { useApproximations = true, approxMinionDeathsPerSecond = 0.5 }, { "Fireball" })
+		move = env.player.modDB:Sum("INC", nil, "MovementSpeed")
+		cast = env.player.modDB:Sum("INC", { flags = ModFlag.Cast }, "Speed")
+		_, env = setup(onslaught .. "\n" .. surge)
+		assert.are.equals(move, env.player.modDB:Sum("INC", nil, "MovementSpeed"))
+		assert.are.equals(cast, env.player.modDB:Sum("INC", { flags = ModFlag.Cast }, "Speed"))
 	end)
 
 	it("recovers Life when Minions are revived, at the rate persistent Minions that die come back", function()
@@ -204,7 +223,7 @@ describe("TestMinionGaps", function()
 		assert.is_nil(output.LifeOnMinionReviveApproxRecovery)
 		-- one Companion: it dies 0.1 times/s and is revived after the base revival time T, so 0.1 / (1 + 0.1 T) revivals/s.
 		-- 2% of maximum Life is rounded up by PercentStat
-		local T = data.misc.MinionRevivalTimeBase
+		local T = 12 -- Azmerian Wolf: minion_base_resummon_time_ms 12000, the main skill's own base revival time (data.misc.MinionRevivalTimeBase is the default)
 		output = setup(line, { useApproximations = true, approxMinionDeathsPerSecond = 0.1 })
 		assert.are.near(math.ceil(output.Life * 0.02) * 0.1 / (1 + 0.1 * T), output.LifeOnMinionReviveApproxRecovery, 1e-9)
 		-- two Companions share the deaths: 2 x 0.05 / (1 + 0.05 T); revive speed shortens T

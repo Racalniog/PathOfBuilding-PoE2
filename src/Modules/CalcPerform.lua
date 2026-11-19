@@ -641,10 +641,10 @@ local function doActorMisc(env, actor)
 			modDB.multipliers["BuffOnSelf"] = (modDB.multipliers["BuffOnSelf"] or 0) + 1
 		end
 		-- Approximation (needs Use approximations): Onslaught gained for a few seconds when a Minion dies is up for the share of time
-		-- set by the configured death rate (calcLib.approxUptime). A flag can't be scaled, so what needs "while you have Onslaught"
-		-- only counts when it's up for certain; only Onslaught's own bonuses are averaged over the uptime.
+		-- set by the configured death rate (calcLib.approxUptime), if you have a Minion that can die. A flag can't be scaled, so what
+		-- needs "while you have Onslaught" only counts when it's up for certain; only Onslaught's own bonuses are averaged over the uptime.
 		local onslaughtUptime = modDB:Flag(nil, "Onslaught") and 1 or 0
-		if onslaughtUptime == 0 and actor == env.player and modDB:Flag(nil, "Condition:UseApproximations") then
+		if onslaughtUptime == 0 and actor == env.player and modDB:Flag(nil, "Condition:UseApproximations") and modDB:GetMultiplier("MortalMinionSkills") > 0 then
 			onslaughtUptime = calcLib.approxUptime(modDB:GetMultiplier("ApproxMinionDeathsPerSecond"), modDB:Max(nil, "OnslaughtOnMinionDeath") or 0)
 		end
 		if onslaughtUptime > 0 then
@@ -1758,11 +1758,40 @@ local function performPass(env, skipEHP)
 
 	local minionTypeCount, ammoTypeCount, grenadeTypeCount = 0, 0, 0
 	local minionCount, minionType, ammoType, grenadeType = { }, { }, { }, { }
-	-- Companion limit: one Companion unless a modifier raises it ("You can have two Companions of different types", "any number of").
-	-- The stat descriptions give no base; one is read from that wording. ponytail: PoB can't switch a skill off, so a Companion past
-	-- the limit still calculates its own skill, it just isn't one of "your Companions" in the counts below; upgrade path = disable it
-	local companionLimit = modDB:Flag(nil, "UnlimitedCompanions") and m_huge or 1 + modDB:Sum("BASE", nil, "CompanionLimit")
-	local companionTypeCount, persistentMinionCount, undeadMinionCount, offeringTypeCount, allCompanions = 0, 0, 0, 0, true
+	-- Companion limit: one Companion unless a modifier raises it ("You can have two Companions of different types" from the keystone and
+	-- Yriel's Fostering don't add up, "any number of"). The stat descriptions give no base; one is read from that wording.
+	-- ponytail: PoB can't switch a skill off, so a Companion past the limit still calculates its own skill, it just isn't one of
+	-- "your Companions" in the counts below; upgrade path = disable it. The main skill's Companion gets a slot first, then the skill
+	-- list order decides. Wild Protector's Bear Spirit "does not count toward your Companion limit" (its description): no slot.
+	local companionLimit = modDB:Flag(nil, "UnlimitedCompanions") and m_huge or modDB:Flag(nil, "TwoCompanions") and 2 or 1
+	local function companionIdOf(activeSkill)
+		local grantedEffect = activeSkill.activeEffect.grantedEffect
+		local flags = env.mode == "CALCS" and activeSkill.activeEffect.statSetCalcs.skillFlags or activeSkill.activeEffect.statSet.skillFlags
+		if grantedEffect and not flags.disable and activeSkill.skillTypes[SkillType.CreatesCompanion] then
+			return activeSkill.minion and activeSkill.minion.type or grantedEffect.id
+		end
+	end
+	local companionSlot, slotsUsed = { }, 0
+	local slotOrder = { env.player.mainSkill }
+	for _, activeSkill in ipairs(env.player.activeSkillList) do
+		if activeSkill ~= env.player.mainSkill then
+			t_insert(slotOrder, activeSkill)
+		end
+	end
+	for _, activeSkill in ipairs(slotOrder) do
+		local id = companionIdOf(activeSkill)
+		if id and companionSlot[id] == nil then
+			if activeSkill.activeEffect.grantedEffect.id == "WildProtectorPlayer" then
+				companionSlot[id] = true
+			elseif slotsUsed < companionLimit then
+				slotsUsed = slotsUsed + 1
+				companionSlot[id] = true
+			else
+				companionSlot[id] = false
+			end
+		end
+	end
+	local companionTypeCount, persistentMinionCount, undeadMinionCount, offeringTypeCount, mortalMinionSkills, allCompanions = 0, 0, 0, 0, 0, true
 	local companionType, persistentMinion, offeringType = { }, { }, { }
 	local maxPurpleFlameChaosGain = 0
 	for _, activeSkill in ipairs(env.player.activeSkillList) do
@@ -1883,15 +1912,17 @@ local function performPass(env, skipEHP)
 		local grantedEffect = activeSkill.activeEffect.grantedEffect
 		local enabled = grantedEffect and not skillFlags.disable
 		local persistent = enabled and activeSkill.skillTypes[SkillType.Minion] and activeSkill.skillTypes[SkillType.Persistent]
-		local companionId = enabled and activeSkill.skillTypes[SkillType.CreatesCompanion] and (activeSkill.minion and activeSkill.minion.type or grantedEffect.id)
-		if companionId and not companionType[companionId] then
-			if companionTypeCount < companionLimit then
-				companionTypeCount = companionTypeCount + 1
-				companionType[companionId] = true
-			else
-				persistent, companionId = false, nil
-			end
+		local companionId = companionIdOf(activeSkill)
+		if companionId and not companionSlot[companionId] then
+			persistent, companionId = false, nil
+		elseif companionId and not companionType[companionId] then
+			companionTypeCount = companionTypeCount + 1
+			companionType[companionId] = true
 		end
+		if enabled and activeSkill.minion and not activeSkill.skillTypes[SkillType.MinionsAreUndamagable] and not (activeSkill.skillTypes[SkillType.CreatesCompanion] and not companionId) then
+			mortalMinionSkills = mortalMinionSkills + 1
+		end
+		env.modDB.multipliers["MortalMinionSkills"] = mortalMinionSkills
 		local typeKey = companionId or grantedEffect and grantedEffect.id
 		if persistent and not minionType[typeKey] then
 			minionTypeCount = minionTypeCount + 1
@@ -1904,8 +1935,10 @@ local function performPass(env, skipEHP)
 			-- data, their number depends on your Spirit) is one Minion; upgrade path = Spirit-based counts of the Skeleton skills
 			local limit = activeSkill.minion.minionData and activeSkill.minion.minionData.limit
 			local pool = limit and (output[limit] or 0) > 0 and limit
-			if not persistentMinion[pool or activeSkill] then
-				persistentMinion[pool or activeSkill] = true
+			-- the same Minion from two socket groups is still one Minion
+			local key = pool or activeSkill.minion.type or activeSkill
+			if not persistentMinion[key] then
+				persistentMinion[key] = true
 				local count = pool and output[pool] or 1
 				persistentMinionCount = persistentMinionCount + count
 				if activeSkill.skillTypes[SkillType.CreatesUndeadMinion] then
