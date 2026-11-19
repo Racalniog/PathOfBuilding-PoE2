@@ -455,10 +455,22 @@ InfusionRemnantBaseDuration) were already in `data.gameConstants`.
   hash is cached (`getHashFromString`, -6% with radius jewels); zero flags skip the 64-bit splitting in
   `AND64` / `MatchKeywordFlags` (-2..10%). Together 2.2 / 3.4 / 2.5 ms -> 1.9 / 2.9 / 2.3 ms per
   evaluation (Blood Mage Hexblast / Titan Hammer of the Gods / Lich Skeletal Sniper, approximations
-  off), 2.3 / 3.7 / 2.7 -> 2.2 / 3.0 / 2.4 with them on. Still open, in order of estimated gain: reuse or
-  share work between the two initEnv passes (up to 25%), a per-candidate stat-total delta instead of
-  rebuilding all node mod lists (`buildModListForNodeList` runs twice per initEnv, 5-20%), the base mod
-  databases for the second pass (3-9%, changes summation order so not bit-identical).
+  off), 2.3 / 3.7 / 2.7 -> 2.2 / 3.0 / 2.4 with them on. Then the weapon set context reuses its
+  environment's work (CalcSetup.lua `buildNodeModList`): the base mod databases, and both passive node
+  lists when they're built from the same nodes and radius jewels (only a jewel's effect on a small or
+  notable passive allocated to the other set, or on any passive from a jewel in a set socket, depends on
+  the set; then the lists are rebuilt). 2.0 / 3.2 / 2.4 -> 1.7 / 2.6 / 2.1 ms (-12 / -20 / -10%) with
+  approximations off, 2.4 / 3.4 / 2.4 -> 2.1 / 2.7 / 2.1 with them on (min over alternating batches in one
+  process); builds without a context are unchanged. Outputs bit-identical on the benchmark builds (all
+  scalars of player and minion output, MAIN / CALCS / calculator / optimizer, with node and item
+  overrides); summation order could differ in the last digits, as the context's base mods now sit in the
+  parent database. Checked by TestPassiveSpec ("builds a weapon set context that calculates like a fresh
+  environment of its set"). Still open, in order of estimated gain: a per-candidate stat-total delta
+  instead of rebuilding all node mod lists (`buildModListForNodeList` still runs twice in the main
+  environment, 5-20% with radius jewels and Hulking Form-type scaling), the context's item mods for the
+  slots that aren't weapons (about 6%), and the context's skill mod lists for groups the main environment
+  supplies (about 4-8%; the uncomposed list is read by the weapon set checkbox validation, so they can't
+  simply be skipped).
 - **Recovery in the survivability score:** effective HP is a hit pool; regeneration, leech and
   recovery on kill still don't count.
 

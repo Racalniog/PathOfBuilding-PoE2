@@ -391,6 +391,11 @@ function calcs.buildModListForNode(env, node, reuse, incSmallPassiveSkill, inclu
 				localNotableIncEffect = mod.value
 			end
 		end
+		-- The list then depends on the set (buildNodeModList rebuilds it for the other set), unless the node is allocated to this
+		-- environment's set: every mod of the node has that set's condition, so none of them apply in the other set anyway
+		if hasWSCondition and node.allocMode ~= env.weaponSet then
+			env.nodeModsBySet = true
+		end
 	end
 
 	-- Apply Inc Node scaling from Hulking Form
@@ -461,6 +466,57 @@ function calcs.buildModListForNodeList(env, nodeList, finishJewels, includeKeyst
 	end
 
 	return modList
+end
+
+local function sameEntries(a, b)
+	local count = 0
+	for key, value in pairs(a) do
+		if b[key] ~= value then
+			return false
+		end
+		count = count + 1
+	end
+	for _ in pairs(b) do
+		count = count - 1
+	end
+	return count == 0
+end
+
+local function sameRadiusJewels(a, b)
+	if #a ~= #b then
+		return false
+	end
+	for i, rad in ipairs(a) do
+		local other = b[i]
+		if rad.item ~= other.item or rad.func ~= other.func or rad.type ~= other.type or rad.nodeId ~= other.nodeId or rad.effectScale ~= other.effectScale then
+			return false
+		end
+	end
+	return true
+end
+
+-- The node lists of a weapon set context (the other set's environment, end of calcs.initEnv) are those of the environment it pairs
+-- with when both are built from the same nodes and radius jewels. Only a jewel's effect on small and notable passives can depend on the
+-- set (env.nodeModsBySet, calcs.buildModListForNode). The lists and their mods are only read and added to modifier databases, never
+-- changed. `record` keeps this environment's lists for its weapon set context
+local function buildNodeModList(env, pairedEnv, pass, includeKeystoneMods, record)
+	local shared = pairedEnv and pairedEnv.nodeModLists and pairedEnv.nodeModLists[pass]
+	if shared and not shared.bySet and sameEntries(shared.allocNodes, env.allocNodes) and sameRadiusJewels(shared.radiusJewels, env.radiusJewelList)
+		and sameEntries(shared.extraNodes, env.extraRadiusNodeList) then
+		for _, source in ipairs(shared.explodeSources) do
+			t_insert(env.explodeSources, source)
+		end
+		return shared.list
+	end
+	local explodeCount = #env.explodeSources
+	env.nodeModsBySet = nil
+	local list = calcs.buildModListForNodeList(env, env.allocNodes, true, includeKeystoneMods)
+	if record then
+		env.nodeModLists = env.nodeModLists or { }
+		env.nodeModLists[pass] = { list = list, bySet = env.nodeModsBySet, allocNodes = copyTable(env.allocNodes, true), radiusJewels = copyTable(env.radiusJewelList, true),
+			extraNodes = copyTable(env.extraRadiusNodeList, true), explodeSources = { unpack(env.explodeSources, explodeCount + 1) } }
+	end
+	return list
 end
 
 function wipeEnv(env, accelerate)
@@ -847,6 +903,7 @@ function calcs.initEnv(build, mode, override, specEnv)
 	---@type Env?
 	local env = specEnv and specEnv.env or nil
 	local accelerate = specEnv and specEnv.accelerate or { }
+	local pairedEnv = specEnv and specEnv.pairedEnv
 
 	-- environment variables
 	local override = override or { }
@@ -1075,6 +1132,16 @@ function calcs.initEnv(build, mode, override, specEnv)
 	env.outputRevision = build.outputRevision
 	env.weaponSetEnvs = nil
 	env.weaponSetValidationSkillList = nil
+	env.nodeModLists = nil
+	-- Keep the node lists for the weapon set context (buildNodeModList) if there will be one: see the end of initEnv
+	local recordNodeModLists = false
+	for _, group in ipairs(override.skipWeaponSetContexts and { } or build.skillsTab.socketGroupList) do
+		if group.enabled and build.skillsTab:GetSocketGroupWeaponSet(group) ~= env.weaponSet
+			and (group.source ~= "Default Attack" or #group.gemList > 1 or group.includeInFullDPS) then
+			recordNodeModLists = true
+			break
+		end
+	end
 
 	if not accelerate.nodeAlloc then
 		-- Build list of passive nodes
@@ -1138,7 +1205,7 @@ function calcs.initEnv(build, mode, override, specEnv)
 		end
 	end
 
-	local nodesModsList = calcs.buildModListForNodeList(env, env.allocNodes, true, true)
+	local nodesModsList = buildNodeModList(env, pairedEnv, "flags", true, recordNodeModLists)
 	env.useAltGemQualityStats = nodesModsList:Flag(nil, "GemlingQuality")
 	local canUseBonded = nodesModsList:Flag(nil, "CanUseBonded")
 
@@ -1786,7 +1853,7 @@ function calcs.initEnv(build, mode, override, specEnv)
 	end
 
 	-- Merge modifiers for allocated passives
-	env.modDB:AddList(calcs.buildModListForNodeList(env, env.allocNodes, true))
+	env.modDB:AddList(buildNodeModList(env, pairedEnv, "merge", nil, recordNodeModLists))
 
 	if not override or (override and not override.extraJewelFuncs) then
 		override = override or {}
@@ -2510,7 +2577,10 @@ function calcs.initEnv(build, mode, override, specEnv)
 				contextOverride.mainSocketGroup = otherSetMainGroup
 				contextOverride.skipWeaponSetContexts = true
 				local contextMode = env.mode == "CALCS" and "CALCS" or "CALCULATOR"
-				local weaponSetEnv = calcs.initEnv(build, contextMode, contextOverride)
+				-- The base databases don't depend on the set. When this environment built them, their mods sit in the parent database
+				-- of the context instead of its own, which only changes the order of summation (last digits)
+				local weaponSetEnv = calcs.initEnv(build, contextMode, contextOverride,
+					{ cachedPlayerDB = cachedPlayerDB, cachedEnemyDB = cachedEnemyDB, cachedMinionDB = cachedMinionDB, pairedEnv = env })
 				env.weaponSetEnvs = { [otherSet] = weaponSetEnv }
 				-- Preserve the uncomposed lists for checkbox validation; the composed lists
 				-- below intentionally replace groups with their assigned-set versions.
@@ -2519,6 +2589,7 @@ function calcs.initEnv(build, mode, override, specEnv)
 				replaceWeaponSetActiveSkills(env, weaponSetEnv, otherSet)
 				replaceWeaponSetActiveSkills(weaponSetEnv, env, env.weaponSet)
 			end
+			env.nodeModLists = nil
 		end
 	else
 		-- Wipe skillData and readd required data the rest of the data will be added by the rest of code this stops iterative calculations on skillData not being reset

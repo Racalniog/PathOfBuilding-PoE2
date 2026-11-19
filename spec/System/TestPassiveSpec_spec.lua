@@ -220,6 +220,63 @@ Item Level: 80
 		assert.are.equals(2, build.calcsTab.mainEnv.weaponSetEnvs[2].weaponSet)
 	end)
 
+	it("builds a weapon set context that calculates like a fresh environment of its set", function()
+		-- The set 2 context of a set 1 environment reuses its base databases and passive node lists (calcs.initEnv). A Time-Lost
+		-- jewel's effect on a set 2 small passive in its radius only applies in set 2, so then the node lists can't be reused
+		local raw = "Rarity: RARE\nTest Mind\nTime-Lost Diamond\n--------\nRadius: Large\n--------\nItem Level: 80\n--------\n"
+			.. "50% increased Effect of Small Passive Skills in Radius\n"
+		local radiusIndex = new("Item"):Item(raw).jewelRadiusIndex
+		local socket, small
+		for _, entry in ipairs(normalJewelSockets(build.spec)) do
+			local ids = { }
+			for id, other in pairs(entry.node.nodesInRadius and entry.node.nodesInRadius[radiusIndex] or { }) do
+				local mod = other.modList and other.modList[1]
+				if other.type == "Normal" and not other.isAttribute and not other.alloc and mod and mod.flags == 0 and mod.keywordFlags == 0
+					and not mod[1] and type(mod.value) == "number" and mod.value > 0 then
+					table.insert(ids, id)
+				end
+			end
+			if ids[1] then
+				table.sort(ids)
+				socket, small = entry.node, build.spec.nodes[ids[1]]
+				break
+			end
+		end
+		local mod = small.modList[1]
+		build.spec:AllocNode(socket)
+		socketJewel(socket.id, raw)
+		small.alloc, small.allocMode = true, 2
+		build.spec.allocNodes[small.id] = small
+		build.skillsTab:PasteSocketGroup("Spark 20/0  1")
+		build.skillsTab:PasteSocketGroup("Elemental Weakness 20/0  1")
+		build.skillsTab.socketGroupList[1].set1, build.skillsTab.socketGroupList[1].set2 = true, false
+		build.skillsTab.socketGroupList[2].set1, build.skillsTab.socketGroupList[2].set2 = false, true
+		build.mainSocketGroup = 1
+		build.buildFlag = true
+		runCallback("OnFrame")
+
+		local calcs = build.calcsTab.calcs
+		local main = calcs.initEnv(build, "CALCULATOR")
+		local context = main.weaponSetEnvs[2]
+		local fresh = calcs.initEnv(build, "CALCULATOR", { weaponSet = 2, mainSocketGroup = 2 })
+		local function sum(env)
+			return env.modDB:Sum(mod.type, nil, mod.name)
+		end
+		-- the passive and the jewel's effect on it count in set 2 only
+		assert.True(sum(fresh) - sum(main) > mod.value)
+		assert.are.near(sum(fresh), sum(context), 1e-9)
+		calcs.perform(context)
+		calcs.perform(fresh)
+		local count = 0
+		for key, value in pairs(fresh.player.output) do
+			if type(value) == "number" and value == value then
+				count = count + 1
+				assert.are.near(value, context.player.output[key], math.abs(value) * 1e-9, key)
+			end
+		end
+		assert.True(count > 300)
+	end)
+
 	it("does not apply jewel socket passive skill effect to jewels in item-granted Zarokh's Gift", function()
 		local normalNodeId, normalNode = firstNormalJewelSocket(build.spec)
 		build.spec:AllocNode(normalNode)
