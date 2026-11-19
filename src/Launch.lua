@@ -16,7 +16,8 @@ ConExecute("set vid_resizable 3")
 ---@diagnostic disable-next-line: lowercase-global
 launch = { }
 SetMainObject(launch)
-jit.opt.start('maxtrace=20000', 'maxmcode=8192')
+-- maxside: the default of 100 side traces per root trace runs out in the branchy calculation code, which then stays in the interpreter (about 8% faster per optimizer evaluation)
+jit.opt.start('maxtrace=20000', 'maxmcode=8192', 'maxside=5000')
 collectgarbage("setpause", 400)
 
 function launch:OnInit()

@@ -94,4 +94,37 @@ describe("Common", function()
 		-- 	common.classes.StupidClass = nil
 		-- end)
 	end)
+	describe("Hot-path shortcuts", function()
+		it("getHashFromString equals sha1 before, while and after the bounded cache is filled", function()
+			local text = "Time-Lost Diamond some item text"
+			assert.are.equals(common.sha1(text), getHashFromString(text))
+			assert.are.equals(common.sha1(text), getHashFromString(text))
+			for i = 1, 5000 do
+				getHashFromString("filler " .. i)
+			end
+			assert.are.equals(common.sha1(text), getHashFromString(text))
+			assert.are.equals(common.sha1("filler 4999"), getHashFromString("filler 4999"))
+		end)
+		it("MatchKeywordFlags and AND64 keep their results with the zero shortcuts", function()
+			-- the general rule as it was before the shortcut
+			local function reference(keywordFlags, modKeywordFlags)
+				local mask = NOT64(KeywordFlag.MatchAll)
+				local modMasked = AND64(modKeywordFlags, mask)
+				local keywordMasked = AND64(keywordFlags, mask)
+				if AND64(modKeywordFlags, KeywordFlag.MatchAll) ~= 0 then
+					return AND64(keywordMasked, modMasked) == modMasked
+				end
+				return modMasked == 0 or AND64(keywordMasked, modMasked) ~= 0
+			end
+			local values = { 0, KeywordFlag.Hit, KeywordFlag.Spell, KeywordFlag.Hit + KeywordFlag.Spell, KeywordFlag.Fire + KeywordFlag.MatchAll,
+				KeywordFlag.Hit + KeywordFlag.Spell + KeywordFlag.MatchAll, KeywordFlag.MatchAll, 0x1FFFFFFFFFFFFF }
+			for _, keywordFlags in ipairs(values) do
+				for _, modKeywordFlags in ipairs(values) do
+					assert.are.equals(reference(keywordFlags, modKeywordFlags), MatchKeywordFlags(keywordFlags, modKeywordFlags))
+				end
+				assert.are.equals(0, AND64(0, keywordFlags))
+				assert.are.equals(0, AND64(keywordFlags, 0))
+			end
+		end)
+	end)
 end)
