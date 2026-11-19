@@ -459,8 +459,13 @@ InfusionRemnantBaseDuration) were already in `data.gameConstants`.
   share work between the two initEnv passes (up to 25%), a per-candidate stat-total delta instead of
   rebuilding all node mod lists (`buildModListForNodeList` runs twice per initEnv, 5-20%), the base mod
   databases for the second pass (3-9%, changes summation order so not bit-identical).
-- **Recovery in the survivability score:** effective HP is a hit pool; regeneration, leech and
-  recovery on kill still don't count.
+- **Recovery in the survivability score:** effective HP is a hit pool and ignores sustain. Done as
+  an option (`recoveryHorizon`, `--recovery <seconds>`, default 0 = unchanged): survivability =
+  EHP x (1 + R x horizon / (recoverable Life + ES)), with R the net Life + ES recovery per second
+  (regen/recovery net of degen, average recoup, leech, gain on hit), the recovery part capped at one
+  pool (an uncapped 1 Life Chaos Inoculation build with a life flask scored 3800 x its pool). Still open: Energy Shield
+  recharge, mana and runic ward are not in R; the horizon is a fixed number of seconds instead of a
+  survival simulation against an enemy.
 
 ## The approximation model
 

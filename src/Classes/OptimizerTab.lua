@@ -114,22 +114,25 @@ function OptimizerTabClass:OptimizerTab(build)
 	self.controls.itemLevel.tooltipText = "Highest modifier tier level that may be crafted on items."
 	self.controls.supportsLabel = label(search, 92, "Support gems:")
 	self.controls.supports = numberEdit(search, 92, "5", nil, 1)
-	self.controls.roundsLabel = label(search, 118, "Rounds:")
-	self.controls.rounds = numberEdit(search, 118, "2", nil, 1)
+	self.controls.roundsLabel = new("LabelControl"):LabelControl({ "TOPLEFT", search, "TOPLEFT" }, { 212, 94, 0, 16 }, "^7Rounds:")
+	self.controls.rounds = new("EditControl"):EditControl({ "TOPLEFT", search, "TOPLEFT" }, { 270, 92, 70, 20 }, "2", nil, "%D", 1)
 	self.controls.rounds.tooltipText = "Passes over supports -> equipment -> tree -> jewels. More rounds let earlier choices react to later ones."
-	self.controls.treeWidthLabel = label(search, 144, "Tree variants:")
-	self.controls.treeWidth = new("DropDownControl"):DropDownControl({ "TOPLEFT", search, "TOPLEFT" }, { 120, 144, 80, 20 }, { "1", "2", "3", "4" },
+	self.controls.treeWidthLabel = label(search, 118, "Tree variants:")
+	self.controls.treeWidth = new("DropDownControl"):DropDownControl({ "TOPLEFT", search, "TOPLEFT" }, { 120, 118, 80, 20 }, { "1", "2", "3", "4" },
 		nil, "Number of differently-minded passive trees that are built and compared. Each one adds to the run time.")
 	self.controls.treeWidth:SetSel(4)
-	self.controls.restartsLabel = new("LabelControl"):LabelControl({ "TOPLEFT", search, "TOPLEFT" }, { 212, 146, 0, 16 }, "^7Restarts:")
-	self.controls.restarts = new("EditControl"):EditControl({ "TOPLEFT", search, "TOPLEFT" }, { 270, 144, 70, 20 }, "1", nil, "%D", 1)
+	self.controls.restartsLabel = new("LabelControl"):LabelControl({ "TOPLEFT", search, "TOPLEFT" }, { 212, 120, 0, 16 }, "^7Restarts:")
+	self.controls.restarts = new("EditControl"):EditControl({ "TOPLEFT", search, "TOPLEFT" }, { 270, 118, 70, 20 }, "1", nil, "%D", 1)
 	self.controls.restarts.tooltipText = "Runs the whole search this many times, each with a different order of steps and tree variants, and keeps the best build. 1 runs it once. Each restart multiplies the run time."
-	self.controls.survivabilityLabel = label(search, 170, "Survivability:")
-	self.controls.survivability = new("SliderControl"):SliderControl({ "TOPLEFT", search, "TOPLEFT" }, { 120, 172, 160, 16 })
+	self.controls.survivabilityLabel = label(search, 144, "Survivability:")
+	self.controls.survivability = new("SliderControl"):SliderControl({ "TOPLEFT", search, "TOPLEFT" }, { 120, 146, 160, 16 })
 	self.controls.survivabilityValue = new("LabelControl"):LabelControl({ "LEFT", self.controls.survivability, "RIGHT" }, { 8, 0, 0, 16 }, function()
 		return s_format("^7%d%%", m_floor(self.controls.survivability.val * 100 + 0.5))
 	end)
 	self.controls.survivability.tooltipText = "Weight of survivability (effective hit pool) against damage in the score.\n0% maximises damage only, 50% weighs both alike, 100% only survivability."
+	self.controls.recoveryLabel = label(search, 170, "Recovery (s):")
+	self.controls.recovery = numberEdit(search, 170, "0", nil, 2)
+	self.controls.recovery.tooltipText = "Seconds of Life and Energy Shield recovery (regeneration, leech, recoup) that count as extra hit pool in the survivability score.\n0 counts the hit pool alone; 4 is a reasonable value. Needs survivability above 0."
 
 	-- Include
 	local include = new("SectionControl"):SectionControl({ "TOPLEFT", search, "BOTTOMLEFT" }, { 0, 20, 350, 160 }, "Include")
@@ -300,7 +303,7 @@ function OptimizerTabClass:ApplySettings(settings)
 		self.controls.ascendancy:SelByValue(settings.ascendancy, "name")
 	end
 	self.controls.skill:SelByValue(settings.skill)
-	for _, key in ipairs({ "level", "points", "itemLevel", "supports", "rounds", "restarts" }) do
+	for _, key in ipairs({ "level", "points", "itemLevel", "supports", "rounds", "restarts", "recovery" }) do
 		self.controls[key]:SetText(settings[key])
 	end
 	self.controls.metric:SelByValue(settings.metric)
@@ -347,6 +350,7 @@ function OptimizerTabClass:Launch()
 		restarts = num(self.controls.restarts, 1, 9),
 		affixRoll = self.controls.roll.val,
 		survivability = self.controls.survivability.val,
+		recoveryHorizon = num(self.controls.recovery, 0, 99),
 		itemLevel = num(self.controls.itemLevel, 1, 100),
 		maxSupports = num(self.controls.supports, 0, 9),
 		metric = self.controls.metric:GetSelValue(),
@@ -371,7 +375,7 @@ function OptimizerTabClass:Launch()
 		class = class.label, ascendancy = setup.ascendancy, skill = skill, metric = options.metric,
 		roll = self.controls.roll.val, survivability = options.survivability, treeWidth = options.treeWidth, checks = { },
 	}
-	for _, key in ipairs({ "level", "points", "itemLevel", "supports", "rounds", "restarts" }) do
+	for _, key in ipairs({ "level", "points", "itemLevel", "supports", "rounds", "restarts", "recovery" }) do
 		lastSettings[key] = self.controls[key].buf
 	end
 	for key, check in pairs(self.checks) do

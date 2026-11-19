@@ -63,7 +63,7 @@ local function run()
 
 	local function finish(variant, result)
 		build.buildName = setup.name .. " (" .. variant .. ")"
-		local summary = optimizer.Describe(build)
+		local summary = optimizer.Describe(build, options)
 		-- The extra reports must never cost the user the build that was just found
 		for _, report in ipairs({ optimizer.ConfigReport, optimizer.BlindSpotReport }) do
 			local reportOk, text = pcall(report, build, options)

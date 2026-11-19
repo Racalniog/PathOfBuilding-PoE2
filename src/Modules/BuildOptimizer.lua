@@ -29,6 +29,10 @@ optimizer.defaultOptions = {
 	-- Weight w (0..1) of survivability, PoB's effective hit pool (output.TotalEHP), in the score:
 	-- score = metric ^ (1 - w) * TotalEHP ^ w. 0 = damage only, 0.5 weighs both alike
 	survivability = 0,
+	-- Seconds of recovery that count towards the survivability part of the score: the hit pool is
+	-- scaled by (1 + recovery per second x seconds / pool), see optimizer.Survivability. 0 = the hit
+	-- pool alone (regeneration, leech and recoup then count for nothing). Only used when survivability > 0
+	recoveryHorizon = 0,
 	-- Switch on the Configuration tab's approximations in the build (recovery on kill from a kill
 	-- rate, ...) with this many kills per second
 	approximations = false,
@@ -175,6 +179,38 @@ local function minionCount(ctx, output, env)
 	return free + m_floor(available / (reserved / (current - free)) + 1e-9), free
 end
 
+-- Life and Energy Shield recovered per second: regeneration and recovery (flasks, on kill with
+-- approximations) net of degeneration, average recoup (the Comprehensive net figures already hold
+-- recoup and degeneration from enemies when the engine calculated them) and leech / gain on hit
+-- ponytail: Energy Shield recharge, mana and runic ward are left out (recharge stops when hit);
+-- upgrade path = add EnergyShieldRecharge x a "not recently hit" share
+local function recoveryRate(output)
+	local life = output.ComprehensiveNetLifeRegen or ((output.NetLifeRegen or output.LifeRegenRecovery or 0) + (output.LifeRecoupRecoveryAvg or 0) - (output.LifeLossLostAvg or 0))
+	local shield = output.ComprehensiveNetEnergyShieldRegen or ((output.NetEnergyShieldRegen or output.EnergyShieldRegenRecovery or 0) + (output.EnergyShieldRecoupRecoveryAvg or 0))
+	return life + shield + (output.LifeLeechRate or 0) + (output.LifeOnHitRate or 0) + (output.EnergyShieldLeechRate or 0) + (output.EnergyShieldOnHitRate or 0)
+end
+
+-- The survivability of an output: its effective hit pool plus what the horizon's worth of recovery
+-- adds, in the same unit. A point of Life or Energy Shield is worth TotalEHP / pool of hit pool, so
+-- TotalEHP + rate x horizon x TotalEHP / pool = TotalEHP x (1 + rate x horizon / pool).
+-- ponytail: what recovery adds is capped at one more pool (survivability <= 2 x TotalEHP): you can't
+-- usefully recover more than you lost, and without the cap a 1 Life build (Chaos Inoculation) with a
+-- life flask scored 3800 x its hit pool. Upgrade path = simulate the damage taken per second instead
+-- Returns the survivability and the recovery per second
+function optimizer.Survivability(output, horizon)
+	-- No (or a broken) hit pool counts as 1, which leaves the damage part alone
+	-- ponytail: a hit pool the engine thinks is endless is capped at 1e12, so such builds rank highest instead of scoring 0
+	local ehp = m_min(tonumber(output.TotalEHP) or 1, 1e12)
+	ehp = ehp >= 1 and ehp or 1
+	if not (horizon > 0) then
+		return ehp, 0
+	end
+	local rate = recoveryRate(output)
+	local pool = m_max((output.LifeRecoverable or output.Life or 0) + (output.EnergyShieldRecoveryCap or output.EnergyShield or 0), 1)
+	local survivability = ehp * (1 + m_max(-pool, m_min(pool, rate * horizon)) / pool)
+	return survivability >= 1 and survivability or 1, rate
+end
+
 local function scoreOutput(ctx, output, env)
 	local minions = ctx.group.gemList[1].count or 1
 	if not ctx.ignoreSpirit then
@@ -202,10 +238,7 @@ local function scoreOutput(ctx, output, env)
 	end
 	local weight = ctx.opts.survivability
 	if weight > 0 and type(value) == "number" and value > 0 then
-		-- No (or a broken) hit pool counts as 1, which leaves the damage part alone
-		-- ponytail: a hit pool the engine thinks is endless is capped at 1e12, so such builds rank highest instead of scoring 0
-		local ehp = m_min(tonumber(output.TotalEHP) or 1, 1e12)
-		value = value ^ (1 - weight) * (ehp >= 1 and ehp or 1) ^ weight
+		value = value ^ (1 - weight) * (optimizer.Survivability(output, ctx.opts.recoveryHorizon)) ^ weight
 	end
 	if type(value) ~= "number" or value ~= value or value == m_huge or value == -m_huge then
 		return 0
@@ -3141,6 +3174,7 @@ function optimizer.ConfigReport(build, options)
 	local what = ctx.opts.survivability > 0 and "score" or "damage"
 	add("== Configuration ==")
 	add("Approximations: %s   [useApproximations]", input.useApproximations and s_format("on, %s kills per second [approxKillsPerSecond]", tostring(input.approxKillsPerSecond or 1)) or "off")
+	add("Recovery in the survivability score: %s", ctx.opts.survivability > 0 and ctx.opts.recoveryHorizon > 0 and s_format("on, %g seconds of recovery [recoveryHorizon]", ctx.opts.recoveryHorizon) or "off")
 	local on = { }
 	for _, entry in ipairs(sensitivity) do
 		if entry.enabled then
@@ -3187,6 +3221,7 @@ local function newContext(build, options)
 		opts[key] = value
 	end
 	opts.survivability = m_max(0, m_min(1, tonumber(opts.survivability) or 0))
+	opts.recoveryHorizon = m_max(0, tonumber(opts.recoveryHorizon) or 0)
 	local group = build.skillsTab.socketGroupList[build.mainSocketGroup]
 	if not group or not group.gemList[1] then
 		return nil, "The build has no main skill"
@@ -3406,7 +3441,7 @@ function optimizer.Optimize(build, options)
 end
 
 -- Plain text summary of the build: main skill links, equipment, tree and jewels
-function optimizer.Describe(build)
+function optimizer.Describe(build, options)
 	local lines = { }
 	local function add(fmt, ...)
 		t_insert(lines, s_format(fmt, ...))
@@ -3445,6 +3480,13 @@ function optimizer.Describe(build)
 	add("Maximum hit taken: %s", t_concat(maxHits, ", "))
 	-- NetLifeRegen only exists when something degenerates Life; otherwise it is the plain recovery
 	add("Net Life recovery: %.1f per second", output.NetLifeRegen or output.LifeRegenRecovery or 0)
+	local horizon = tonumber(options and options.recoveryHorizon) or 0
+	local survivability, rate = optimizer.Survivability(output, horizon)
+	rate = horizon > 0 and rate or recoveryRate(output)
+	add("Recovery: %.1f per second (Life and Energy Shield: regeneration, leech, on hit, recoup)", rate)
+	if horizon > 0 then
+		add("Survivability with %g seconds of recovery: %.0f (effective hit pool x %.2f)", horizon, survivability, survivability / m_max(tonumber(output.TotalEHP) or 1, 1))
+	end
 
 	add("")
 	add("== Skill links ==")

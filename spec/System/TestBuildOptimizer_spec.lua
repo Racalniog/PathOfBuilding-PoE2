@@ -213,6 +213,43 @@ describe("BuildOptimizer", function()
 		assert.is_truthy(optimizer.Describe(build):match("== Survivability ==\nSurvivability score %(effective hit pool%): %d+"))
 	end)
 
+	it("counts recovery over the horizon into the survivability score, and not at all at 0", function()
+		local function run(horizon)
+			newBuild()
+			assert.is_true(optimizer.SetupCharacter(build, { class = "Sorceress", ascendancy = "Stormweaver", skill = "Spark" }))
+			local options = copyTable(quickOptions)
+			options.survivability = 0.5
+			options.approximations = true
+			options.flasks = true
+			options.recoveryHorizon = horizon
+			return optimizer.Optimize(build, options), build.calcsTab.mainOutput, options
+		end
+		local plain, plainOutput = run(nil)
+		-- A horizon of 0 is the hit pool alone, bit for bit
+		local zero = run(0)
+		assert.are.equals(plain.score, zero.score)
+		assert.are.equals(math.min(plainOutput.TotalEHP, 1e12), (optimizer.Survivability(plainOutput, 0)))
+
+		local result, output, options = run(4)
+		-- score = damage ^ (1 - w) * (EHP x (1 + recovery per second x horizon / pool, within +-1)) ^ w, from the final build's own outputs
+		local rate = (output.ComprehensiveNetLifeRegen or ((output.NetLifeRegen or output.LifeRegenRecovery or 0) + (output.LifeRecoupRecoveryAvg or 0) - (output.LifeLossLostAvg or 0)))
+			+ (output.ComprehensiveNetEnergyShieldRegen or ((output.NetEnergyShieldRegen or output.EnergyShieldRegenRecovery or 0) + (output.EnergyShieldRecoupRecoveryAvg or 0)))
+			+ (output.LifeLeechRate or 0) + (output.LifeOnHitRate or 0) + (output.EnergyShieldLeechRate or 0) + (output.EnergyShieldOnHitRate or 0)
+		local pool = output.LifeRecoverable + output.EnergyShieldRecoveryCap
+		local survivability = output.TotalEHP * (1 + math.max(-pool, math.min(pool, rate * 4)) / pool)
+		-- Recovery can double the hit pool at most, whatever the pool: a huge rate on a tiny pool is no exploit
+		assert.is_true(optimizer.Survivability({ TotalEHP = 100, LifeRecoverable = 1, EnergyShieldRecoveryCap = 0, LifeRegenRecovery = 1000 }, 4) == 200)
+		local expected = score() ^ 0.5 * survivability ^ 0.5
+		assert.is_true(math.abs(result.score - expected) <= expected * 1e-6)
+		assert.is_true(math.abs(survivability - (optimizer.Survivability(output, 4))) <= survivability * 1e-6)
+		-- Recovery is worth searching for: the build ends with more of it than the one that ignored it
+		assert.is_true(rate > select(2, optimizer.Survivability(plainOutput, 1)))
+		local text = optimizer.Describe(build, options)
+		assert.is_truthy(text:match("Recovery: [%d%.%-]+ per second"))
+		assert.is_truthy(text:match("Survivability with 4 seconds of recovery: %d+"))
+		assert.is_truthy(optimizer.ConfigReport(build, options):match("Recovery in the survivability score: on, 4 seconds"))
+	end)
+
 	it("restarts the search from the starting build and keeps the best result", function()
 		local setup = { class = "Sorceress", ascendancy = "Stormweaver", skill = "Spark" }
 		local function run(options)

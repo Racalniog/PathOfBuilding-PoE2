@@ -25,6 +25,9 @@ Usage: OptimizeBuild.lua --class <name> --skill <gem name> [options]
   --metric <stat>        Calc output to maximise (default CombinedDPS; e.g. TotalDPS, FullDPS)
   --survivability <0..1> Weight of survivability (effective hit pool) in the score, default 0 = damage
                          only: score = metric ^ (1 - w) * EHP ^ w, 0.5 weighs both alike
+  --recovery <seconds>   Count this many seconds of Life / Energy Shield recovery (regeneration, leech,
+                         recoup) as extra hit pool in the survivability part of the score (default 0 =
+                         the hit pool alone; 4 is a reasonable value). Needs --survivability above 0
   --approx [kills/s]     Switch on the Configuration tab's approximations (recovery on kill and the
                          like, from a kill rate; default 1 kill per second) in the build
   --config <key=value>   Set a Configuration tab option, may be repeated (e.g. --config enemyIsBoss=Pinnacle)
@@ -104,6 +107,10 @@ if args.help or ((not args.class or not args.skill) and not args.coverage and no
 end
 if args.survivability and not tonumber(args.survivability) then
 	io.stderr:write("--survivability expects a number from 0 to 1\n")
+	os.exit(2)
+end
+if args.recovery and not tonumber(args.recovery) then
+	io.stderr:write("--recovery expects a number of seconds\n")
 	os.exit(2)
 end
 
@@ -212,6 +219,7 @@ local options = {
 	maxSupports = tonumber(args.supports),
 	metric = args.metric,
 	survivability = tonumber(args.survivability),
+	recoveryHorizon = tonumber(args.recovery),
 	approximations = args.approx ~= nil,
 	killsPerSecond = args.approx,
 	lineage = not args["no-lineage"],
@@ -302,7 +310,7 @@ local function save(variant)
 	local name = (baseName .. " (" .. variant .. ")"):gsub('[<>:"/\\|%?%*]', "_")
 	build.buildName = name
 	local xmlText = build:SaveDB(name)
-	local summary = optimizer.Describe(build)
+	local summary = optimizer.Describe(build, options)
 	-- The extra reports must never cost the user the build that was just found
 	for _, report in ipairs({ optimizer.ConfigReport, optimizer.BlindSpotReport, optimizer.CoverageReport }) do
 		local ok, text = pcall(report, build, options)

@@ -58,6 +58,7 @@ describe("OptimizerTab", function()
 		tab.checks.sustained.state = true
 		tab.checks.approximations.state = true
 		tab.controls.survivability:SetVal(0.5)
+		tab.controls.recovery:SetText("4")
 		local launched = start()
 
 		assert.are.equal("OptimizerProgress", launched.subList)
@@ -81,6 +82,7 @@ describe("OptimizerTab", function()
 		assert.is_nil(options.points)
 		-- --survivability 0.5 --approx: the kill rate is left to the optimizer's default of 1, as on the command line
 		assert.are.equal(0.5, options.survivability)
+		assert.are.equal(4, options.recoveryHorizon) -- --recovery 4
 		assert.is_true(options.approximations)
 		assert.is_nil(options.killsPerSecond)
 		-- The form still fits a 1280x720 window (the tab gets the height below the 32 pixel top bar)
