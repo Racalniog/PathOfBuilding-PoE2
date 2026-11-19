@@ -1628,6 +1628,7 @@ return {
 		{ label = "More Life Recovery", modName = { "LifeRegen", "LifeRecoveryRate" }, modType = "MORE" },
 	}, },
 	{ label = "On Kill (approx.)", haveOutput = "LifeOnKillApproxRecovery", { format = "{1:output:LifeOnKillApproxRecovery}", { breakdown = "LifeOnKillApproxRecovery" }, { label = "Sources", modName = "LifeOnKill" }, }, },
+	{ label = "On Minion Revival (approx.)", haveOutput = "LifeOnMinionReviveApproxRecovery", { format = "{1:output:LifeOnMinionReviveApproxRecovery}", { breakdown = "LifeOnMinionReviveApproxRecovery" }, { label = "Sources", modName = "LifeOnMinionRevive" }, }, },
 	{ label = "Recoup", haveOutput = "LifeRecoup", { format = "{1:output:LifeRecoup}%", { breakdown = "LifeRecoup" },
 		{ label = "Sources", modName = "LifeRecoup" },
 		{ label = "Recovery modifiers", modName = "LifeRecoveryRate" },

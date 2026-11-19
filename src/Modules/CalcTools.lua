@@ -9,6 +9,7 @@ local t_remove = table.remove
 local m_floor = math.floor
 local m_min = math.min
 local m_max = math.max
+local m_exp = math.exp
 
 calcLib = { }
 
@@ -65,6 +66,10 @@ end
 -- Stacks gained at a rate, each lasting a duration, up to a maximum
 function calcLib.approxAverageStacks(max, rate, duration)
 	return m_min(max, rate * duration)
+end
+-- Share of the time a buff of the given duration is up when events at a given rate (random in time) each gain it or restart it
+function calcLib.approxUptime(rate, duration)
+	return rate > 0 and duration > 0 and 1 - m_exp(-rate * duration) or 0
 end
 -- Share of uses that find a resource, supplied at one rate and used up at another (all of them if nothing uses it up)
 function calcLib.approxSupplyShare(supply, demand)

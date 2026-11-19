@@ -1662,9 +1662,20 @@ function calcs.defence(env, actor)
 	calcs.doActorDarkness(actor)
 
 	-- Stormweaver's Force of Will adds effect per max mana. Needs to happen before mana regen is calculated
-	if modDB.conditions["AffectedByArcaneSurge"] or modDB:Flag(nil, "Condition:ArcaneSurge") then
-		modDB.conditions["AffectedByArcaneSurge"] = true
-		local effect = 1 + modDB:Sum("INC", nil, "ArcaneSurgeEffect", "BuffEffectOnSelf") / 100
+	-- Approximation (needs Use approximations): Arcane Surge gained when a Minion dies is up for the share of time set by the
+	-- configured death rate (calcLib.approxUptime). A flag can't be scaled, so what needs "while you have Arcane Surge" only counts
+	-- when it's up for certain; only the buff's own bonuses are averaged over the uptime.
+	-- ponytail: the duration is the Arcane Surge support's (support_arcane_surge_base_duration_ms, 10 s in Data/Skills/sup_int.lua),
+	-- the Minion death texts give none; upgrade path = in-game check
+	local surgeUptime = (modDB.conditions["AffectedByArcaneSurge"] or modDB:Flag(nil, "Condition:ArcaneSurge")) and 1 or 0
+	if surgeUptime == 0 and actor == env.player and modDB:Flag(nil, "ArcaneSurgeOnMinionDeath") and modDB:Flag(nil, "Condition:UseApproximations") then
+		surgeUptime = calcLib.approxUptime(modDB:GetMultiplier("ApproxMinionDeathsPerSecond"), 10)
+	end
+	if surgeUptime > 0 then
+		if surgeUptime == 1 then
+			modDB.conditions["AffectedByArcaneSurge"] = true
+		end
+		local effect = (1 + modDB:Sum("INC", nil, "ArcaneSurgeEffect", "BuffEffectOnSelf") / 100) * surgeUptime
 		if modDB:Flag(nil, "ArcaneSurgeLifeRegen") then
 			modDB:NewMod("LifeRegen", "MORE", (modDB:Max(nil, "ArcaneSurgeManaRegen") or 20) * effect, "Arcane Surge")
 		else
@@ -1769,7 +1780,8 @@ function calcs.defence(env, actor)
 		local killsPerSecond = modDB:GetMultiplier("ApproxKillsPerSecond")
 		local onKill = killsPerSecond > 0 and modDB:Sum("BASE", nil, resource.."OnKill") or 0
 		local onKillRecovery = 0
-		if onKill ~= 0 and not modDB:Flag(nil, "CannotGain"..resource) and not (resource == "Life" and modDB:Flag(nil, "CannotRecoverLifeOutsideLeech")) then
+		local canGain = not modDB:Flag(nil, "CannotGain"..resource) and not (resource == "Life" and modDB:Flag(nil, "CannotRecoverLifeOutsideLeech"))
+		if onKill ~= 0 and canGain then
 			onKillRecovery = onKill * killsPerSecond
 			output[resource.."OnKillApproxRecovery"] = onKillRecovery
 			output[resource.."RegenRecovery"] = output[resource.."RegenRecovery"] + onKillRecovery
@@ -1781,6 +1793,28 @@ function calcs.defence(env, actor)
 				}
 			end
 		end
+		-- Approximation: recovery when one of your Minions is Revived. Each of the n persistent minions lives 1 / d (d = its share of the
+		-- configured Minion deaths per second) and then needs the revival time T before it can die again, so they are revived
+		-- n x d / (1 + d x T) times per second (calcLib.approxRateWhileUnaffected), at most one revival per minion per T.
+		local onRevive = actor == env.player and modDB:Flag(nil, "Condition:UseApproximations") and modDB:Sum("BASE", nil, resource.."OnMinionRevive") or 0
+		local onReviveRecovery = 0
+		local minions = modDB:GetMultiplier("PersistentMinions")
+		local revivalSpeed = calcLib.mod(modDB, nil, "MinionRevivalSpeed")
+		if onRevive ~= 0 and canGain and minions > 0 and revivalSpeed > 0 then
+			local revivalTime = data.misc.MinionRevivalTimeBase / revivalSpeed
+			local revives = minions * calcLib.approxRateWhileUnaffected(modDB:GetMultiplier("ApproxMinionDeathsPerSecond") / minions, revivalTime)
+			onReviveRecovery = onRevive * revives
+			output[resource.."OnMinionReviveApproxRecovery"] = onReviveRecovery
+			output[resource.."RegenRecovery"] = output[resource.."RegenRecovery"] + onReviveRecovery
+			if breakdown then
+				breakdown[resource.."OnMinionReviveApproxRecovery"] = {
+					s_format("%.1f ^8(%s per revived Minion)", onRevive, resourceName:lower()),
+					s_format("x %.3f ^8(Minions revived per second: %d persistent Minions, %.1fs revival time)", revives, minions, revivalTime),
+					s_format("= %.1f ^8per second (approx.)", onReviveRecovery),
+				}
+			end
+		end
+		local approxRecovery = onKillRecovery + onReviveRecovery
 		if output[resource.."RegenRecovery"] > 0 then
 			modDB:NewMod("Condition:CanGain"..resource, "FLAG", true, resourceName.."Regen")
 		end
@@ -1803,14 +1837,18 @@ function calcs.defence(env, actor)
 			end
 			if recoveryRate ~= 0 then
 				t_insert(breakdown[resource.."RegenRecovery"], s_format("+ %.1f ^8(recovery)", recoveryRate))
-				t_insert(breakdown[resource.."RegenRecovery"], s_format("= %.1f ^8per second", output[resource.."RegenRecovery"] - overflowRecovery - onKillRecovery))
+				t_insert(breakdown[resource.."RegenRecovery"], s_format("= %.1f ^8per second", output[resource.."RegenRecovery"] - overflowRecovery - approxRecovery))
 			end
 			if overflowRecovery ~= 0 then
 				t_insert(breakdown[resource.."RegenRecovery"], s_format("+ %.1f ^8(overflow recovery)", overflowRecovery))
-				t_insert(breakdown[resource.."RegenRecovery"], s_format("= %.1f ^8per second", output[resource.."RegenRecovery"] - onKillRecovery))
+				t_insert(breakdown[resource.."RegenRecovery"], s_format("= %.1f ^8per second", output[resource.."RegenRecovery"] - approxRecovery))
 			end
 			if onKillRecovery ~= 0 then
 				t_insert(breakdown[resource.."RegenRecovery"], s_format("+ %.1f ^8(on kill, approx.)", onKillRecovery))
+				t_insert(breakdown[resource.."RegenRecovery"], s_format("= %.1f ^8per second", output[resource.."RegenRecovery"] - onReviveRecovery))
+			end
+			if onReviveRecovery ~= 0 then
+				t_insert(breakdown[resource.."RegenRecovery"], s_format("+ %.1f ^8(on Minion revival, approx.)", onReviveRecovery))
 				t_insert(breakdown[resource.."RegenRecovery"], s_format("= %.1f ^8per second", output[resource.."RegenRecovery"]))
 			end
 			if resource == "Life" and modDB:Flag(nil, "ZealotsOath") then

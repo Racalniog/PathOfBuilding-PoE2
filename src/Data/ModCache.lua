@@ -2970,7 +2970,7 @@ c["20% increased Stun buildup if you have Shapeshifted to an Animal form Recentl
 c["20% increased Thorns damage"]={{[1]={flags=32,keywordFlags=0,name="Damage",type="INC",value=20}},nil}
 c["20% increased Totem Damage"]={{[1]={flags=0,keywordFlags=16384,name="Damage",type="INC",value=20}},nil}
 c["20% increased Totem Life"]={{[1]={flags=0,keywordFlags=0,name="TotemLife",type="INC",value=20}},nil}
-c["20% increased Totem Placement range"]={{},"  Placement range "}
+c["20% increased Totem Placement range"]={{[1]={flags=0,keywordFlags=0,name="TotemPlacementRange",type="INC",value=20}},nil}
 c["20% increased Totem Placement speed"]={{[1]={flags=0,keywordFlags=0,name="TotemPlacementSpeed",type="INC",value=20}},nil}
 c["20% increased Trap Damage"]={{[1]={flags=0,keywordFlags=4096,name="Damage",type="INC",value=20}},nil}
 c["20% increased Tribute"]={{[1]={flags=0,keywordFlags=0,name="Tribute",type="INC",value=20}},nil}
@@ -3050,8 +3050,7 @@ c["20% reduced Movement Speed"]={{[1]={flags=0,keywordFlags=0,name="MovementSpee
 c["20% reduced Presence Area of Effect"]={{[1]={flags=0,keywordFlags=0,name="PresenceArea",type="INC",value=-20}},nil}
 c["20% reduced Rarity of Items found"]={{[1]={flags=0,keywordFlags=0,name="LootRarity",type="INC",value=-20}},nil}
 c["20% reduced Reservation Efficiency of Skills"]={{[1]={flags=0,keywordFlags=0,name="ReservationEfficiency",type="INC",value=-20}},nil}
-c["20% reduced Reservation Efficiency of Skills which create Undead Minions"]={{[1]={flags=0,keywordFlags=0,name="MinionModifier",type="LIST",value={mod={flags=0,keywordFlags=0,name="ReservationEfficiency",type="INC",value=-20}}}},"  which create Undead s "}
-c["20% reduced Reservation Efficiency of Skills which create Undead Minions 30% increased Reservation Efficiency of Skills which create Undead Minions"]={{[1]={flags=0,keywordFlags=0,name="MinionModifier",type="LIST",value={mod={flags=0,keywordFlags=0,name="ReservationEfficiency",type="INC",value=-20}}}},"  which create Undead s 30% increased Reservation Efficiency of Skills which create Undead Minions "}
+c["20% reduced Reservation Efficiency of Skills which create Undead Minions"]={{[1]={[1]={skillType=127,type="SkillType"},flags=0,keywordFlags=0,name="ReservationEfficiency",type="INC",value=-20}},nil}
 c["20% reduced Slowing Potency of Debuffs on You"]={{}," Slowing Potency of Debuffs on You "}
 c["20% reduced Slowing Potency of Debuffs on You 6% reduced Movement Speed Penalty from using Skills while moving"]={{[1]={[1]={type="Condition",var="Moving"},flags=0,keywordFlags=0,name="MovementSpeed",type="INC",value=-20}}," Slowing Potency of Debuffs on You 6% reduced  Penalty from using Skills  "}
 c["20% reduced Slowing Potency of Debuffs on You 8% reduced Movement Speed Penalty from using Skills while moving"]={{[1]={[1]={type="Condition",var="Moving"},flags=0,keywordFlags=0,name="MovementSpeed",type="INC",value=-20}}," Slowing Potency of Debuffs on You 8% reduced  Penalty from using Skills  "}
@@ -4567,7 +4566,7 @@ c["50% increased Melee Damage against Bleeding Enemies"]={{[1]={[1]={actor="enem
 c["50% increased Melee Damage against Heavy Stunned enemies"]={{[1]={[1]={actor="enemy",type="ActorCondition",var="HeavyStunned"},flags=256,keywordFlags=0,name="Damage",type="INC",value=50}},nil}
 c["50% increased Melee Damage against Immobilised Enemies"]={{[1]={[1]={actor="enemy",type="ActorCondition",var="Immobilised"},flags=256,keywordFlags=0,name="Damage",type="INC",value=50}},nil}
 c["50% increased Mine Throwing Speed"]={{[1]={flags=0,keywordFlags=0,name="MineLayingSpeed",type="INC",value=50}},nil}
-c["50% increased Minion Damage while you have at least two different active Offerings"]={{[1]={flags=0,keywordFlags=0,name="MinionModifier",type="LIST",value={mod={flags=0,keywordFlags=0,name="Damage",type="INC",value=50}}}},"   while you have at least two different active Offerings "}
+c["50% increased Minion Damage while you have at least two different active Offerings"]={{[1]={[1]={threshold=2,type="MultiplierThreshold",var="ActiveOfferingTypes"},flags=0,keywordFlags=0,name="MinionModifier",type="LIST",value={mod={flags=0,keywordFlags=0,name="Damage",type="INC",value=50}}}},nil}
 c["50% increased Parried Debuff Duration"]={{[1]={flags=0,keywordFlags=0,name="ParryDebuffDuration",type="INC",value=50}},nil}
 c["50% increased Parried Debuff Magnitude"]={{[1]={flags=0,keywordFlags=0,name="ParryDebuffMagnitude",type="INC",value=50}},nil}
 c["50% increased Physical Damage"]={{[1]={flags=0,keywordFlags=0,name="PhysicalDamage",type="INC",value=50}},nil}
@@ -4589,7 +4588,7 @@ c["50% increased Stun Buildup"]={{[1]={flags=0,keywordFlags=0,name="EnemyHeavySt
 c["50% increased Stun Duration on you"]={{[1]={flags=0,keywordFlags=0,name="StunDuration",type="INC",value=50}},nil}
 c["50% increased Stun Threshold while Channelling"]={{[1]={[1]={type="Condition",var="Channelling"},flags=0,keywordFlags=0,name="StunThreshold",type="INC",value=50}},nil}
 c["50% increased Surrounded Area of Effect"]={{[1]={flags=0,keywordFlags=0,name="SurroundedArea",type="INC",value=50}},nil}
-c["50% increased Totem Placement range"]={{},"  Placement range "}
+c["50% increased Totem Placement range"]={{[1]={flags=0,keywordFlags=0,name="TotemPlacementRange",type="INC",value=50}},nil}
 c["50% increased Trap Trigger Area of Effect"]={{[1]={flags=0,keywordFlags=0,name="TrapTriggerAreaOfEffect",type="INC",value=50}},nil}
 c["50% increased amount of Mana Leeched"]={{[1]={flags=0,keywordFlags=0,name="MaxManaLeechRate",type="INC",value=50}},nil}
 c["50% increased chance to inflict Ailments against Enemies affected by Abyssal Wasting"]={{[1]={flags=0,keywordFlags=0,name="AbyssalWastingAlsoGrants",type="LIST",value={mod={flags=0,keywordFlags=0,name="AilmentChance",type="INC",value=50},unscalable=true}}},nil}
@@ -5001,8 +5000,8 @@ c["8% chance to Blind Enemies on Hit with Attacks"]={{[1]={flags=0,keywordFlags=
 c["8% chance to Blind Enemies on hit"]={{[1]={flags=0,keywordFlags=0,name="BlindChance",type="BASE",value=8}},nil}
 c["8% chance to Daze on Hit"]={{[1]={flags=4,keywordFlags=0,name="DazeChance",type="BASE",value=8}},nil}
 c["8% chance to Freeze"]={{[1]={flags=0,keywordFlags=0,name="EnemyFreezeChance",type="BASE",value=8}},nil}
-end)();(function()
 c["8% chance to Poison on Hit"]={{[1]={flags=0,keywordFlags=0,name="PoisonChance",type="BASE",value=8}},nil}
+end)();(function()
 c["8% chance to Shock"]={{[1]={flags=0,keywordFlags=0,name="EnemyShockChance",type="BASE",value=8}},nil}
 c["8% chance to grant a Endurance Charge to Allies in your Presence on Hit"]={{}," to grant a Endurance Charge to  "}
 c["8% chance to grant a Frenzy Charge to Allies in your Presence on Hit"]={{}," to grant a Frenzy Charge to  "}
@@ -6950,7 +6949,7 @@ c["Companions have 6% increased Attack Speed"]={{[1]={[1]={skillType=219,type="S
 c["Companions have 8% increased Movement Speed"]={{[1]={[1]={skillType=219,type="SkillType"},flags=0,keywordFlags=0,name="MinionModifier",type="LIST",value={mod={flags=0,keywordFlags=0,name="MovementSpeed",type="INC",value=8}}}},nil}
 c["Companions have 8% increased maximum Life"]={{[1]={[1]={skillType=219,type="SkillType"},flags=0,keywordFlags=0,name="MinionModifier",type="LIST",value={mod={flags=0,keywordFlags=0,name="Life",type="INC",value=8}}}},nil}
 c["Companions have a 40% chance to Poison on Hit"]={{[1]={[1]={skillType=219,type="SkillType"},flags=0,keywordFlags=0,name="MinionModifier",type="LIST",value={mod={flags=0,keywordFlags=0,name="PoisonChance",type="BASE",value=40}}}},nil}
-c["Companions in your Presence have Onslaught while you are Shapeshifted"]={nil,"in your Presence have Onslaught while you are Shapeshifted "}
+c["Companions in your Presence have Onslaught while you are Shapeshifted"]={{[1]={[1]={skillType=219,type="SkillType"},[2]={type="Condition",var="CompanionInPresence"},[3]={type="Condition",var="Shapeshifted"},flags=0,keywordFlags=0,name="MinionModifier",type="LIST",value={mod={flags=0,keywordFlags=0,name="Condition:Onslaught",type="FLAG",value=true}}}},nil}
 c["Completing a Heist generates 3 additional Reveals"]={nil,"Completing a Heist generates 3 additional Reveals "}
 c["Conductivity has no Reservation if Cast as an Aura"]={{[1]={[1]={type="SkillId"},[2]={skillType=39,type="SkillType"},[3]={neg=true,skillType=109,type="SkillType"},flags=0,keywordFlags=0,name="SkillData",type="LIST",value={key="manaReservationFlat",value=0}},[2]={[1]={type="SkillId"},[2]={skillType=39,type="SkillType"},[3]={neg=true,skillType=109,type="SkillType"},flags=0,keywordFlags=0,name="SkillData",type="LIST",value={key="lifeReservationFlat",value=0}},[3]={[1]={type="SkillId"},[2]={skillType=39,type="SkillType"},[3]={neg=true,skillType=109,type="SkillType"},flags=0,keywordFlags=0,name="SkillData",type="LIST",value={key="manaReservationPercent",value=0}},[4]={[1]={type="SkillId"},[2]={skillType=39,type="SkillType"},[3]={neg=true,skillType=109,type="SkillType"},flags=0,keywordFlags=0,name="SkillData",type="LIST",value={key="lifeReservationPercent",value=0}}},nil}
 c["Conduit"]={{[1]={flags=0,keywordFlags=0,name="Keystone",type="LIST",value="Conduit"},[2]={flags=0,keywordFlags=0,name="Condition:HaveConduit",type="FLAG",value=true}},nil}
@@ -7006,7 +7005,7 @@ c["Critical Hits with Spells apply 5 Stacks of Critical Weakness"]={{[1]={flags=
 c["Critical Strikes have Culling Strike"]={nil,"Critical Strikes have Culling Strike "}
 c["Crushes Enemies on Hit"]={{[1]={flags=0,keywordFlags=0,name="EnemyModifier",type="LIST",value={mod={flags=0,keywordFlags=0,name="Condition:Crushed",type="FLAG",value=true}}}},nil}
 c["Culling Strike"]={{[1]={[1]={effectType="Global",type="GlobalEffect",unscalable=true},flags=0,keywordFlags=0,name="CanCull",type="FLAG",value=1}},nil}
-c["Culling Strike against Beasts while your Companion is in your Presence"]={nil,"Culling Strike against Beasts while your Companion is in your Presence "}
+c["Culling Strike against Beasts while your Companion is in your Presence"]={{[1]={[1]={actor="enemy",type="ActorCondition",var="Beast"},[2]={type="Condition",var="CompanionInPresence"},flags=0,keywordFlags=0,name="CanCull",type="FLAG",value=true}},nil}
 c["Culling Strike against Burning Enemies"]={{[1]={[1]={actor="enemy",type="ActorCondition",var="Burning"},flags=0,keywordFlags=0,name="CanCull",type="FLAG",value=1}},nil}
 c["Culling Strike against Enemies you Mark"]={{[1]={[1]={actor="enemy",type="ActorCondition",var="Marked"},flags=0,keywordFlags=0,name="CanCull",type="FLAG",value=1}},nil}
 c["Culling Strike against Frozen Enemies"]={{[1]={[1]={actor="enemy",type="ActorCondition",var="Frozen"},flags=0,keywordFlags=0,name="CanCull",type="FLAG",value=1}},nil}
@@ -7380,8 +7379,7 @@ c["Every Rage also grants 2% increased Spell Damage"]={{[1]={[1]={type="Multipli
 c["Every Rage also grants 2% increased Stun Threshold"]={{[1]={[1]={type="Multiplier",var="RageEffect"},flags=0,keywordFlags=0,name="StunThreshold",type="INC",value=2}},nil}
 c["Every Rage also grants you 1% increased Minion Damage"]={{[1]={flags=0,keywordFlags=0,name="MinionModifier",type="LIST",value={mod={[1]={actor="player",type="Multiplier",var="RageEffect"},flags=0,keywordFlags=0,name="Damage",type="INC",value=1}}}},nil}
 c["Every Third Slam skill that doesn't create Fissures which you use yourself causes 3 additional Aftershocks ahead and to each side of the initial area"]={nil,"Every Third Slam skill that doesn't create Fissures which you use yourself causes 3 additional Aftershocks ahead and to each side of the initial area "}
-c["Every five Rage also grants you 2% increased Minion Attack Speed"]={nil,"Every five Rage also grants you 2% increased Minion Attack Speed "}
-c["Every five Rage also grants you 2% increased Minion Attack Speed Every Rage also grants you 1% increased Minion Damage"]={nil,"Every five Rage also grants you 2% increased Minion Attack Speed Every Rage also grants you 1% increased Minion Damage "}
+c["Every five Rage also grants you 2% increased Minion Attack Speed"]={{[1]={flags=0,keywordFlags=0,name="MinionModifier",type="LIST",value={mod={[1]={actor="player",div=5,type="Multiplier",var="RageEffect"},flags=1,keywordFlags=0,name="Speed",type="INC",value=2}}}},nil}
 c["Every second Slam Skill you use while Shapeshifted is Ancestrally Boosted"]={nil,"Every second Slam Skill you use while Shapeshifted is Ancestrally Boosted "}
 c["Every second Slam Skill you use while Shapeshifted is Ancestrally Boosted Every second Strike Skill you use while Shapeshifted is Ancestrally Boosted"]={nil,"Every second Slam Skill you use while Shapeshifted is Ancestrally Boosted Every second Strike Skill you use while Shapeshifted is Ancestrally Boosted "}
 c["Every second Slam Skill you use yourself is Ancestrally Boosted"]={{[1]={[1]={skillType=93,type="SkillType"},flags=0,keywordFlags=0,name="AncestralEmpowerment",type="FLAG",value=true},[2]={[1]={skillType=93,type="SkillType"},flags=0,keywordFlags=0,name="Condition:AncestrallyBoosted",type="FLAG",value=true}},nil}
@@ -7579,8 +7577,7 @@ c["Gain 3 Life per enemy killed"]={{[1]={flags=0,keywordFlags=0,name="LifeOnKill
 c["Gain 3 Rage on Melee Hit"]={{[1]={flags=0,keywordFlags=0,name="Condition:CanGainRage",type="FLAG",value=true}},nil}
 c["Gain 3 Rage when Hit by an Enemy"]={{[1]={flags=0,keywordFlags=0,name="Condition:CanGainRage",type="FLAG",value=true}},nil}
 c["Gain 3 Volatility when an Allied Persistent Reviving Minion is Killed"]={{}," Volatility when an Allied Persistent Reviving  is Killed "}
-c["Gain 3% of Damage as Chaos Damage per Undead Minion"]={{[1]={flags=0,keywordFlags=0,name="MinionModifier",type="LIST",value={mod={flags=0,keywordFlags=0,name="DamageAsChaos",type="BASE",value=3}}}},"   per Undead  "}
-c["Gain 3% of Damage as Chaos Damage per Undead Minion Gain 5% of Damage as Chaos Damage per Undead Minion"]={{[1]={flags=0,keywordFlags=0,name="MinionModifier",type="LIST",value={mod={flags=0,keywordFlags=0,name="DamageAsChaos",type="BASE",value=3}}}},"   per Undead  Gain 5% of Damage as Chaos Damage per Undead Minion "}
+c["Gain 3% of Damage as Chaos Damage per Undead Minion"]={{[1]={[1]={type="Multiplier",var="UndeadMinion"},flags=0,keywordFlags=0,name="DamageAsChaos",type="BASE",value=3}},nil}
 c["Gain 3% of Physical Damage as extra Chaos Damage"]={{[1]={flags=0,keywordFlags=0,name="PhysicalDamageGainAsChaos",type="BASE",value=3}},nil}
 c["Gain 30 Life per Bleeding Enemy Hit"]={{[1]={flags=0,keywordFlags=0,name="Life",type="BASE",value=30}},"  per Bleeding Enemy Hit "}
 c["Gain 30 Life per enemy killed"]={{[1]={flags=0,keywordFlags=0,name="LifeOnKill",type="BASE",value=30}},nil}
@@ -7627,7 +7624,7 @@ c["Gain 5 Rage on Melee Hit"]={{[1]={flags=0,keywordFlags=0,name="Condition:CanG
 c["Gain 5 Rage when Hit by an Enemy"]={{[1]={flags=0,keywordFlags=0,name="Condition:CanGainRage",type="FLAG",value=true}},nil}
 c["Gain 5 Rage when Hit by an Enemy during effect"]={{}," Rage when Hit by an Enemy  "}
 c["Gain 5 Rage when Hit by an Enemy during effect No Inherent loss of Rage during effect"]={{}," Rage when Hit by an Enemy  No Inherent loss of Rage  "}
-c["Gain 5% of Damage as Chaos Damage per Undead Minion"]={{[1]={flags=0,keywordFlags=0,name="MinionModifier",type="LIST",value={mod={flags=0,keywordFlags=0,name="DamageAsChaos",type="BASE",value=5}}}},"   per Undead  "}
+c["Gain 5% of Damage as Chaos Damage per Undead Minion"]={{[1]={[1]={type="Multiplier",var="UndeadMinion"},flags=0,keywordFlags=0,name="DamageAsChaos",type="BASE",value=5}},nil}
 c["Gain 5% of Damage as Extra Chaos Damage"]={{[1]={flags=0,keywordFlags=0,name="DamageGainAsChaos",type="BASE",value=5}},nil}
 c["Gain 5% of Damage as Extra Cold Damage"]={{[1]={flags=0,keywordFlags=0,name="DamageGainAsCold",type="BASE",value=5}},nil}
 c["Gain 5% of Damage as Extra Damage of a random Element"]={{[1]={flags=0,keywordFlags=0,name="DamageGainAsRandom",type="BASE",value=5}},nil}
@@ -7685,10 +7682,7 @@ c["Gain Accuracy Rating equal to your Strength"]={{[1]={[1]={stat="Str",type="Pe
 c["Gain Ailment Threshold equal to the lowest of Evasion and Armour on your Boots"]={{[1]={[1]={stat="LowestOfArmourAndEvasionOnBoots",type="PerStat"},flags=0,keywordFlags=0,name="AilmentThreshold",type="BASE",value=1}},nil}
 c["Gain Arcane Surge on Hit with Spells if you have at least 150 Devotion"]={{[1]={[1]={type="Condition",var="HitSpellRecently"},[2]={stat="Devotion",threshold=150,type="StatThreshold"},flags=0,keywordFlags=0,name="Condition:ArcaneSurge",type="FLAG",value=true}},nil}
 c["Gain Arcane Surge on Hit with Spells while at maximum Power Charges"]={{[1]={[1]={type="Condition",var="HitSpellRecently"},[2]={stat="PowerCharges",thresholdStat="PowerChargesMax",type="StatThreshold"},flags=0,keywordFlags=0,name="Condition:ArcaneSurge",type="FLAG",value=true}},nil}
-c["Gain Arcane Surge when a Minion Dies"]={{[1]={flags=0,keywordFlags=0,name="MinionModifier",type="LIST",value={mod={flags=0,keywordFlags=0,name="Condition:ArcaneSurge",type="FLAG",value=true}}}}," when a  Dies "}
-c["Gain Arcane Surge when a Minion Dies Gain Arcane Surge when a Minion Dies"]={{[1]={flags=0,keywordFlags=0,name="MinionModifier",type="LIST",value={mod={flags=0,keywordFlags=0,name="Condition:ArcaneSurge",type="FLAG",value=true}}}}," when a  Dies Gain  when a Minion Dies "}
-c["Gain Arcane Surge when a Minion Dies Recover 5% of your maximum Life when an Enemy dies in your Presence"]={{[1]={flags=0,keywordFlags=0,name="MinionModifier",type="LIST",value={mod={flags=0,keywordFlags=0,name="Condition:ArcaneSurge",type="FLAG",value=true}}}}," when a  Dies Recover 5% of your  when an Enemy dies in your Presence "}
-c["Gain Arcane Surge when a Minion Dies You and Allies in your Presence have 16% increased Cast Speed"]={{[1]={flags=0,keywordFlags=0,name="ExtraAura",type="LIST",value={mod={flags=0,keywordFlags=0,name="Condition:ArcaneSurge",type="FLAG",value=true},onlyAllies=true}}}," when a  Dies You and 16% increased  "}
+c["Gain Arcane Surge when a Minion Dies"]={{[1]={[1]={type="Condition",var="MinionsDiedRecently"},flags=0,keywordFlags=0,name="Condition:ArcaneSurge",type="FLAG",value=true},[2]={flags=0,keywordFlags=0,name="ArcaneSurgeOnMinionDeath",type="FLAG",value=true}},nil}
 c["Gain Arcane Surge when you Shapeshift to Human form after"]={{[1]={flags=0,keywordFlags=0,name="Condition:ArcaneSurge",type="FLAG",value=true}}," when you Shapeshift to Human form after "}
 c["Gain Arcane Surge when you Shapeshift to Human form after being Shapeshifted for at least 8 seconds"]={{[1]={flags=0,keywordFlags=0,name="Condition:ArcaneSurge",type="FLAG",value=true}}," when you Shapeshift to Human form after being Shapeshifted for at least 8 seconds "}
 c["Gain Armour equal to 150% of total Strength Requirements of Equipped Boots, Gloves and Helmet"]={{[1]={[1]={percent=150,stat="StrRequirementsOnBoots",type="PercentStat"},flags=0,keywordFlags=0,name="Armour",type="BASE",value=1},[2]={[1]={percent=150,stat="StrRequirementsOnGloves",type="PercentStat"},flags=0,keywordFlags=0,name="Armour",type="BASE",value=1},[3]={[1]={percent=150,stat="StrRequirementsOnHelmet",type="PercentStat"},flags=0,keywordFlags=0,name="Armour",type="BASE",value=1}},nil}
@@ -7731,10 +7725,7 @@ c["Gain Infernal Flame instead of spending Mana for Skill costs Take maximum Lif
 c["Gain Infernal Flame instead of spending Mana for Skill costs Take maximum Life and Energy Shield as Fire Damage when Infernal Flame reaches maximum Lose all Infernal Flame on reaching maximum Infernal Flame 25% of Infernal Flame lost per second if none was gained in the past 2 seconds"]={nil,"Infernal Flame instead of spending Mana for Skill costs Take maximum Life and Energy Shield as Fire Damage when Infernal Flame reaches maximum Lose all Infernal Flame on reaching maximum Infernal Flame 25% of Infernal Flame lost per second if none was gained in the past 2 seconds "}
 c["Gain Maddening Presence for 10 seconds when you Kill a Rare or Unique Enemy"]={{[1]={[1]={type="Condition",var="KilledUniqueEnemy"},flags=0,keywordFlags=0,name="EnemyModifier",type="LIST",value={mod={flags=0,keywordFlags=0,name="HasMaddeningPresence",type="FLAG",value=true}}}},nil}
 c["Gain Onslaught for 4 seconds on Hit while at maximum Frenzy Charges"]={{[1]={[1]={stat="FrenzyCharges",thresholdStat="FrenzyChargesMax",type="StatThreshold"},[2]={type="Condition",var="HitRecently"},flags=0,keywordFlags=0,name="Onslaught",type="FLAG",value=true}},nil}
-c["Gain Onslaught for 4 seconds when a Minion Dies"]={{[1]={flags=0,keywordFlags=0,name="MinionModifier",type="LIST",value={mod={flags=0,keywordFlags=0,name="Condition:Onslaught",type="FLAG",value=true}}}},"  when a  Dies "}
-c["Gain Onslaught for 4 seconds when a Minion Dies +25 to Spirit while you have at least 200 Strength"]={{[1]={flags=0,keywordFlags=0,name="MinionModifier",type="LIST",value={mod={[1]={stat="Str",threshold=200,type="StatThreshold"},flags=0,keywordFlags=0,name="Condition:Onslaught",type="FLAG",value=true}}}},"  when a  Dies +25 to   "}
-c["Gain Onslaught for 4 seconds when a Minion Dies Gain Onslaught for 4 seconds when a Minion Dies"]={{[1]={flags=0,keywordFlags=0,name="MinionModifier",type="LIST",value={mod={flags=0,keywordFlags=0,name="Condition:Onslaught",type="FLAG",value=true}}}},"  when a  Dies Gain   when a Minion Dies "}
-c["Gain Onslaught for 4 seconds when a Minion Dies You and Allies in your Presence have 12% increased Attack Speed"]={{[1]={flags=0,keywordFlags=0,name="ExtraAura",type="LIST",value={mod={flags=0,keywordFlags=0,name="Condition:Onslaught",type="FLAG",value=true},onlyAllies=true}}},"  when a  Dies You and 12% increased  "}
+c["Gain Onslaught for 4 seconds when a Minion Dies"]={{[1]={[1]={type="Condition",var="MinionsDiedRecently"},flags=0,keywordFlags=0,name="Condition:Onslaught",type="FLAG",value=true},[2]={flags=0,keywordFlags=0,name="OnslaughtOnMinionDeath",type="MAX",value=4}},nil}
 c["Gain Overencumbrance for 4 seconds when you Dodge Roll"]={nil,"Overencumbrance  when you Dodge Roll "}
 c["Gain Overencumbrance for 4 seconds when you Dodge Roll Your speed is Unaffected by Slows while Sprinting"]={nil,"Overencumbrance  when you Dodge Roll Your speed is Unaffected by Slows  "}
 c["Gain Owl Feathers 50% faster"]={nil,"Owl Feathers 50% faster "}
@@ -8553,7 +8544,7 @@ c["Meta Skills have 50% increased Reservation Efficiency"]={{[1]={[1]={skillType
 c["Mind Over Matter"]={{[1]={flags=0,keywordFlags=0,name="Keystone",type="LIST",value="Mind Over Matter"},[2]={flags=0,keywordFlags=0,name="Condition:HaveMindOverMatter",type="FLAG",value=true}},nil}
 c["Mines can be Detonated an additional time"]={nil,"Mines can be Detonated an additional time "}
 c["Mines have 45% increased Detonation Speed"]={nil,"Mines have 45% increased Detonation Speed "}
-c["Minions Break Armour equal to 3% of Physical damage dealt"]={nil,"Break Armour equal to 3% of Physical damage dealt "}
+c["Minions Break Armour equal to 3% of Physical damage dealt"]={{[1]={[1]={effectName="ArmourBreak",effectType="Buff",type="GlobalEffect"},flags=0,keywordFlags=0,name="Condition:CanArmourBreak",type="FLAG",value=true}},nil}
 c["Minions Gain 20% of Elemental Damage as Extra Chaos Damage"]={{[1]={flags=0,keywordFlags=0,name="MinionModifier",type="LIST",value={mod={flags=0,keywordFlags=0,name="ElementalDamageGainAsChaos",type="BASE",value=20}}}},nil}
 c["Minions Recoup 15% of Damage taken as Life"]={{[1]={flags=0,keywordFlags=0,name="MinionModifier",type="LIST",value={mod={flags=0,keywordFlags=0,name="LifeRecoup",type="BASE",value=15}}}},nil}
 c["Minions Recoup 30% of Damage taken as Life"]={{[1]={flags=0,keywordFlags=0,name="MinionModifier",type="LIST",value={mod={flags=0,keywordFlags=0,name="LifeRecoup",type="BASE",value=30}}}},nil}
@@ -8562,17 +8553,16 @@ c["Minions Recover 10% of their maximum Life when they Block"]={nil,"Recover 10%
 c["Minions Recover 2% of their maximum Life when they Block"]={nil,"Recover 2% of their maximum Life when they Block "}
 c["Minions Regenerate 2% of maximum Life per second"]={{[1]={flags=0,keywordFlags=0,name="MinionModifier",type="LIST",value={mod={flags=0,keywordFlags=0,name="LifeRegenPercent",type="BASE",value=2}}}},nil}
 c["Minions Regenerate 3% of maximum Life per second"]={{[1]={flags=0,keywordFlags=0,name="MinionModifier",type="LIST",value={mod={flags=0,keywordFlags=0,name="LifeRegenPercent",type="BASE",value=3}}}},nil}
-c["Minions Revive 0% slower"]={nil,"Revive 0% slower "}
+c["Minions Revive 0% slower"]={{[1]={flags=0,keywordFlags=0,name="MinionRevivalSpeed",type="INC",value=-0}},nil}
 c["Minions Revive 10% faster"]={{[1]={flags=0,keywordFlags=0,name="MinionRevivalSpeed",type="INC",value=10}},nil}
 c["Minions Revive 13% faster"]={{[1]={flags=0,keywordFlags=0,name="MinionRevivalSpeed",type="INC",value=13}},nil}
 c["Minions Revive 15% faster"]={{[1]={flags=0,keywordFlags=0,name="MinionRevivalSpeed",type="INC",value=15}},nil}
 c["Minions Revive 25% faster"]={{[1]={flags=0,keywordFlags=0,name="MinionRevivalSpeed",type="INC",value=25}},nil}
-c["Minions Revive 25% slower"]={nil,"Revive 25% slower "}
-c["Minions Revive 25% slower All Damage from Hits against Poisoned targets Contributes to Chill Magnitude"]={nil,"Revive 25% slower All Damage from Hits against Poisoned targets Contributes to Chill Magnitude "}
-c["Minions Revive 35% faster if all your Minions are Companions"]={nil,"Revive 35% faster if all your Minions are Companions "}
+c["Minions Revive 25% slower"]={{[1]={flags=0,keywordFlags=0,name="MinionRevivalSpeed",type="INC",value=-25}},nil}
+c["Minions Revive 35% faster if all your Minions are Companions"]={{[1]={[1]={type="Condition",var="AllMinionsAreCompanions"},flags=0,keywordFlags=0,name="MinionRevivalSpeed",type="INC",value=35}},nil}
 c["Minions Revive 5% faster"]={{[1]={flags=0,keywordFlags=0,name="MinionRevivalSpeed",type="INC",value=5}},nil}
 c["Minions Revive 50% faster"]={{[1]={flags=0,keywordFlags=0,name="MinionRevivalSpeed",type="INC",value=50}},nil}
-c["Minions Revive 50% slower"]={nil,"Revive 50% slower "}
+c["Minions Revive 50% slower"]={{[1]={flags=0,keywordFlags=0,name="MinionRevivalSpeed",type="INC",value=-50}},nil}
 c["Minions Revive 8% faster"]={{[1]={flags=0,keywordFlags=0,name="MinionRevivalSpeed",type="INC",value=8}},nil}
 c["Minions are Aggressive"]={nil,"Aggressive "}
 c["Minions cannot Die while affected by a Life Flask"]={nil,"cannot Die while affected by a Life Flask "}
@@ -8642,7 +8632,7 @@ c["Minions have +40% to Fire Resistance"]={{[1]={flags=0,keywordFlags=0,name="Mi
 c["Minions have +5% to all Maximum Elemental Resistances"]={{[1]={flags=0,keywordFlags=0,name="MinionModifier",type="LIST",value={mod={flags=0,keywordFlags=0,name="ElementalResistMax",type="BASE",value=5}}}},nil}
 c["Minions have +60 to Accuracy Rating per 10 Devotion"]={{[1]={flags=0,keywordFlags=0,name="MinionModifier",type="LIST",value={mod={[1]={actor="parent",div=10,stat="Devotion",type="PerStat"},flags=0,keywordFlags=0,name="Accuracy",type="BASE",value=60}}}},nil}
 c["Minions have +7% to Chaos Resistance"]={{[1]={flags=0,keywordFlags=0,name="MinionModifier",type="LIST",value={mod={flags=0,keywordFlags=0,name="ChaosResist",type="BASE",value=7}}}},nil}
-c["Minions have +75% Surpassing chance to fire an additional Projectile"]={{[1]={flags=0,keywordFlags=0,name="MinionModifier",type="LIST",value={mod={flags=0,keywordFlags=0,name="ProjectileCount",type="BASE",value=75}}}}," Surpassing chance to fire an additional  "}
+c["Minions have +75% Surpassing chance to fire an additional Projectile"]={{[1]={flags=0,keywordFlags=0,name="MinionModifier",type="LIST",value={mod={flags=0,keywordFlags=0,name="SurpassingProjectileChance",type="BASE",value=75}}}},nil}
 c["Minions have +8% to all Elemental Resistances"]={{[1]={flags=0,keywordFlags=0,name="MinionModifier",type="LIST",value={mod={flags=0,keywordFlags=0,name="ElementalResist",type="BASE",value=8}}}},nil}
 c["Minions have +9% to all Elemental Resistances"]={{[1]={flags=0,keywordFlags=0,name="MinionModifier",type="LIST",value={mod={flags=0,keywordFlags=0,name="ElementalResist",type="BASE",value=9}}}},nil}
 c["Minions have 10% chance to inflict Withered on Hit"]={{[1]={flags=0,keywordFlags=0,name="Condition:CanWither",type="FLAG",value=true}},nil}
@@ -9028,7 +9018,7 @@ c["Recover 2% of maximum Life and Mana when you use a Warcry 24% increased Warcr
 c["Recover 2% of maximum Life for each Endurance Charge consumed"]={nil,"Recover 2% of maximum Life for each Endurance Charge consumed "}
 c["Recover 2% of maximum Life on Kill"]={{[1]={[1]={percent=2,stat="Life",type="PercentStat"},flags=0,keywordFlags=0,name="LifeOnKill",type="BASE",value=1}},nil}
 c["Recover 2% of maximum Life on Killing a Poisoned Enemy"]={{[1]={[1]={percent=2,stat="Life",type="PercentStat"},[2]={actor="enemy",type="ActorCondition",var="Poisoned"},flags=0,keywordFlags=0,name="LifeOnKill",type="BASE",value=1}},nil}
-c["Recover 2% of maximum Life when one of your Minions is Revived"]={nil,"Recover 2% of maximum Life when one of your Minions is Revived "}
+c["Recover 2% of maximum Life when one of your Minions is Revived"]={{[1]={[1]={percent=2,stat="Life",type="PercentStat"},flags=0,keywordFlags=0,name="LifeOnMinionRevive",type="BASE",value=1}},nil}
 c["Recover 2% of maximum Life when you Consume a corpse"]={nil,"Recover 2% of maximum Life when you Consume a corpse "}
 c["Recover 2% of maximum Life when you use a Mana Flask"]={nil,"Recover 2% of maximum Life when you use a Mana Flask "}
 c["Recover 2% of maximum Life when you use a Mana Flask Mana Flasks gain 0.1 charges per Second"]={nil,"Recover 2% of maximum Life when you use a Mana Flask Mana Flasks gain 0.1 charges per Second "}
@@ -9794,10 +9784,8 @@ c["You can apply an additional Curse while at maximum Power Charges"]={{[1]={[1]
 c["You can apply one fewer Curse"]={{[1]={flags=0,keywordFlags=0,name="EnemyCurseLimit",type="BASE",value=-1}},nil}
 c["You can equip a Focus while wielding a Staff"]={{[1]={flags=0,keywordFlags=0,name="InstrumentsOfPower",type="FLAG",value=true}},nil}
 c["You can equip a non-Unique Sceptre while wielding a Talisman"]={{[1]={flags=0,keywordFlags=0,name="LordOfTheWilds",type="FLAG",value=true}},nil}
-c["You can have any number of Companions of different types"]={nil,"You can have any number of Companions of different types "}
-c["You can have two Companions of different types"]={nil,"You can have two Companions of different types "}
-c["You can have two Companions of different types 30% more Reservation Efficiency of Companion Skills"]={nil,"You can have two Companions of different types 30% more Reservation Efficiency of Companion Skills "}
-c["You can have two Companions of different types 30% more Reservation Efficiency of Companion Skills 20% less Reservation Efficiency of non-Companion Skills"]={nil,"You can have two Companions of different types 30% more Reservation Efficiency of Companion Skills 20% less Reservation Efficiency of non-Companion Skills "}
+c["You can have any number of Companions of different types"]={{[1]={flags=0,keywordFlags=0,name="UnlimitedCompanions",type="FLAG",value=true}},nil}
+c["You can have two Companions of different types"]={{[1]={flags=0,keywordFlags=0,name="CompanionLimit",type="BASE",value=1}},nil}
 c["You can only Socket 1 Emerald Jewel in this item"]={nil,"You can only Socket 1 Emerald Jewel in this item "}
 c["You can only Socket 1 Emerald Jewel in this item +10% to Cold and Lightning Resistances per Equipped Item with a Fire Resistance Modifier"]={nil,"You can only Socket 1 Emerald Jewel in this item +10% to Cold and Lightning Resistances per Equipped Item with a Fire Resistance Modifier "}
 c["You can only Socket 1 Ruby Jewel in this item"]={nil,"You can only Socket 1 Ruby Jewel in this item "}
@@ -9908,7 +9896,7 @@ c["Your Maximum Resistances are 66%"]={{[1]={flags=0,keywordFlags=0,name="FireRe
 c["Your Maximum Resistances are 78%"]={{[1]={flags=0,keywordFlags=0,name="FireResistMax",type="OVERRIDE",value=78},[2]={flags=0,keywordFlags=0,name="ColdResistMax",type="OVERRIDE",value=78},[3]={flags=0,keywordFlags=0,name="LightningResistMax",type="OVERRIDE",value=78},[4]={flags=0,keywordFlags=0,name="ChaosResistMax",type="OVERRIDE",value=78}},nil}
 c["Your Maximum Resistances are 82%"]={{[1]={flags=0,keywordFlags=0,name="FireResistMax",type="OVERRIDE",value=82},[2]={flags=0,keywordFlags=0,name="ColdResistMax",type="OVERRIDE",value=82},[3]={flags=0,keywordFlags=0,name="LightningResistMax",type="OVERRIDE",value=82},[4]={flags=0,keywordFlags=0,name="ChaosResistMax",type="OVERRIDE",value=82}},nil}
 c["Your Minions are Gigantic"]={{[1]={flags=0,keywordFlags=0,name="MinionModifier",type="LIST",value={mod={flags=0,keywordFlags=0,name="Gigantic",type="FLAG",value=true}}}},nil}
-c["Your Minions are Gigantic if they have Revived Recently"]={nil,"Your Minions are Gigantic if they have Revived Recently "}
+c["Your Minions are Gigantic if they have Revived Recently"]={{[1]={[1]={type="Condition",var="MinionsRevivedRecently"},flags=0,keywordFlags=0,name="MinionModifier",type="LIST",value={mod={flags=0,keywordFlags=0,name="Gigantic",type="FLAG",value=true}}}},nil}
 c["Your Minions spread Caustic Ground on Death, dealing 20% of their maximum Life as Chaos Damage per second"]={{[1]={flags=0,keywordFlags=0,name="ExtraMinionSkill",type="LIST",value={skillId="SiegebreakerCausticGround"}}},nil}
 c["Your Offerings affect you instead of your Minions"]={{[1]={[1]={skillNameList={[1]="Bone Offering",[2]="Pain Offering",[3]="Soul Offering"},type="SkillName"},flags=0,keywordFlags=0,name="ExtraSkillMod",type="LIST",value={mod={flags=0,keywordFlags=0,name="SkillData",type="LIST",value={key="buffNotPlayer",value=false}}}},[2]={[1]={skillNameList={[1]="Bone Offering",[2]="Pain Offering",[3]="Soul Offering"},type="SkillName"},flags=0,keywordFlags=0,name="ExtraSkillMod",type="LIST",value={mod={flags=0,keywordFlags=0,name="SkillData",type="LIST",value={key="buffMinions",value=false}}}}},nil}
 c["Your Offerings can target Enemies in Culling range"]={nil,"Your Offerings can target Enemies in Culling range "}
@@ -9916,9 +9904,7 @@ c["Your Offerings can target Enemies in Culling range Your Offerings affect you 
 c["Your Offerings can target Enemies in Culling range Your Offerings affect you instead of your Minions Offerings created by Culling Enemies have 1% increased Effect per Power of Culled Enemy"]={nil,"Your Offerings can target Enemies in Culling range Your Offerings affect you instead of your Minions Offerings created by Culling Enemies have 1% increased Effect per Power of Culled Enemy "}
 c["Your Spells are disabled"]={{[1]={[1]={skillType=2,type="SkillType"},flags=0,keywordFlags=0,name="DisableSkill",type="FLAG",value=true}},nil}
 c["Your Spells have Culling Strike"]={{[1]={flags=2,keywordFlags=0,name="CanCull",type="FLAG",value=1}},nil}
-c["Your Totem Limit is doubled"]={{},"Your  Limit  "}
-c["Your Totem Limit is doubled No Charge requirement for placing Totems"]={{},"Your  Limit  No Charge requirement for placing Totems "}
-c["Your Totem Limit is doubled No Charge requirement for placing Totems Totems reserve 75 Spirit each"]={{[1]={[1]={globalLimit=100,globalLimitKey="SpiritDoubledLimit",type="Multiplier",var="SpiritDoubled"},flags=0,keywordFlags=16384,name="Spirit",type="MORE",value=100},[2]={flags=0,keywordFlags=16384,name="Multiplier:SpiritDoubled",type="OVERRIDE",value=1}},"Your  Limit  No Charge requirement for placing Totems Totems reserve 75  each "}
+c["Your Totem Limit is doubled"]={{[1]={flags=0,keywordFlags=0,name="ActiveTotemLimit",type="MORE",value=100}},nil}
 c["Your base Energy Shield Recharge Delay is 10 seconds"]={{[1]={flags=0,keywordFlags=0,name="EnergyShieldRechargeBase",type="OVERRIDE",value=10}},nil}
 c["Your maximum Energy Shield is equal to 250% of your Strength"]={{[1]={[1]={percent=250,stat="Str",type="PercentStat"},flags=0,keywordFlags=0,name="EnergyShield",type="OVERRIDE",value=1}},nil}
 c["Your maximum Energy Shield is equal to 300% of your Strength"]={{[1]={[1]={percent=300,stat="Str",type="PercentStat"},flags=0,keywordFlags=0,name="EnergyShield",type="OVERRIDE",value=1}},nil}

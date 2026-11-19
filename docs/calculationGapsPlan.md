@@ -336,6 +336,39 @@ Order by the Phase 0 ranking. The census suggests this order:
        enemy has one Ignite, the strongest, so these don't add to the main skill's Ignite.
      - Not modelled: Thorns on Stun (no stun rate), Thorns retaliation cooldowns, Overkill's armour mitigation, charm-created Ignited Ground.
      - Census: 1,040 → 1,028; Thorns 8 → 1, Ailments 65 → 62, Other 467 → 465.
+7. **Minions, companions, totems** (59 lines). Done (November 2026), rules from the stat descriptions and skill data:
+   - **Exact, from the skills in the build:** counts of persistent Minions (`Multiplier:PersistentMinions`, a skill without a limit is one
+     Minion, a pool with a limit counts its limit), Undead Minions (`CreatesUndeadMinion` skills) for "Gain N% of Damage as Chaos Damage per
+     Undead Minion", different active Offerings (the Bone, Pain and Soul Offering skills, for "50% increased Minion Damage while you have at least
+     two different active Offerings"), and different Companions (for "15% increased Damage per each different Companion in your Presence").
+     *Companion limit:* one, "You can have two Companions of different types" makes it two, "any number" unlimited. The stat descriptions give no
+     base, so one is read from that wording (`ponytail`). PoB can't switch a skill off, so a Companion past the limit still calculates its own
+     skill; it only stops counting as one of "your Companions" (types, persistent types, persistent Minions). "Minions Revive 35% faster if all
+     your Minions are Companions" looks at the persistent Minion skills only. "Your Totem Limit is doubled" is 100% more of the total Totem
+     limit (also of the additional Totems; Ballistas are Totems).
+   - **Exact, from the configuration:** *# of different active Offerings*, *# of Undead Minions* (the Skeleton skills have no limit stat in the
+     current data, their number depends on Spirit), *# of different types of dead Companions* ("Companions deal 10% more Damage for each ..."),
+     *Have your Minions Revived Recently?* (Gigantic, 20% more Life and Damage), *Is the enemy a Beast?* (Culling Strike against Beasts with a
+     Companion in your Presence), the existing *Has a Minion Died Recently?* now also drives "Gain Onslaught / Arcane Surge when a Minion Dies".
+     Also read: Minions' Surpassing chance for an additional Projectile, "Every five Rage also grants ... Minion Attack Speed", Companions in
+     your Presence (resistances, extra Damage of a random Element, Onslaught while Shapeshifted: all need the Companion in your Presence),
+     Minions Break Armour (like Anvil's Weight it only enables *Is enemy Armour Broken?*, the amount isn't calculated), reduced Reservation
+     Efficiency of Undead Minion skills, Minions Revive slower, and Totem placement range (no effect on the calculation).
+   - **Approximation (Use approximations on, new *Minion deaths per second* input, 0.1 by default, a guess):** Onslaught (4 s) and Arcane
+     Surge (10 s, the support's `support_arcane_surge_base_duration_ms`; the Minion death text gives none) gained when a Minion dies are up
+     1 − e^(−deaths/s × duration) of the time (`calcLib.approxUptime`). Like the Archon buff, only their own bonuses are averaged: a flag can't
+     be scaled, so "while you have Onslaught" lines count only when the *Minion died recently* option makes it certain. "Recover N% of maximum
+     Life when one of your Minions is Revived": n persistent Minions each die at d = deaths/s / n and need the revival time T (7.5 s, shortened by
+     "Minions Revive faster") before they can die again, so they are revived n × d / (1 + d × T) times per second
+     (`calcLib.approxRateWhileUnaffected`); *On Minion Revival (approx.)* in the Life section. Both are known before offence, so they don't use
+     the second pass.
+   - **Not modelled** (PoB has no model of what kills or heals Minions, Totems and Offerings, and assumes enabled skills are up): "Offerings
+     cannot be damaged if they have been created Recently" and Offering life, chances to revive Minions (on a Command skill, on kill, when an
+     Offering expires; the only effect of a revival in PoB is the recovery above), Minion and Companion recovery (Life Flask and leech sharing,
+     "cannot Die while affected by a Life Flask"), Totem life, regeneration, recoup and death rules, Totems only using Skills when you fire an
+     Attack Projectile, Volatility and Runic Ward on Minion death (Volatility isn't modelled), Gruelling Madness, Melee Splash, Rage on Hit of
+     Companions, Onslaught on hitting Marked targets (needs the Minions' Hit rate), Low Runic Ward (no condition for it).
+   - Census: 1,028 → 994; Minions, companions, totems 59 → 25.
 
 For each mechanic:
 - Write the rule down with its source (patch note, help text or wiki test), in a comment next to

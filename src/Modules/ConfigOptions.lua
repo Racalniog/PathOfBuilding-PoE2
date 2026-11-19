@@ -126,6 +126,11 @@ local configSettings = {
 	{ var = "approxEnemyHitsOnYouPerSecond", type = "float", label = "Enemy hits on you per second:", ifOption = "useApproximations", defaultState = 2, tooltip = "Enemy Hits you take per second, used for the damage your Thorns retaliate with.\nThorns retaliate against Melee Hits, assumed to be half of them, unless they can retaliate against all Hits.\nSets the hidden Thorns skill's rate; never part of another skill's Combined DPS.", apply = function(val, modList, enemyModList)
 		modList:NewMod("Multiplier:ApproxEnemyHitsOnYouPerSecond", "BASE", m_max(val, 0), "Config", { type = "Condition", var = "UseApproximations" })
 	end },
+	-- ponytail: 0.1 Minion deaths/s (one every 10 s) is a guess; PoB doesn't model what kills your Minions.
+	-- upgrade path = a rate from the Minions' Life and the enemy's damage, calibrated by in-game measurement (plan Phase 6)
+	{ var = "approxMinionDeathsPerSecond", type = "float", label = "Minion deaths per second:", ifOption = "useApproximations", defaultState = 0.1, tooltip = "Minions of yours that die per second (all of them together), used to estimate effects that happen when a Minion dies or is revived.", apply = function(val, modList, enemyModList)
+		modList:NewMod("Multiplier:ApproxMinionDeathsPerSecond", "BASE", m_max(val, 0), "Config", { type = "Condition", var = "UseApproximations" })
+	end },
 	-- ponytail: the Archon recovery period isn't in the game data (the Archon Buff durations are, data.archonBuffs), 10 s is a guess;
 	-- upgrade path = measure it in the game
 	{ var = "approxArchonRecovery", type = "float", label = "Archon recovery period (s):", ifOption = "useApproximations", defaultState = 10, tooltip = "Base time after losing an Archon Buff before you can gain one again.\nNot in the game data: 10 seconds is a guess.", apply = function(val, modList, enemyModList)
@@ -1080,6 +1085,15 @@ Huge sets the radius to 11.
 	{ var = "multiplierNearbyCorpse", type = "count", label = "# of Nearby Corpses:", ifMult = "NearbyCorpse", apply = function(val, modList, enemyModList)
 		modList:NewMod("Multiplier:NearbyCorpse", "BASE", val, "Config", { type = "Condition", var = "Combat" })
 	end },
+	{ var = "multiplierUndeadMinion", type = "count", label = "# of Undead Minions (if not maximum):", ifMult = "UndeadMinion", tooltip = "PoB counts each enabled Undead Minion skill as one Minion (Skeletons are limited by your Spirit). Use this to set how many you have", apply = function(val, modList, enemyModList)
+		modList:NewMod("Multiplier:UndeadMinion", "OVERRIDE", val, "Config")
+	end },
+	{ var = "multiplierActiveOfferingTypes", type = "count", label = "# of different active Offerings (if not all):", ifMult = "ActiveOfferingTypes", tooltip = "PoB counts the Offering skills (Bone, Pain and Soul Offering) you have enabled, as it does for other buffs. Use this to override the count if you do not keep them all up", apply = function(val, modList, enemyModList)
+		modList:NewMod("Multiplier:ActiveOfferingTypes", "OVERRIDE", val, "Config")
+	end },
+	{ var = "multiplierDeadCompanionTypes", type = "count", label = "# of different types of dead Companions:", ifMult = "DeadCompanionTypes", apply = function(val, modList, enemyModList)
+		modList:NewMod("Multiplier:DeadCompanionTypes", "BASE", val, "Config")
+	end },
 	{ var = "multiplierSummonedMinion", type = "count", label = "# of Summoned Minions (if not maximum):", ifMult = "SummonedMinion", tooltip = "Use this to override the count if you do not have all your minions summoned", apply = function(val, modList, enemyModList)
 		modList:NewMod("Multiplier:SummonedMinion", "OVERRIDE", val, "Config", { type = "Condition", var = "Combat" })
 	end },
@@ -1263,6 +1277,9 @@ Huge sets the radius to 11.
 	end },
 	{ var = "conditionMinionsKilledRecently", type = "check", label = "Have your Minions Killed Recently?", ifCond = "MinionsKilledRecently", apply = function(val, modList, enemyModList)
 		modList:NewMod("Condition:MinionsKilledRecently", "FLAG", true, "Config", { type = "Condition", var = "Combat" })
+	end },
+	{ var = "conditionMinionsRevivedRecently", type = "check", label = "Have your Minions Revived Recently?", ifCond = "MinionsRevivedRecently", apply = function(val, modList, enemyModList)
+		modList:NewMod("Condition:MinionsRevivedRecently", "FLAG", true, "Config", { type = "Condition", var = "Combat" })
 	end },
 	{ var = "conditionMinionsDiedRecently", type = "check", label = "Has a Minion Died Recently?", ifCond = "MinionsDiedRecently", apply = function(val, modList, enemyModList)
 		modList:NewMod("Condition:MinionsDiedRecently", "FLAG", true, "Config", { type = "Condition", var = "Combat" })
@@ -2089,6 +2106,9 @@ Huge sets the radius to 11.
 	{ var = "enemyLevel", type = "count", label = "Enemy Level:", tooltip = "This overrides the default enemy level used to estimate your hit, ^x33FF77evade ^7chance, and damage reduction.\n\nThe maximum level for normal enemies and all bosses is 85.\n\nThe default level of normal enemies and bosses scales with player level unless manually set.\n\nThe default and minimum level for pinnacle bosses and uber pinnacle bosses is 82." },
 	{ var = "conditionEnemyRareOrUnique", type = "check", label = "Is the enemy Rare?", ifFlag = {"CanCull","CritCanCull"}, tooltip = "The enemy will automatically be considered to be Unique if they are a Boss.\nUsed to set base Culling Strike Threshold.", apply = function(val, modList, enemyModList)
 		enemyModList:NewMod("Condition:RareOrUnique", "FLAG", true, "Config", { type = "Condition", var = "Effective" })
+	end },
+	{ var = "conditionEnemyBeast", type = "check", label = "Is the enemy a Beast?", ifEnemyCond = "Beast", apply = function(val, modList, enemyModList)
+		enemyModList:NewMod("Condition:Beast", "FLAG", true, "Config", { type = "Condition", var = "Effective" })
 	end },
 	{ var = "enemyIsBoss", type = "list", label = "Is the enemy a Boss?", defaultIndex = 3, tooltip = data.enemyIsBossTooltip, list = {{val="None",label="No"},{val="Boss",label="Standard Boss"},{val="Pinnacle",label="Guardian/Pinnacle Boss"},{val="Uber",label="Uber Pinnacle Boss"}}, apply = function(val, modList, enemyModList, build)
 		-- These defaults are here so that the placeholders get reset correctly

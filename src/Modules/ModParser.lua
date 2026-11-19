@@ -623,6 +623,7 @@ local modNameList = {
 	["bolt speed"] = { "ProjectileSpeed", flags = ModFlag.Crossbow },
 	-- Totem/trap/mine/brand modifiers
 	["totem placement speed"] = "TotemPlacementSpeed",
+	["totem placement range"] = "TotemPlacementRange", -- nothing reads it: the distance a Totem can be placed at doesn't change the calculation
 	["totem life"] = "TotemLife",
 	["totem duration"] = "TotemDuration",
 	["maximum number of summoned totems"] = "ActiveTotemLimit",
@@ -1300,6 +1301,7 @@ local preFlagList = {
 	["^raised spectres, raised zombies, and summoned skeletons have "] = { addToMinion = true, addToMinionTag = { type = "SkillName", skillNameList = { "Raise Spectre", "Raise Zombie", "Summon Skeletons" }, includeTransfigured = true } },
 	["^companions [hd][ae][va][el] "] = { addToMinion = true, addToMinionTag = { type = "SkillType", skillType = SkillType.CreatesCompanion } },
 	["^companions "] = { addToMinion = true, addToMinionTag = { type = "SkillType", skillType = SkillType.CreatesCompanion } },
+	["^companions in your presence [hdg][aei][vai][eln] "] = { addToMinion = true, addToMinionTag = { type = "SkillType", skillType = SkillType.CreatesCompanion }, playerTag = { type = "Condition", var = "CompanionInPresence" } },
 	-- Totem/trap/mine
 	["^attacks used by totems have "] = { flags = ModFlag.Attack, keywordFlags = KeywordFlag.Totem },
 	["^spells cast by totems [hd][ae][va][el] "] = { flags = ModFlag.Spell, keywordFlags = KeywordFlag.Totem },
@@ -1593,6 +1595,9 @@ local modTagList = {
 	["per (%d+) rampage kills"] = function(num) return { tag = { type = "Multiplier", var = "Rampage", div = num, limit = 1000 / num, limitTotal = true } } end,
 	["per minion, up to (%d+)%%"] = function(num) return { tag = { type = "Multiplier", var = "SummonedMinion", limit = tonumber(num), limitTotal = true } } end,
 	["per minion"] = { tag = { type = "Multiplier", var = "SummonedMinion" } },
+	["per undead minion"] = { tag = { type = "Multiplier", var = "UndeadMinion" } },
+	["per persistent minion"] = { tag = { type = "Multiplier", var = "PersistentMinions" } },
+	["per each different companion in your presence"] = { tag = { type = "Multiplier", var = "CompanionTypes" } },
 	["for each different type of persistent minion in your presence"] = { tag = { type = "Multiplier", var =  "PersistentMinionTypes" } },
 	["for each minion in your presence, up to a maximum of (%d+)%%"] = function(num) return { tag = { type = "Multiplier", var = "MinionPresenceCount", limit = tonumber(num), limitTotal = true } } end,
 	["for each type of ammunition fired in the past (%d+) seconds"] = { tag = { type = "Multiplier", var = "DifferentAmmoFired", limitVar = "AmmoTypes" } },
@@ -4878,6 +4883,31 @@ local specialModList = {
 	} end,
 	-- Minions
 	["minions revive (%d+)%% faster"] = function(num) return { mod("MinionRevivalSpeed", "INC", num) } end,
+	["minions revive (%d+)%% slower"] = function(num) return { mod("MinionRevivalSpeed", "INC", -num) } end,
+	["minions revive (%d+)%% faster if all your minions are companions"] = function(num) return { mod("MinionRevivalSpeed", "INC", num, { type = "Condition", var = "AllMinionsAreCompanions" }) } end,
+	-- Companion limit (CalcPerform): one Companion unless a modifier raises it, "of different types" counts each Companion type once
+	["you can have two companions of different types"] = { mod("CompanionLimit", "BASE", 1) },
+	["you can have any number of companions of different types"] = { flag("UnlimitedCompanions") },
+	["companions deal (%d+)%% more damage for each different type of dead companion you have"] = function(num) return {
+		mod("MinionModifier", "LIST", { mod = mod("Damage", "MORE", num, { type = "Multiplier", var = "DeadCompanionTypes", actor = "parent" }) }, { type = "SkillType", skillType = SkillType.CreatesCompanion }),
+	} end,
+	["companions in your presence have onslaught while you are shapeshifted"] = {
+		mod("MinionModifier", "LIST", { mod = flag("Condition:Onslaught") }, { type = "SkillType", skillType = SkillType.CreatesCompanion }, { type = "Condition", var = "CompanionInPresence" }, { type = "Condition", var = "Shapeshifted" }),
+	},
+	["culling strike against beasts while your companion is in your presence"] = { flag("CanCull", { type = "ActorCondition", actor = "enemy", var = "Beast" }, { type = "Condition", var = "CompanionInPresence" }) },
+	["your totem limit is doubled"] = { mod("ActiveTotemLimit", "MORE", 100) },
+	["(%d+)%% increased minion damage while you have at least two different active offerings"] = function(num) return {
+		mod("MinionModifier", "LIST", { mod = mod("Damage", "INC", num) }, { type = "MultiplierThreshold", var = "ActiveOfferingTypes", threshold = 2 }),
+	} end,
+	["minions have %+(%d+)%% surpassing chance to fire an additional projectile"] = function(num) return { mod("MinionModifier", "LIST", { mod = mod("SurpassingProjectileChance", "BASE", num) }) } end,
+	["minions break armour equal to (%d+)%% of physical damage dealt"] = { flag("Condition:CanArmourBreak", { type = "GlobalEffect", effectType = "Buff", effectName = "ArmourBreak" }) }, -- the amount isn't calculated, like Anvil's Weight
+	["your minions are gigantic if they have revived recently"] = { mod("MinionModifier", "LIST", { mod = flag("Gigantic") }, { type = "Condition", var = "MinionsRevivedRecently" }) },
+	["gain arcane surge when a minion dies"] = { flag("Condition:ArcaneSurge", { type = "Condition", var = "MinionsDiedRecently" }), flag("ArcaneSurgeOnMinionDeath") },
+	["gain onslaught for (%d+) seconds when a minion dies"] = function(num) return { flag("Condition:Onslaught", { type = "Condition", var = "MinionsDiedRecently" }), mod("OnslaughtOnMinionDeath", "MAX", num) } end,
+	["recover (%d+)%% of maximum life when one of your minions is revived"] = function(num) return { mod("LifeOnMinionRevive", "BASE", 1, { type = "PercentStat", stat = "Life", percent = num }) } end,
+	["every five rage also grants you (%d+)%% increased minion attack speed"] = function(num) return {
+		mod("MinionModifier", "LIST", { mod = mod("Speed", "INC", num, nil, ModFlag.Attack, { type = "Multiplier", var = "RageEffect", actor = "player", div = 5 }) }),
+	} end,
 	["your strength is added to your minions"] = { flag("StrengthAddedToMinions") },
 	["your dexterity is added to your minions"] = { flag("DexterityAddedToMinions") },
 	["companions gain your dexterity"] = { flag("DexterityAddedToCompanions") },
@@ -6002,6 +6032,7 @@ local specialModList = {
 	["companions have (%d+)%% reduced reservation"] = function(num) return { mod("Reserved", "INC", -num, { type = "SkillType", skillType = SkillType.CreatesCompanion }) } end,
 	["undead minions have (%d+)%% reduced reservation"] = function(num) return { mod("Reserved", "INC", -num, { type = "SkillType", skillType = SkillType.CreatesUndeadMinion }) } end,
 	["(%d+)%% increased reservation efficiency of skills which create undead minions"] = function(num) return { mod("ReservationEfficiency", "INC", num, { type = "SkillType", skillType = SkillType.CreatesUndeadMinion }) } end,
+	["(%d+)%% reduced reservation efficiency of skills which create undead minions"] = function(num) return { mod("ReservationEfficiency", "INC", -num, { type = "SkillType", skillType = SkillType.CreatesUndeadMinion }) } end,
 	["placed banners also grant (%d+)%% increased attack damage to you and allies"] = function(num) return { mod("ExtraAuraEffect", "LIST", { mod = mod("Damage", "INC", num, nil, ModFlag.Attack) }, { type = "Condition", var = "BannerPlanted" }, { type = "SkillType", skillType = SkillType.Banner }) } end,
 	["banners also cause enemies to take (%d+)%% increased damage"] = function(num) return { mod("ExtraAuraDebuffEffect", "LIST", { mod = mod("DamageTaken", "INC", num, { type = "GlobalEffect", effectType = "AuraDebuff", unscalable = true }) }, { type = "Condition", var = "BannerPlanted" }, { type = "SkillType", skillType = SkillType.Banner }) } end,
 	["dread banner grants an additional %+(%d+) to maximum fortification when placing the banner"] = function(num) return { mod("ExtraSkillMod", "LIST", { mod = mod("MaximumFortification", "BASE", num, { type = "GlobalEffect", effectType = "Buff" }) }, { type = "Condition", var = "BannerPlanted" }, { type = "SkillName", skillName = "Dread Banner" }) } end,

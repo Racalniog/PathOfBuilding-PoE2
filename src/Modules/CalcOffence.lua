@@ -1934,7 +1934,8 @@ function calcs.offence(env, actor, activeSkill)
 				total = s_format("= %.2f ^8per second", output.TotemPlacementSpeed),
 			})
 		end
-		output.ActiveTotemLimit = skillModList:Override(skillCfg, "ActiveTotemLimit", "ActiveBallistaLimit") or skillModList:Sum("BASE", skillCfg, "ActiveTotemLimit", "ActiveBallistaLimit")
+		-- "Your Totem Limit is doubled" is a 100% more, applied to the total limit
+		output.ActiveTotemLimit = skillModList:Override(skillCfg, "ActiveTotemLimit", "ActiveBallistaLimit") or skillModList:Sum("BASE", skillCfg, "ActiveTotemLimit", "ActiveBallistaLimit") * skillModList:More(skillCfg, "ActiveTotemLimit", "ActiveBallistaLimit")
 		output.TotemsSummoned = env.modDB:Override(nil, "TotemsSummoned") or output.ActiveTotemLimit
 		if breakdown then
 			breakdown.ActiveTotemLimit = {
@@ -5302,7 +5303,7 @@ function calcs.offence(env, actor, activeSkill)
 					hitRate = output.HitChance / 100 * output.DpsMultiplier * (globalOutput.HitSpeed or globalOutput.Speed)
 				end
 
-				local activeTotems = env.modDB:Override(nil, "TotemsSummoned") or skillModList:Sum("BASE", skillCfg, "ActiveTotemLimit", "ActiveBallistaLimit")
+				local activeTotems = env.modDB:Override(nil, "TotemsSummoned") or skillModList:Sum("BASE", skillCfg, "ActiveTotemLimit", "ActiveBallistaLimit") * skillModList:More(skillCfg, "ActiveTotemLimit", "ActiveBallistaLimit")
 				if skillFlags.totem then
 					ailmentStacks = ailmentStacks * activeTotems
 					hitRate = hitRate and hitRate * activeTotems

@@ -640,7 +640,14 @@ local function doActorMisc(env, actor)
 			end
 			modDB.multipliers["BuffOnSelf"] = (modDB.multipliers["BuffOnSelf"] or 0) + 1
 		end
-		if modDB:Flag(nil, "Onslaught") then
+		-- Approximation (needs Use approximations): Onslaught gained for a few seconds when a Minion dies is up for the share of time
+		-- set by the configured death rate (calcLib.approxUptime). A flag can't be scaled, so what needs "while you have Onslaught"
+		-- only counts when it's up for certain; only Onslaught's own bonuses are averaged over the uptime.
+		local onslaughtUptime = modDB:Flag(nil, "Onslaught") and 1 or 0
+		if onslaughtUptime == 0 and actor == env.player and modDB:Flag(nil, "Condition:UseApproximations") then
+			onslaughtUptime = calcLib.approxUptime(modDB:GetMultiplier("ApproxMinionDeathsPerSecond"), modDB:Max(nil, "OnslaughtOnMinionDeath") or 0)
+		end
+		if onslaughtUptime > 0 then
 			local effect
 			--Loop detects if a Silver flask is used to grant Onslaught. If statement adds flask effect to calculation if one is being used
 			local onslaughtFromFlask
@@ -666,11 +673,11 @@ local function doActorMisc(env, actor)
 			else
 				effect = m_floor(10 * (1 + onslaughtEffectInc))
 			end
-			modDB:NewMod("Speed", "INC", 2 * effect, "Onslaught", ModFlag.Attack)
-			modDB:NewMod("Speed", "INC", 2 * effect, "Onslaught", ModFlag.Cast)
-			modDB:NewMod("WarcrySpeed", "INC", 2 * effect, "Onslaught")
+			modDB:NewMod("Speed", "INC", 2 * effect * onslaughtUptime, "Onslaught", ModFlag.Attack)
+			modDB:NewMod("Speed", "INC", 2 * effect * onslaughtUptime, "Onslaught", ModFlag.Cast)
+			modDB:NewMod("WarcrySpeed", "INC", 2 * effect * onslaughtUptime, "Onslaught")
 			-- TODO: Skill speed effect is vague and says "and similar stats", may apply to more than this
-			modDB:NewMod("MovementSpeed", "INC", effect, "Onslaught")
+			modDB:NewMod("MovementSpeed", "INC", effect * onslaughtUptime, "Onslaught")
 		end
 		if modDB:Flag(nil, "Fanaticism") and actor.mainSkill and actor.mainSkill.activeEffect.srcInstance.selfCast then
 			local effect = m_floor(75 * (1 + modDB:Sum("INC", nil, "BuffEffectOnSelf") / 100))
@@ -1751,6 +1758,12 @@ local function performPass(env, skipEHP)
 
 	local minionTypeCount, ammoTypeCount, grenadeTypeCount = 0, 0, 0
 	local minionCount, minionType, ammoType, grenadeType = { }, { }, { }, { }
+	-- Companion limit: one Companion unless a modifier raises it ("You can have two Companions of different types", "any number of").
+	-- The stat descriptions give no base; one is read from that wording. ponytail: PoB can't switch a skill off, so a Companion past
+	-- the limit still calculates its own skill, it just isn't one of "your Companions" in the counts below; upgrade path = disable it
+	local companionLimit = modDB:Flag(nil, "UnlimitedCompanions") and m_huge or 1 + modDB:Sum("BASE", nil, "CompanionLimit")
+	local companionTypeCount, persistentMinionCount, undeadMinionCount, offeringTypeCount, allCompanions = 0, 0, 0, 0, true
+	local companionType, persistentMinion, offeringType = { }, { }, { }
 	local maxPurpleFlameChaosGain = 0
 	for _, activeSkill in ipairs(env.player.activeSkillList) do
 		local skillFlags
@@ -1771,7 +1784,7 @@ local function performPass(env, skipEHP)
 		end
 		if skillFlags.totem then
 			local override = env.player.mainSkill.skillModList:Override(env.player.mainSkill.skillCfg, "ActiveTotemLimit", "ActiveBallistaLimit" )
-			local limit = override or env.player.mainSkill.skillModList:Sum("BASE", env.player.mainSkill.skillCfg, "ActiveTotemLimit", "ActiveBallistaLimit" )
+			local limit = override or env.player.mainSkill.skillModList:Sum("BASE", env.player.mainSkill.skillCfg, "ActiveTotemLimit", "ActiveBallistaLimit" ) * env.player.mainSkill.skillModList:More(env.player.mainSkill.skillCfg, "ActiveTotemLimit", "ActiveBallistaLimit")
 			output.ActiveTotemLimit = m_max(limit, output.ActiveTotemLimit or 0)
 			output.TotemsSummoned = modDB:Override(nil, "TotemsSummoned") or output.ActiveTotemLimit
 			enemyDB.multipliers["TotemsSummoned"] = m_max(output.TotemsSummoned or 0, enemyDB.multipliers["TotemsSummoned"] or 0)
@@ -1864,11 +1877,50 @@ local function performPass(env, skipEHP)
 				end
 			end
 		end
-		if activeSkill.activeEffect.grantedEffect and activeSkill.skillTypes[SkillType.Minion] and activeSkill.skillTypes[SkillType.Persistent] and not minionType[activeSkill.activeEffect.grantedEffect.id] then
+		-- Persistent minions, Companions and Offerings of the active skills (the game's wording: "Persistent Minion" has no timeout, an
+		-- "active Offering" is one of the three Offering skills). PoB assumes enabled buff and minion skills are up, so these are known
+		-- from the skills; the configuration can override the Offering count.
+		local grantedEffect = activeSkill.activeEffect.grantedEffect
+		local enabled = grantedEffect and not skillFlags.disable
+		local persistent = enabled and activeSkill.skillTypes[SkillType.Minion] and activeSkill.skillTypes[SkillType.Persistent]
+		local companionId = enabled and activeSkill.skillTypes[SkillType.CreatesCompanion] and (activeSkill.minion and activeSkill.minion.type or grantedEffect.id)
+		if companionId and not companionType[companionId] then
+			if companionTypeCount < companionLimit then
+				companionTypeCount = companionTypeCount + 1
+				companionType[companionId] = true
+			else
+				persistent, companionId = false, nil
+			end
+		end
+		local typeKey = companionId or grantedEffect and grantedEffect.id
+		if persistent and not minionType[typeKey] then
 			minionTypeCount = minionTypeCount + 1
-			minionType[activeSkill.activeEffect.grantedEffect.id] = true
+			minionType[typeKey] = true
 		end
 		env.modDB.multipliers["PersistentMinionTypes"] = minionTypeCount
+		env.modDB.multipliers["CompanionTypes"] = companionTypeCount
+		if persistent and activeSkill.minion then
+			-- Minions that share a limit are one pool. ponytail: a skill without a limit (the Skeleton skills have none in the current
+			-- data, their number depends on your Spirit) is one Minion; upgrade path = Spirit-based counts of the Skeleton skills
+			local limit = activeSkill.minion.minionData and activeSkill.minion.minionData.limit
+			local pool = limit and (output[limit] or 0) > 0 and limit
+			if not persistentMinion[pool or activeSkill] then
+				persistentMinion[pool or activeSkill] = true
+				local count = pool and output[pool] or 1
+				persistentMinionCount = persistentMinionCount + count
+				if activeSkill.skillTypes[SkillType.CreatesUndeadMinion] then
+					undeadMinionCount = undeadMinionCount + count
+				end
+			end
+			allCompanions = allCompanions and companionId
+		end
+		env.modDB.multipliers["PersistentMinions"] = persistentMinionCount
+		env.modDB.multipliers["UndeadMinion"] = undeadMinionCount
+		if enabled and activeSkill.skillTypes[SkillType.Offering] and not offeringType[grantedEffect.id] then
+			offeringTypeCount = offeringTypeCount + 1
+			offeringType[grantedEffect.id] = true
+		end
+		env.modDB.multipliers["ActiveOfferingTypes"] = offeringTypeCount
 		if activeSkill.skillTypes[SkillType.CrossbowAmmoSkill] and not ammoType[activeSkill.activeEffect.grantedEffect.id] then
 			ammoTypeCount = ammoTypeCount + 1
 			ammoType[activeSkill.activeEffect.grantedEffect.id] = true
@@ -1915,6 +1967,7 @@ local function performPass(env, skipEHP)
 			activeSkill.infoTrigger = "Saviour"
 		end
 	end
+	modDB.conditions["AllMinionsAreCompanions"] = companionTypeCount > 0 and allCompanions and true or nil
 	local purpleFlameCount = modDB:Sum("BASE", nil, "Multiplier:PurpleFlamesCount")
 	if purpleFlameCount > 0 and maxPurpleFlameChaosGain > 0 then
 		modDB:NewMod("DamageGainAsChaos", "BASE", maxPurpleFlameChaosGain * purpleFlameCount, "Into the Breach", { type = "GlobalEffect", effectType = "Buff", effectName = "Into the Breach" })
