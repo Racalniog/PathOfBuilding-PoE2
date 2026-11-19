@@ -17,6 +17,7 @@ describe("TestThorns", function()
 		runCallback("OnFrame")
 		return build.calcsTab.mainOutput
 	end
+	-- this pastes a group with only the Punch Through support (the hidden Punch isn't a gem), so the main skill is PoB's default unarmed Punch
 	local punch = "skillId:MeleeUnarmedPlayer Punch 1/0  1"
 
 	it("reads Thorns damage from maximum Life and Runic Plates, and Lucky Thorns against Fully Broken Armour", function()
@@ -49,22 +50,21 @@ describe("TestThorns", function()
 		assert.are.equals(0, setup(thorns, { approxEnemyHitsOnYouPerSecond = 0 }).TotalDPS)
 	end)
 
-	it("deals Thorns damage on melee Hits as part of the skill's Combined DPS; retaliation only in Thorns DPS", function()
+	it("deals Thorns damage on melee Hits as part of the skill's Combined DPS and Full DPS", function()
 		local thorns = "10 to 20 Physical Thorns damage"
 		local thornsHit = setup(thorns).AverageDamage
 		assert.is_true(thornsHit > 0)
 		newBuild()
 		local base = setup(thorns, nil, punch)
-		assert.is_nil(base.ThornsDPS)
-		local output = setup(thorns .. "\n50% chance to deal your Thorns Damage to Enemies you Hit with Melee Attacks")
+		-- no on-Hit line: no second calculation, even with approximations
+		assert.is_nil(setup(thorns, { useApproximations = true }).ThornsOnHitDPS)
+		local output = setup(thorns .. "\n50% chance to deal your Thorns Damage to Enemies you Hit with Melee Attacks", { useApproximations = false })
 		local hits = output.Speed * output.HitChance / 100 * output.DpsMultiplier
 		assert.are.near(thornsHit * 0.5 * hits, output.ThornsOnHitDPS, 1e-9)
-		assert.are.near(output.ThornsOnHitDPS, output.ThornsDPS, 1e-9)
 		assert.are.near(base.CombinedDPS + output.ThornsOnHitDPS, output.CombinedDPS, 1e-9)
-		-- approximations add the retaliation (1 per second by default) to Thorns DPS only
+		-- approximations change nothing here (retaliation is the Thorns skill's own DPS)
 		local approx = setup(thorns .. "\n50% chance to deal your Thorns Damage to Enemies you Hit with Melee Attacks", { useApproximations = true })
 		assert.are.near(output.CombinedDPS, approx.CombinedDPS, 1e-9)
-		assert.are.near(output.ThornsOnHitDPS + thornsHit, approx.ThornsDPS, 1e-9)
 		-- on Critical Hit: the share of landed Hits that crit
 		output = setup(thorns .. "\nDeal your Thorns damage to enemies you Critically Hit with Melee Attacks", { useApproximations = false })
 		assert.is_true(output.CritChance > 0)
@@ -72,6 +72,41 @@ describe("TestThorns", function()
 		-- spells aren't Melee Attacks
 		newBuild()
 		assert.is_nil(setup(thorns .. "\n50% chance to deal your Thorns Damage to Enemies you Hit with Melee Attacks", nil, "Fireball 20/0  1").ThornsOnHitDPS)
+	end)
+
+	it("Full DPS counts on-Hit Thorns like Impale", function()
+		-- Mace Strike needs a usable off hand too: two clubs
+		for i = 1, 2 do
+			build.itemsTab:CreateDisplayItemFromRaw("New Item\nWooden Club")
+			build.itemsTab:AddDisplayItem()
+			build.itemsTab.slots["Weapon " .. i]:SetSelItemId(build.itemsTab.items[i].id)
+		end
+		local mods = "10 to 20 Physical Thorns damage\n50% chance to deal your Thorns Damage to Enemies you Hit with Melee Attacks"
+		local output = setup(mods, nil, "skillId:MeleeMaceMacePlayer Mace Strike 20/0  1")
+		assert.are.equals("Mace Strike", build.calcsTab.mainEnv.player.mainSkill.activeEffect.grantedEffect.name)
+		assert.is_true(output.ThornsOnHitDPS > 0)
+		build.skillsTab.socketGroupList[1].includeInFullDPS = true
+		local fullDPS = build.calcsTab.calcs.calcFullDPS(build, "CALCULATOR", { }, { })
+		assert.are.near(output.CombinedDPS, fullDPS.combinedDPS, 1e-6)
+	end)
+
+	it("the optimizer's evaluations see Thorns changes from an override, also when it brings the first Thorns damage", function()
+		local optimizer = LoadModule("Modules/BuildOptimizer")
+		local chance = "50% chance to deal your Thorns Damage to Enemies you Hit with Melee Attacks"
+		local expected = setup("10 to 20 Physical Thorns damage\n" .. chance .. "\n100% increased Thorns damage", nil, punch).ThornsOnHitDPS
+		local current = setup("10 to 20 Physical Thorns damage\n" .. chance).ThornsOnHitDPS
+		assert.is_true(expected > current)
+		local ctx = optimizer.NewContext(build, { })
+		local ring = new("Item"):Item("Rarity: RARE\nThorns Test\nIron Ring\nImplicits: 0\n100% increased Thorns damage")
+		assert.are.near(current, optimizer.CalcOutput(ctx).ThornsOnHitDPS, 1e-9)
+		assert.are.near(expected, optimizer.CalcOutput(ctx, { repSlotName = "Ring 1", repItem = ring }).ThornsOnHitDPS, 1e-9)
+		-- no Thorns damage in the build, so no Thorns group from a MAIN pass: the candidate ring brings both lines
+		local fresh = current
+		setup("")
+		assert.is_nil(build.calcsTab.mainOutput.ThornsOnHitDPS)
+		ctx = optimizer.NewContext(build, { })
+		ring = new("Item"):Item("Rarity: RARE\nThorns Test\nIron Ring\nImplicits: 0\n10 to 20 Physical Thorns damage\n" .. chance)
+		assert.are.near(fresh, optimizer.CalcOutput(ctx, { repSlotName = "Ring 1", repItem = ring }).ThornsOnHitDPS, 1e-9)
 	end)
 
 	it("reports Presence and Ignited Ground Ignites per enemy, outside Combined DPS", function()

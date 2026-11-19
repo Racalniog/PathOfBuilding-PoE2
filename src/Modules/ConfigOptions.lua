@@ -123,7 +123,7 @@ local configSettings = {
 	end },
 	-- ponytail: 2 hits/s is a guess (with half of them Melee it keeps the 1 Thorns retaliation per second PoB assumes without approximations);
 	-- upgrade path = scenario defaults calibrated by in-game measurement (plan Phase 6)
-	{ var = "approxEnemyHitsOnYouPerSecond", type = "float", label = "Enemy hits on you per second:", ifOption = "useApproximations", defaultState = 2, tooltip = "Enemy Hits you take per second, used for the damage your Thorns retaliate with.\nThorns retaliate against Melee Hits, assumed to be half of them, unless they can retaliate against all Hits.\nReported as Thorns DPS, never in the main skill's Combined DPS.", apply = function(val, modList, enemyModList)
+	{ var = "approxEnemyHitsOnYouPerSecond", type = "float", label = "Enemy hits on you per second:", ifOption = "useApproximations", defaultState = 2, tooltip = "Enemy Hits you take per second, used for the damage your Thorns retaliate with.\nThorns retaliate against Melee Hits, assumed to be half of them, unless they can retaliate against all Hits.\nSets the hidden Thorns skill's rate; never part of another skill's Combined DPS.", apply = function(val, modList, enemyModList)
 		modList:NewMod("Multiplier:ApproxEnemyHitsOnYouPerSecond", "BASE", m_max(val, 0), "Config", { type = "Condition", var = "UseApproximations" })
 	end },
 	-- ponytail: the Archon recovery period isn't in the game data (the Archon Buff durations are, data.archonBuffs), 10 s is a guess;
@@ -621,9 +621,13 @@ local configSettings = {
 		modList:NewMod("Multiplier:DifferentElementalSkillUsedRecently", "BASE", 1, "Config")
 	end },
 	{ label = "Runic Tempering:", ifMult = "RunicPlate" },
-	-- runic_tempering_max_runes = 4 (Runic Tempering's constant stats)
 	{ var = "multiplierRunicPlate", type = "count", label = "# of Runic Plates:", ifMult = "RunicPlate", tooltip = "Runic Plates from channelling Runic Tempering, at most 4.", apply = function(val, modList, enemyModList)
-		modList:NewMod("Multiplier:RunicPlate", "BASE", m_min(val, 4), "Config")
+		-- capped at Runic Tempering's runic_tempering_max_runes
+		local max = 4
+		for _, stat in ipairs(data.skills.RunicTemperingPlayer.statSets[1].constantStats) do
+			max = stat[1] == "runic_tempering_max_runes" and stat[2] or max
+		end
+		modList:NewMod("Multiplier:RunicPlate", "BASE", m_min(val, max), "Config")
 	end },
 	{ label = "Scavenged Plating:", ifSkill = "Scavenged Plating" },
 	{ var = "scavengedPlatingStacks", type = "count", label = "# of Scavenged Plating Stacks:", ifSkill = "Scavenged Plating", apply = function(val, modList, enemyModList)

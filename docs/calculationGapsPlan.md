@@ -317,11 +317,16 @@ Order by the Phase 0 ranking. The census suggests this order:
        from Runic Tempering's `runic_tempering_max_runes`), Lucky Thorns against Fully Broken Armour, and Thorns on melee Hits ("N% chance
        to deal your Thorns Damage to Enemies you Hit with Melee Attacks", "... you Critically Hit with Melee Attacks"). A Thorns hit is the
        hidden Thorns skill's Average Damage; on-hit Thorns DPS = chance per landed Hit x Hits per second x that damage. It is damage of the
-       main skill's Hits on the target, like Impale, so it is added to Combined DPS (and so to the optimizer's score). Also fixed: Thorns from
-       "0.08% of Item Armour on Equipped Body Armour" (decimal percentages).
+       main skill's Hits on the target, like Impale, so it is added to Combined DPS and Full DPS (and so to the optimizer's score); shown as
+       *Thorns on Hit DPS* (Calcs tab, Other Effects; sidebar). Totems and other proxies don't count, and a combined hit of both weapons is one
+       Hit. The Thorns damage comes from a second calculation with the Thorns skill as main skill (with the candidate's override and the
+       optimizer's cached base databases), only for skills with these lines: about 1.5x the time of an evaluation for those builds. A
+       calculation without a MAIN pass (optimizer candidates) adds the Thorns skill without its group when the candidate brings the first
+       Thorns damage. Also fixed: Thorns from "0.08% of Item Armour on Equipped Body Armour" (decimal percentages).
      - **Approximation (Use approximations on):** Thorns retaliating against Hits you take, at *Enemy hits on you per second* (2 by default,
-       a guess) x 1/2 (assumed Melee share; every Hit with "Thorns can Retaliate against all Hits"). This sets the Thorns skill's rate (without
-       approximations it keeps PoB's 1 hit/s placeholder) and is reported in *Thorns DPS* (Calcs tab, Other Effects; sidebar), never in Combined DPS.
+       a guess) x 1/2 (assumed Melee share; every Hit with "Thorns can Retaliate against all Hits"). This replaces the Thorns skill's speed
+       (so speed modifiers don't scale it; without approximations it keeps PoB's 1 hit/s placeholder) and shows as that skill's own DPS, never
+       in another skill's Combined DPS.
      - **Pack only (approximations on):** "Deal N% of Overkill damage to enemies within 2 metres of the enemy killed": *Overkill Pack DPS
        (approx.)* = kills/s x half an average landed Hit x N% x enemies near the target.
      - **Per affected enemy, outside Combined DPS:** "Enemies in your Presence are Ignited as though dealt N Base Fire Damage" and the Ignited

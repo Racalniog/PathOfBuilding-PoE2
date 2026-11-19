@@ -2871,6 +2871,7 @@ function calcs.offence(env, actor, activeSkill)
 		elseif skillFlags.thorns and skillModList:Flag(nil, "Condition:UseApproximations") then
 			-- Thorns retaliate against the enemy Melee Hits you take, or every Hit with "Thorns can Retaliate against all Hits". How often
 			-- enemies hit you depends on play, so this needs approximations; without them PoB keeps its 1 hit per second placeholder.
+			-- The rate replaces the skill's speed, so speed modifiers (action speed) don't scale it.
 			-- ponytail: half of the enemy Hits are Melee and each one retaliates (no cooldown); upgrade path = in-game measurement
 			output.Speed = skillModList:GetMultiplier("ApproxEnemyHitsOnYouPerSecond") * (skillModList:Flag(nil, "ThornsRetaliateAllHits") and 1 or 0.5)
 			output.Time = output.Speed > 0 and 1 / output.Speed or 0
@@ -6489,18 +6490,18 @@ function calcs.offence(env, actor, activeSkill)
 	end
 
 	-- Thorns damage per hit is the hidden Thorns skill's Average Damage (CalcSetup adds it when you have Thorns damage), from a calculation
-	-- with that skill as the main skill. Rules from the stat descriptions:
-	-- - "N% chance to deal your Thorns Damage to Enemies you Hit with Melee Attacks" (melee_attack_deal_thorns_damage_chance_%_on_hit), "Deal
-	--   your Thorns damage to enemies you Critically Hit with Melee Attacks" (deal_thorns_damage_on_melee_crit): each such Hit of this skill
-	--   deals one Thorns hit to its target. That is damage of this skill's Hits on the target, exact like Impale, so it adds to CombinedDPS.
-	-- - Thorns retaliating against Hits you take: the Thorns skill's DPS at the approximated retaliation rate (see its speed). Only with
-	--   approximations, and only in ThornsDPS, never in CombinedDPS: it doesn't come from this skill.
-	if actor == env.player and skillFlags.hit and not skillFlags.thorns and not skillData.showAverage then
+	-- with that skill as the main skill (calcs.getCachedOutputValue: a second environment, so only for builds with these lines). Rules from
+	-- the stat descriptions: "N% chance to deal your Thorns Damage to Enemies you Hit with Melee Attacks" (melee_attack_deal_thorns_damage_
+	-- chance_%_on_hit), "Deal your Thorns damage to enemies you Critically Hit with Melee Attacks" (deal_thorns_damage_on_melee_crit): each
+	-- such Hit of this skill deals one Thorns hit to its target. That is damage of this skill's Hits on the target, exact like Impale, so it
+	-- adds to CombinedDPS (and to Full DPS, Calcs.lua). Thorns retaliating against Hits you take is the Thorns skill's own DPS, not this one.
+	-- Totems and other proxies hit, not you, so their Hits don't count.
+	if actor == env.player and skillFlags.hit and not skillFlags.thorns and not skillFlags.totem and not activeSkill.skillTypes[SkillType.UsedByProxy]
+		and not skillData.showAverage then
 		local onHit = m_min(skillModList:Sum("BASE", skillCfg, "ThornsOnHitChance"), 100) / 100
 		local onCrit = m_min(skillModList:Sum("BASE", skillCfg, "ThornsOnCritChance"), 100) / 100
-		local approx = skillModList:Flag(nil, "Condition:UseApproximations")
 		local thorns
-		if onHit > 0 or onCrit > 0 or approx then
+		if onHit > 0 or onCrit > 0 then
 			for _, skill in ipairs(actor.activeSkillList) do
 				if skill.activeEffect.grantedEffect.id == "ThornsPlayer" then
 					thorns = skill
@@ -6509,24 +6510,20 @@ function calcs.offence(env, actor, activeSkill)
 			end
 		end
 		if thorns then
-			local thornsHit, retaliation = calcs.getCachedOutputValue(env, thorns, "AverageDamage", "TotalDPS")
+			local thornsHit = calcs.getCachedOutputValue(env, thorns, "AverageDamage") or 0
 			-- CritChance includes the chance to hit in the effective mode only (as in doChargeApprox)
 			local accuracy = env.mode_effective and (output.AccuracyHitChance or 100) or 100
 			local perHit = 1 - (1 - onHit) * (1 - onCrit * (accuracy > 0 and m_min(output.CritChance / accuracy, 1) or 0))
-			-- landed hits per second on the target, as for ailments
-			local hits = (output.HitSpeed or output.Speed) * output.HitChance / 100 * output.DpsMultiplier
-			output.ThornsOnHitDPS = (thornsHit or 0) * perHit * hits
-			retaliation = approx and retaliation or 0
-			output.ThornsDPS = output.ThornsOnHitDPS + retaliation
+			-- landed hits per second on the target, as for ailments; a combined hit of both weapons is one Hit (its DpsMultiplier adds both hands)
+			local hits = (output.HitSpeed or output.Speed) * output.HitChance / 100 * output.DpsMultiplier / (skillFlags.bothWeaponAttack and skillData.combinesHitsWhenDualWielding and 2 or 1)
+			output.ThornsOnHitDPS = thornsHit * perHit * hits
 			output.CombinedDPS = output.CombinedDPS + output.ThornsOnHitDPS
 			if breakdown then
-				breakdown.ThornsDPS = {
-					s_format("%.1f ^8(Thorns damage per hit)", thornsHit or 0),
+				breakdown.ThornsOnHitDPS = {
+					s_format("%.1f ^8(Thorns damage per hit)", thornsHit),
 					s_format("x %.3f ^8(chance a Hit deals your Thorns damage)", perHit),
 					s_format("x %.2f ^8(Hits per second on the target)", hits),
-					s_format("= %.1f ^8(Thorns DPS on Hit, in Combined DPS)", output.ThornsOnHitDPS),
-					s_format("+ %.1f ^8(Thorns retaliating against Hits you take, approx.)", retaliation),
-					s_format("= %.1f", output.ThornsDPS),
+					s_format("= %.1f ^8(in Combined DPS)", output.ThornsOnHitDPS),
 				}
 			end
 		end

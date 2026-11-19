@@ -1561,7 +1561,7 @@ return {
 		{ breakdown = "OffHand.KnockbackDistance" },
 		{ modName = "EnemyKnockbackDistance", cfg = "weapon2" },
 	}, },
-	{ label = "Thorns DPS", haveOutput = "ThornsDPS", { format = "{1:output:ThornsDPS}", { breakdown = "ThornsDPS" }, { modName = { "ThornsOnHitChance", "ThornsOnCritChance", "ThornsRetaliateAllHits" }, cfg = "skill" } }, },
+	{ label = "Thorns on Hit DPS", haveOutput = "ThornsOnHitDPS", { format = "{1:output:ThornsOnHitDPS}", { breakdown = "ThornsOnHitDPS" }, { modName = { "ThornsOnHitChance", "ThornsOnCritChance" }, cfg = "skill" } }, },
 	{ label = "Presence Ignite DPS", haveOutput = "PresenceIgniteDPS", { format = "{1:output:PresenceIgniteDPS}", { breakdown = "PresenceIgniteDPS" }, { modName = "PresenceIgniteBaseDamage" } }, },
 	{ label = "Ground Ignite DPS", haveOutput = "GroundIgniteDPS", { format = "{1:output:GroundIgniteDPS}", { breakdown = "GroundIgniteDPS" }, { modName = "GroundIgniteBaseDamage" } }, },
 	{ label = "Overkill Pack DPS (approx.)", haveOutput = "OverkillPackDPSApprox", { format = "{1:output:OverkillPackDPSApprox}", { breakdown = "OverkillPackDPSApprox" }, { modName = "OverkillToNearbyPercent" } }, },
