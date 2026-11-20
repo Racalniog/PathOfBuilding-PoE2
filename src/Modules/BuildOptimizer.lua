@@ -3666,7 +3666,8 @@ end
 local function chooseGroupSkill(ctx)
 	local group = ctx.group
 	local list = group.displaySkillList
-	if not list or #list < 2 or eval(ctx) > 0 then
+	-- (a meta skill's group is handled by optimizeMetaSpell)
+	if not list or #list < 2 or list[1].activeEffect.grantedEffect.skillTypes[SkillType.Meta] or eval(ctx) > 0 then
 		return
 	end
 	local first = group.mainActiveSkill or 1

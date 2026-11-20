@@ -390,6 +390,26 @@ return function(mod, flag, skill)
 },
 ["cast_on_damage_taken_threshold"] = {
 	skill("triggeredByDamageTaken", nil, { type = "SkillType", skillType = SkillType.Triggerable }, { type = "SkillType", skillType = SkillType.Spell }),
+	-- Valako's Charge (the only skill with this stat, in both of its stat sets): triggered by Lightning damage taken, with Use
+	-- approximations on (CalcTriggers.lua, supportTrigger)
+	{
+		skill("supportTriggerChance", nil),
+		skill("supportTriggerOnLightningDamageTaken", nil),
+		value = 100,
+	},
+},
+-- Void Illusion's explosion, the hidden skill of the node (CalcTriggers.lua, supportTrigger, with Use approximations on)
+["triggered_by_void_illusion"] = {
+	{
+		skill("supportTriggerChance", nil),
+		skill("supportTriggerOnCopyDestroyed", nil),
+		value = 100,
+	},
+},
+-- Runic Tempering (CalcOffence.lua, its backlash with Use approximations on): the time between backlashes
+["runic_tempering_backlash_cooldown_ms"] = {
+	skill("runicTemperingBacklashCooldown", nil),
+	div = 1000,
 },
 ["support_autocast_instant_spells"] = {
 	skill("triggeredByAutomation", nil, { type = "SkillType", skillTypeList = {SkillType.Triggerable, SkillType.Spell, SkillType.Instant} }),
