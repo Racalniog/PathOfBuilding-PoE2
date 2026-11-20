@@ -1517,6 +1517,38 @@ local function cachedSourceRecord(env, skill)
 	return cache[key] or nil
 end
 
+-- Skills of the build that can cause an event: in the main skill's weapon set, not a Default Attack left out of Full DPS, never a
+-- triggered skill. Anywhere in the build (a trigger from a passive node or a meta skill is not tied to one socket group)
+local function sourceCandidates(env, cond, fullDPSOnly)
+	local list = { }
+	for _, skill in ipairs(env.player.activeSkillList) do
+		local group = skill.socketGroup
+		local flags = (env.mode == "CALCS" and skill.activeEffect.statSetCalcs or skill.activeEffect.statSet).skillFlags
+		if group and flags and not flags.disable and not flags.minion and not flags.totem and not isTriggered(skill) and not skill.skillTypes[SkillType.Meta]
+			and (group.usingSkillSet or env.weaponSet) == env.weaponSet and (group.source ~= "Default Attack" or group.includeInFullDPS)
+			and (group.includeInFullDPS or not fullDPSOnly) and cond(skill, flags) then
+			t_insert(list, skill)
+		end
+	end
+	return list
+end
+-- The candidate with the highest rate (default: hit or use rate), Full DPS skills first: its record, then the skill
+local function eventSource(env, cond, rate)
+	rate = rate or function(record) return record.hitSpeed end
+	for _, fullDPSOnly in ipairs({ true, false }) do
+		local best, bestSkill
+		for _, skill in ipairs(sourceCandidates(env, cond, fullDPSOnly)) do
+			local record = cachedSourceRecord(env, skill)
+			if record and (not best or rate(record) > rate(best)) then
+				best, bestSkill = record, skill
+			end
+		end
+		if best then
+			return best, bestSkill
+		end
+	end
+end
+
 local function metaEnergyTrigger(env, actor)
 	local mainSkill = actor.mainSkill
 	local meta
@@ -1550,35 +1582,6 @@ local function metaEnergyTrigger(env, actor)
 		power = env.enemyDB:Flag(nil, "Condition:RareOrUnique") and 5 or 1
 	end
 
-	-- skills of the build that can cause the event: in the main skill's weapon set, not a Default Attack left out of Full DPS
-	local function candidates(cond, fullDPSOnly)
-		local list = { }
-		for _, skill in ipairs(env.player.activeSkillList) do
-			local group = skill.socketGroup
-			local flags = (env.mode == "CALCS" and skill.activeEffect.statSetCalcs or skill.activeEffect.statSet).skillFlags
-			if group and flags and not flags.disable and not flags.minion and not flags.totem and not isTriggered(skill) and not skill.skillTypes[SkillType.Meta]
-				and (group.usingSkillSet or env.weaponSet) == env.weaponSet and (group.source ~= "Default Attack" or group.includeInFullDPS)
-				and (group.includeInFullDPS or not fullDPSOnly) and cond(skill, flags) then
-				t_insert(list, skill)
-			end
-		end
-		return list
-	end
-	-- the candidate with the highest hit (or use) rate, Full DPS skills first
-	local function eventSource(name, cond)
-		for _, fullDPSOnly in ipairs({ true, false }) do
-			local best
-			for _, skill in ipairs(candidates(cond, fullDPSOnly)) do
-				local record = cachedSourceRecord(env, skill)
-				if record and (not best or record.hitSpeed > best.hitSpeed) then
-					best = record
-				end
-			end
-			if best then
-				return best
-			end
-		end
-	end
 	local function hits(skill, flags) return flags.hit end
 	local function meleeHits(skill, flags) return flags.hit and skill.skillTypes[SkillType.Melee] and skill.skillTypes[SkillType.Attack] end
 	local function spells(skill) return skill.skillTypes[SkillType.Spell] and (skill.activeEffect.grantedEffect.castTime or 0) > 0 end
@@ -1591,7 +1594,7 @@ local function metaEnergyTrigger(env, actor)
 		t_insert(lines, s_format("%.2f/s x %.1f Energy ^8(%s%s)", rate, perEvent, label, sourceName and " of " .. sourceName or ""))
 	end
 	if metaData.energyOnCrit or metaData.energyOnShock or metaData.energyOnIgnite then
-		local source = eventSource("hits", hits)
+		local source = eventSource(env, hits)
 		if source then
 			if metaData.energyOnCrit then
 				add("Critical Hits", source.rates.crits, metaData.energyOnCrit * power * source.critPercent, source.name)
@@ -1605,19 +1608,19 @@ local function metaEnergyTrigger(env, actor)
 		end
 	end
 	if metaData.energyOnMeleeHit then
-		local source = eventSource("meleeHits", meleeHits)
+		local source = eventSource(env, meleeHits)
 		if source then
 			add("Melee Hits", source.rates.hits, metaData.energyOnMeleeHit * power * source.hitPercent, source.name)
 		end
 	end
 	if metaData.energyPer10msCastTime then
-		local source = eventSource("spells", spells)
+		local source = eventSource(env, spells)
 		if source then
 			add("Spells cast", source.speed, metaData.energyPer10msCastTime * source.castTime * 100, source.name)
 		end
 	end
 	-- ponytail: every kill counts as a Melee kill of a Power 1 monster if the build has a Melee Attack; upgrade path = kill rate per skill
-	if metaData.energyOnMeleeKill and #candidates(meleeHits) > 0 then
+	if metaData.energyOnMeleeKill and #sourceCandidates(env, meleeHits) > 0 then
 		add("kills", env.player.modDB:GetMultiplier("ApproxKillsPerSecond"), metaData.energyOnMeleeKill)
 	end
 	if metaData.energyOnBlock then
@@ -1661,6 +1664,8 @@ end
 --   else 1 - e^(-Ignites/s x Ignite duration) from the source's own Ignites (calcLib.approxUptime).
 --   Fiery Death: kills per second x that share. Impending Doom's Doom Blast ("when the Curse expires"): one per Curse duration,
 --   at most the curse's cast rate.
+-- * A rule with `source` (Elemental Storm, a Stormweaver node's skill) takes the Spell of the whole build with the most events,
+--   not the group's supported skill; the node line marks the skill through ExtraSkillMod (ModParser.lua).
 -- * The granted skill's cooldown caps the rate (defaultTriggerHandler: server ticks; with stored uses min(rate, 1 / cooldown), with
 --   one use the cooldown alignment simulation); without a cooldown each event triggers.
 -- ponytail: Critical Hits and Shocks are random, the simulation spaces them evenly; Hits on the one target PoB calculates, all kills
@@ -1683,6 +1688,15 @@ local supportTriggerEvents = {
 	{ key = "supportTriggerOnIgnitedKill", name = "Ignited enemies dying", rate = function(env, source, ignited, ignitedText)
 		local kills = env.player.modDB:GetMultiplier("ApproxKillsPerSecond")
 		return kills * ignited, s_format("%.2f x %.3f ^8(kills per second x %s)", kills, ignited, ignitedText)
+	end },
+	-- Elemental Storm (Stormweaver node, "Trigger Elemental Storm on Critical Hit with Spells"): a rule with `source` takes its source
+	-- from the whole build, the Spell with the most Critical Hits per second, not from the group (a node is not tied to a socket group)
+	-- ponytail: the Hit must deal Elemental damage to trigger the storm and picks its element; a Spell without Elemental damage still
+	-- counts, and the storm's element is the skill's own (upgrade path = the source record's Elemental share per type)
+	{ key = "supportTriggerOnSpellCrit", name = "Critical Hits with Spells", source = function(skill, flags)
+		return flags.hit and skill.skillTypes[SkillType.Spell]
+	end, rate = function(env, source)
+		return source.rates.crits, s_format("%.2f ^8(Critical Hits per second of %s, the Spell with the most)", source.rates.crits, source.name)
 	end },
 	{ key = "supportTriggerOnCurseExpiry", name = "Curse expiries", rate = function(env, source)
 		local rate = m_min(source.speed, source.duration > 0 and 1 / source.duration or 0)
@@ -1707,6 +1721,13 @@ local function supportTrigger(env, actor)
 	local supportName = srcInstance and srcInstance.gemData and srcInstance.gemData.name or triggeredName
 	local ignitedConfigured = env.enemyDB:Flag(nil, "Condition:Ignited")
 	local source, rate, lines, triggeredSource = nil, 0, { }, nil
+	if event.source then -- (the loop below then finds no group skill: nothing carries "triggerChance:" for this skill)
+		local record, skill = eventSource(env, event.source, function(record) return record.rates.crits end)
+		if record then
+			local events, line = event.rate(env, record)
+			source, rate, lines = skill, events, { line }
+		end
+	end
 	for _, skill in ipairs(env.player.activeSkillList) do
 		local flags = (env.mode == "CALCS" and skill.activeEffect.statSetCalcs or skill.activeEffect.statSet).skillFlags
 		local chance = skill.skillData[chanceKey]
@@ -1738,7 +1759,7 @@ local function supportTrigger(env, actor)
 	if not source and triggeredSource then
 		lines = { s_format("%s is triggered: triggers by a triggered skill are not modelled", triggeredSource.activeEffect.grantedEffect.name) }
 	elseif not source then
-		lines = { s_format("No skill in the group is supported by %s", supportName) }
+		lines = { event.source and s_format("No Spell of the build has %s", event.name) or s_format("No skill in the group is supported by %s", supportName) }
 	end
 	if rate == 0 then
 		mainSkill.infoMessage2 = not source and triggeredSource and "Supported skill is triggered: no triggers modelled" or s_format("No %s to trigger %s: no triggers", event.name, triggeredName)
