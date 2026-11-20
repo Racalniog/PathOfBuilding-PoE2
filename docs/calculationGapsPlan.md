@@ -566,9 +566,14 @@ the calculation, only with Use approximations on.
   through ExtraSkillMod), so `supportTrigger` calculates it: Critical Hits per second of the Spell of the build with the most (any socket group, the
   meta Energy's source search, now the shared `sourceCandidates` / `eventSource`), capped by its 3 s cooldown with one stored use (the cooldown
   alignment simulation, at most the event rate). A build without a Spell: 0 triggers, with a message. Check: `spec/System/TestNodeTriggers_spec.lua`.
-  Ceiling: the Hit must deal Elemental damage and picks the storm's element (a Spell without it still counts), and the storm itself still shows no
-  damage: its stat set has no damage type (it comes from the Hit that triggered it), so TotalDPS stays 0 until that is modelled (the element and the
-  share of the Hit's damage it deals, the Living Lightning way).
+  Ceiling: the Hit must deal Elemental damage and picks the storm's element (a Spell without it still counts). The skill has one stat set per element
+  ("Fire", "Cold", "Lightning"), the first of them dealt nothing: the optimiser now selects the best one (`chooseStatSet`), and Elemental Storm scores
+  (Stormweaver, level 95, a quick run: "Fire"). **Still open, found when the pieces were tested together:** (1) the optimiser builds around the storm
+  alone, so no Spell group exists to be the source, and the calculation says "no triggers" (Speed 0); a node- or item-triggered skill needs a source
+  group added to the build (the best Spell with Critical Hits, as the meta Spell step does for meta skills); (2) the storm's TotalDPS is its damage
+  while it exists (a Hit every 250 ms, `tornado_base_damage_interval_ms`), unaffected by the trigger rate, so the score (213k in that run) is the same with
+  0 triggers as with 0.3 per second: the damage needs the share of time storms exist (triggers per second x duration, at most `number_of_tornados_allowed`
+  at once), as Living Lightning's Minions got.
 - *Elemental Expression* (Invoker node): "chance for an explosion proportional to your Strength, a bolt to your Dexterity, a wave to your Intelligence";
   the event that rolls the chance isn't in the exported description (`chance_to_be_trigger_elemental_expression_%` is unmapped): read the node's text
   first, then the same event rule.
@@ -597,6 +602,10 @@ the calculation, only with Use approximations on.
   (copies of socketed shapeshift skills). The damage is in the skills socketed into the meta skill, and the optimiser fills support sockets only, never
   those. The engine already calculates the meta Energy triggers (Phase 2), so the missing part is in the optimiser: let the support step fill a meta
   skill's skill sockets from the Spells (or shapeshift skills) that fit, scored through the existing triggered calculation. Bigger.
+  **Done for the Spell sockets (November 2026):** `optimizeMetaSpell` tries every Triggerable Spell gem as the group's Spell (index 2; the engine scores the
+  ones the meta skill can't trigger 0), keeps the best, selects it as the group's skill and lets the support search start after it; Cast on Block (Svalinn)
+  and a Cast on Critical gem build with it (Use approximations on gives the Energy-based rate). One Spell per meta skill (the score is the selected skill's),
+  and Spirit Vessel (copies of socketed shapeshift skills) is not covered.
 
 **3. Correct as they are: no hit of their own (not gaps)**
 
@@ -617,9 +626,15 @@ applies their buff to the main skill when the group is enabled has not been chec
   Archon of Chayula, Mirage Deadeye) is not a gap: the weapon search equips a fitting weapon first, and the first four scored.
 - The first unique that fits is equipped; a skill that several uniques grant (Parry on ten bucklers) is built around the first by name.
 
-Order of work: stat set choice (1, small and general), the Elemental Storm event (2, the Living Lightning code with another damage type), the meta skill
-sockets (2, the largest effect: six skills), then the fixed-interval and Glory triggers, then the options that need a new input (Valako's Charge, Void
-Illusion).
+Order of work: stat set choice (done), the Elemental Storm event (the trigger rate done, the source group and the uptime open), the meta skill sockets (done
+for the Spell sockets), then the fixed-interval and Glory triggers, then the options that need a new input (Valako's Charge, Void Illusion).
+
+**5. Found on the way: average damage instead of DPS.** 58 gem skills carry `base_skill_show_average_damage_instead_of_dps` (Comet, Firestorm, Flameblast,
+Ice Nova, Solar Orb, Volatile Dead, Icestorm, Walking Calamity, the grenades, the slams and strikes, ...). For them the engine's Combined DPS is the
+average damage per use, not per second, so the optimiser's score of a Comet or Firestorm build is damage per cast, and compares badly with a DPS skill
+(Hexblast) and ignores cast speed and cooldown. `--per-second` (`perSecond`) scores them x TotalDPS / AverageDamage (the cast rate, cooldown or trigger
+rate); the default stays what the program shows. The Comet and Firestorm results in docs/buildOptimizerRuns.md are per cast; they have not been run again
+per second.
 
 ### Optimizer and performance follow-ups
 
