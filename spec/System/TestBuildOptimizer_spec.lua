@@ -446,6 +446,26 @@ describe("BuildOptimizer", function()
 		assert.is_true(not spark.statSet or not next(spark.statSet) or spark.statSet.SparkPlayer == nil or spark.statSet.SparkPlayer == 1)
 	end)
 
+	it("scores a skill that shows average damage by damage per second when asked to", function()
+		-- Volatile Dead's Core set shows average damage per cast (1.25 casts per second)
+		local function run(perSecond)
+			newBuild()
+			local ok, pin = optimizer.SetupCharacter(build, { class = "Witch", skill = "Volatile Dead", skillSource = "item" })
+			assert.is_true(ok)
+			local options = copyTable(quickOptions)
+			options.pin = pin
+			options.perSecond = perSecond
+			local result = optimizer.Optimize(build, options)
+			return result.score, build.calcsTab.mainOutput
+		end
+		local perUse, output = run(false)
+		assert.are.near(output.CombinedDPS, perUse, perUse * 1e-6)
+		assert.are.near(output.AverageDamage, perUse, perUse * 1e-6)
+		local perSecond, output2 = run(true)
+		assert.are.near(output2.TotalDPS, perSecond, perSecond * 1e-6)
+		assert.is_true(output2.TotalDPS > output2.AverageDamage)
+	end)
+
 	it("sockets a Spell into a meta skill and supports that Spell", function()
 		-- Cast on Block comes from Svalinn: the group is the meta skill alone, with no damage of its own
 		local ok, pin = optimizer.SetupCharacter(build, { class = "Warrior", skill = "Cast on Block" })

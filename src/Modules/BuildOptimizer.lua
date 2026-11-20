@@ -103,6 +103,8 @@ optimizer.defaultOptions = {
 	-- local optimum. ponytail: a build that already has a tree (the unique stage after the rare one)
 	-- only gets the changed order; upgrade path = perturb the equipment choices too
 	restarts = 1,
+	-- Score a skill that shows average damage instead of DPS by damage per second (average x use rate) instead of its average damage per use
+	perSecond = false,
 	-- Relative improvement below which a change is not considered worth it
 	epsilon = 1e-6,
 	-- Configuration tab conditions to switch on because the build keeps them up by itself:
@@ -260,6 +262,12 @@ local function scoreOutput(ctx, output, env)
 		value = metric(output, minions)
 	else
 		value = output[metric] or 0
+		-- A skill that shows average damage instead of DPS (Comet, Firestorm, Volatile Dead, ...: 58 gem skills) has its average damage per use
+		-- as Combined DPS. perSecond scores it per second instead: x the rate (Speed: cast rate, cooldown or trigger rate)
+		local skillData = env and env.player and env.player.mainSkill and env.player.mainSkill.skillData
+		if ctx.opts.perSecond and skillData and skillData.showAverage and (output.AverageDamage or 0) > 0 and output.TotalDPS then
+			value = value * output.TotalDPS / output.AverageDamage
+		end
 		if output.Minion and type(output.Minion[metric]) == "number" then
 			value = value + output.Minion[metric] * minions
 		end
