@@ -312,6 +312,7 @@ end
 
 local function eval(ctx, override)
 	ctx.evals = ctx.evals + 1
+	ctx.lastOutput = nil
 	if pinVetoes(ctx, override) then
 		return 0
 	end
@@ -321,6 +322,7 @@ local function eval(ctx, override)
 		ctx.lastError = output
 		return -1
 	end
+	ctx.lastOutput = output -- (for callers that look at more than the score)
 	return scoreOutput(ctx, output, env)
 end
 
@@ -1750,6 +1752,12 @@ local function isAuxGroup(ctx, group)
 	return group ~= ctx.group and not group.source and not group.sourceItem and not group.sourceNode
 end
 
+-- The group that holds the source of a node- or item-triggered main skill (optimizeTriggerSource); the label is what a saved build keeps
+local triggerSourceLabel = "Trigger source"
+local function isTriggerSource(group)
+	return group.triggerSource or group.label == triggerSourceLabel
+end
+
 -- Skill gems with an effect outside of their own damage (auras and other persistent buffs, curses,
 -- marks, ...) that the character doesn't use yet
 local function auxCandidates(ctx)
@@ -1849,7 +1857,7 @@ local function optimizeAuxSkills(ctx)
 	local cur = eval(ctx)
 	for index = #groups, 1, -1 do
 		local group = groups[index]
-		if isAuxGroup(ctx, group) then
+		if isAuxGroup(ctx, group) and not isTriggerSource(group) then
 			t_remove(groups, index)
 			sync(ctx)
 			local score = eval(ctx)
@@ -2749,7 +2757,7 @@ local function optimizeWeaponSets(ctx, allowUniques)
 		local gemData = group.gemList[1] and group.gemList[1].gemData
 		-- Persistent buffs have to stay available in the set the main skill is used in, so only
 		-- skills that are cast (curses, marks, offerings, ...) are candidates for set 2
-		if group.enabled and isAuxGroup(ctx, group) and gemData and not gemData.tags.persistent then
+		if group.enabled and isAuxGroup(ctx, group) and not isTriggerSource(group) and gemData and not gemData.tags.persistent then
 			t_insert(aux, group)
 		end
 	end
@@ -3630,6 +3638,79 @@ local function optimizeMetaSpell(ctx)
 	sync(ctx)
 end
 
+-- A skill that a passive node or an item triggers on an event of the whole build (Elemental Storm: Critical Hits with Spells) has a
+-- rule with a `source` in CalcTriggers.lua (supportTriggerEvents): the source is any skill of the build that the rule accepts. The
+-- optimiser built around the triggered skill alone, so the build had no source and the skill never triggered. This adds a socket
+-- group for the source: every gem the rule's `source` filter accepts is tried in it and scored by the MAIN skill, the best stays and
+-- gets its supports like an auxiliary skill (supportAuxGroup, the main skill's score decides). A candidate only counts when it raises
+-- the trigger rate (Speed of the triggered skill): a curse or an aura raises the score without being a source, and the auxiliary
+-- step is the one to add those. A tie goes to the higher rate, because a skill whose damage doesn't depend on the rate yet scores the
+-- same with every source.
+-- The group is marked (triggerSource, and its label, which a saved build keeps) so the auxiliary and weapon set steps leave it alone.
+-- ponytail: one source skill, the rule's filter is applied to the gem's skill types only (the calculation rejects one without hits);
+-- upgrade path = a second source for a rule with two events, supports chosen for the trigger rate while the score doesn't depend on it
+local function optimizeTriggerSource(ctx)
+	local build = ctx.build
+	local groups = build.skillsTab.socketGroupList
+	for index = #groups, 1, -1 do
+		if isTriggerSource(groups[index]) then
+			t_remove(groups, index)
+		end
+	end
+	-- (the rules only run with Use approximations on)
+	if not build.configTab.input.useApproximations or ctx.opts.maxSkills < 2 then
+		return
+	end
+	sync(ctx)
+	local ok, _, env = pcall(calcOutput, ctx)
+	local skillData = ok and env.player.mainSkill and env.player.mainSkill.skillData
+	local rule
+	for _, candidate in ipairs(ctx.calcs.supportTriggerEvents or { }) do
+		if candidate.source and skillData and skillData[candidate.key] then
+			rule = candidate
+			break
+		end
+	end
+	if not rule then
+		return
+	end
+	local cur = eval(ctx)
+	local curRate = ctx.lastOutput and ctx.lastOutput.Speed or 0
+	local best, bestScore, bestRate = nil, 0, 0
+	local group = { label = triggerSourceLabel, triggerSource = true, enabled = true, gemList = { } }
+	t_insert(groups, group)
+	local candidates = { }
+	for _, gemData in pairs(build.data.gems) do
+		local grantedEffect = gemData.grantedEffect
+		local types = grantedEffect and grantedEffect.skillTypes
+		if types and not grantedEffect.support and not grantedEffect.fromItem and not grantedEffect.fromTree and not grantedEffect.hideFromSideBar
+			and not types[SkillType.Meta] and not types[SkillType.Triggered] and not types[SkillType.InbuiltTrigger] and not grantedEffect.triggered
+			and (grantedEffect.levels and grantedEffect.levels[1] and grantedEffect.levels[1].levelRequirement or 1) <= build.characterLevel
+			and rule.source({ skillTypes = types }, { hit = true }) then
+			t_insert(candidates, gemData)
+		end
+	end
+	t_sort(candidates, function(a, b) return a.id < b.id end)
+	for _, gemData in ipairs(candidates) do
+		group.gemList[1] = makeGemInstance(ctx, gemData)
+		local score = eval(ctx)
+		local rate = ctx.lastOutput and ctx.lastOutput.Speed or 0
+		if rate > curRate * (1 + 1e-9) and not better(ctx, cur, score)
+			and (better(ctx, score, bestScore) or (not better(ctx, bestScore, score) and rate > bestRate * (1 + 1e-9))) then
+			best, bestScore, bestRate = gemData, score, rate
+		end
+	end
+	if best then
+		group.gemList[1] = makeGemInstance(ctx, best)
+		build.skillsTab:ProcessSocketGroup(group)
+		local score = supportAuxGroup(ctx, group, bestScore)
+		log(ctx, "  %s is the source of %s's trigger (%s): %.1f", best.name, ctx.group.gemList[1].nameSpec or "the main skill", rule.name, score)
+	else
+		t_remove(groups)
+	end
+	sync(ctx)
+end
+
 -- A skill with several stat sets calculates the one that is selected (the program's "Stat set" choice, shown one at a time). When the
 -- selected set deals nothing, the best of the others is selected: Volatile Dead's first set is the skill, its damage is in "Explosion"
 -- and "Core". A set that already deals damage is left alone (the first one, unless the build says otherwise)
@@ -3668,6 +3749,7 @@ local function runRound(ctx, round, allowUniques)
 		optimizeWeapons(ctx, allowUniques)
 		chooseStatSet(ctx)
 	end
+	optimizeTriggerSource(ctx)
 	log(ctx, "[round %d] support gems", round)
 	ctx.multiStart = round == 1
 	if ctx.group.noSupports then
@@ -3894,7 +3976,7 @@ function optimizer.Describe(build, options)
 				t_insert(names, other.gemList[gemIndex].nameSpec or "?")
 			end
 			local set2 = other.set1 == false and other.set2 ~= false
-			t_insert(others, s_format("%s (level %d)%s%s", other.gemList[1].nameSpec or "?", other.gemList[1].level or 1, #names > 0 and (" + " .. t_concat(names, ", ")) or "", set2 and "   [cast with weapon set 2]" or ""))
+			t_insert(others, s_format("%s (level %d)%s%s", other.gemList[1].nameSpec or "?", other.gemList[1].level or 1, #names > 0 and (" + " .. t_concat(names, ", ")) or "", set2 and "   [cast with weapon set 2]" or (isTriggerSource(other) and "   [source of the main skill's trigger]" or "")))
 		end
 	end
 	if #others > 0 then

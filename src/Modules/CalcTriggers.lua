@@ -1703,6 +1703,8 @@ local supportTriggerEvents = {
 		return rate, s_format("min(%.2f, 1 / %.2f) ^8(cast rate of %s, once per Curse duration)", source.speed, source.duration, source.name)
 	end },
 }
+-- (the optimiser reads the rules with a `source`: it adds a source skill for a skill marked with one)
+calcs.supportTriggerEvents = supportTriggerEvents
 local function supportTrigger(env, actor)
 	local mainSkill = actor.mainSkill
 	local event

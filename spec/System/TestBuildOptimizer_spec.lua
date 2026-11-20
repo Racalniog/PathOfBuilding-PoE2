@@ -496,4 +496,33 @@ describe("BuildOptimizer", function()
 		assert.is_true(gem.score > 0)
 		assert.is_falsy(build.skillsTab.socketGroupList[build.mainSocketGroup].gemList[2].gemData.grantedEffect.support)
 	end)
+
+	it("adds the source skill of a node-triggered skill, and only for one", function()
+		-- Elemental Storm triggers on Critical Hits with Spells of the build: built alone it has no source and never triggers
+		local ok, pin = optimizer.SetupCharacter(build, { class = "Sorceress", ascendancy = "Stormweaver", skill = "Elemental Storm", skillSource = "tree" })
+		assert.is_true(ok)
+		local options = copyTable(quickOptions)
+		options.pin = pin
+		options.approximations = true
+		options.rounds = 2 -- (the second round starts from the saved build: the group is found again by its label)
+		local result = optimizer.Optimize(build, options)
+		assert.is_true(result.score > 0)
+		local groups = build.skillsTab.socketGroupList
+		assert.are.equals(2, #groups)
+		local source = groups[2]
+		assert.are.equals("Trigger source", source.label)
+		assert.is_true(source.gemList[1].gemData.grantedEffect.skillTypes[SkillType.Spell])
+		local mainSkill = build.calcsTab.mainEnv.player.mainSkill
+		assert.are.equals("ElementalStormPlayer", mainSkill.activeEffect.grantedEffect.id)
+		assert.is_nil(mainSkill.infoMessage2)
+		assert.are.equals("Elemental Storm's Trigger: " .. source.gemList[1].nameSpec, mainSkill.infoMessage)
+		assert.is_true(build.calcsTab.mainOutput.Speed > 0)
+		-- a main skill without such a rule gets no extra group
+		newBuild()
+		assert.is_true(optimizer.SetupCharacter(build, { class = "Sorceress", skill = "Spark" }))
+		options.pin = nil
+		options.rounds = 1
+		optimizer.Optimize(build, options)
+		assert.are.equals(1, #build.skillsTab.socketGroupList)
+	end)
 end)
