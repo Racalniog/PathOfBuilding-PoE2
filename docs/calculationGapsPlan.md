@@ -533,6 +533,84 @@ InfusionRemnantBaseDuration) were already in `data.gameConstants`.
   - Fan the Flames / Volcanic Eruption: do Ignites from other skills count (they do in the model only through *Is the enemy Ignited?*)?
   - Do Critical Hits of a meta-triggered Spell (Cast on Critical + Fireball + Mana Flare) trigger Mana Flare? The model says no.
 
+### Skills from items and the tree without damage in the optimizer (November 2026)
+
+Screen of every skill that only a unique item (91 uniques) or a passive node (45 nodes) grants and that is not also a gem: 101 skills, 8 classes
+at level 95, then a quick optimiser run of 66 of them (the 39 that deal damage with a bare character, and 27 damage, spell, attack or minion skills
+that didn't). 47 runs scored; 19 stopped with "The skill deals no damage in this setup". Of the 101, 63 showed no damage of their own in the bare
+setup. Causes, in the order they are worth fixing; every entry is **open**.
+
+**1. A calculation gap with a direct fix**
+
+- *Skills whose damage sits in another stat set.* Volatile Dead (Enezun's Charge) has three stat sets: "Volatile Dead" (no damage), "Explosion" and
+  "Core" (both with Fire damage). The engine and the optimiser calculate stat set 1 only, so the skill shows 0 although it hits. Fix: for a skill with
+  several stat sets, calculate each, and score the sum of the sets that hit (Explosion + Core: both happen per cast), or the best one when the sets are
+  alternatives; Full DPS needs the same. Check the gem skills for the same pattern (a census of stat sets with and without damage stats wasn't done).
+- *Companion skills whose damage is in the Command skill.* Mist Raven (The Auspex): the Summon skill has no hit and no minion output in the calculation; the
+  raven's damage is in the gem's second skill, Command Mist Raven (`additionalGrantedEffects`), and the flock's own skills (Raven Conspiracy: swarm aura,
+  Mad Flight) deal damage over time that the minion's DPS doesn't count (Spiraling Conspiracy: minion TotalDPS 0). Fix: calculate the Command skill as well
+  (as for Kelari, which scored), and count the minion's damage over time in the minion's DPS.
+
+**2. Damage that exists but depends on an event rate PoB has no model of: needs an approximation**
+
+Same method as the support triggers (Phase 2): a rate from the supported or main skill's own numbers, capped by the skill's cooldown, with a message in
+the calculation, only with Use approximations on.
+
+- *Elemental Storm* (Invoker node): triggered by Hits that deal Elemental damage (the storm's element is the Hit's highest). Event "Hits that deal
+  Elemental damage" of the main skill: the Living Lightning event (`supportTriggerOnLightningHit`) with the elemental types instead of Lightning; the
+  cooldown from the skill's data. Small.
+- *Elemental Expression* (Invoker node): "chance for an explosion proportional to your Strength, a bolt to your Dexterity, a wave to your Intelligence";
+  the event that rolls the chance isn't in the exported description (`chance_to_be_trigger_elemental_expression_%` is unmapped): read the node's text
+  first, then the same event rule.
+- *Valako's Charge* (Lightning Coil): charge builds up when you take Lightning damage; at full charge a chaining bolt. Rate = enemy Hits on you per
+  second (the existing Cast on Block input) x the share of them that deals Lightning damage (new option, default 0 = no triggers) / the hits one charge
+  needs (unmapped `cast_on_damage_taken_%`).
+- *The Stars Answer* (item): triggers Starfall every `walking_calamity_spawn_meteor_every_ms`, more often with enemies in the radius
+  (`walking_calamity_meteor_frequency_+%_per_enemy_in_walking_calamity_radius`, capped): a fixed rate from the data (1000 / interval), the enemy bonus as
+  a configured enemy count.
+- *Apocalypse* (node) and *Archon of Chayula* (node): Glory builds from Hits that deal Elemental (Chaos) damage (`active_skill_generates_mp_%_glory_per_..._hit`
+  of `active_skill_requires_X_glory`); at maximum Glory the buff lasts a duration, and Apocalypse triggers a skill every
+  `unleash_the_elements_base_trigger_frequency_ms`. Uptime = duration / (duration + time to fill the Glory from the main skill's Hits per second); the
+  triggered skills' damage at that uptime.
+- *Midnight Zenith* (Eventide Petals): Critical Hits that kill or hit rare / unique enemies build Ice Seeds, enough of them make an Ice Crystal. Rate =
+  Critical Hits per second x kill share (the kills per second option) or the rare share; seeds per crystal from the data.
+- *Void Illusion* (node): copies are made on dodge rolls and explode when an enemy kills them. Needs a new option, dodge rolls per second (default 0: no
+  explosions), then one explosion per copy destroyed (enemy Hits on you).
+- *Runic Tempering* (Serle's Grit): channelled; when Hit while it has plates, some damage is prevented and a backlash deals your Thorns damage in an area
+  (`runic_tempering_backlash_cooldown_ms`). Rate = enemy Hits on you per second per plate, at most one per cooldown, x Thorns damage (already calculated
+  for Thorns skills). Depends on the Thorns retaliation cooldowns that Phase 3 lists as not modelled.
+- *Inevitable Agony* (node): a debuff records a share of the Hits the target takes (`curse_pain_synchronisation_base_recorded_damage_%_to_apply`) and
+  deals it at once when it ends. PoB treats a debuff as applied, so the rate changes nothing; approximation: a more multiplier on the Hit damage of the
+  other skills in Full DPS = the recorded share x the share of the debuff's duration the enemy survives (configured, default all of it). It has no hit
+  of its own.
+- *Meta skills*: Cast on Block (Svalinn), Cast on Charm Use (Bijouborne), Called Shots, Fire Spell on Melee Hit, Thundergod's Wrath, Spirit Vessel
+  (copies of socketed shapeshift skills). The damage is in the skills socketed into the meta skill, and the optimiser fills support sockets only, never
+  those. The engine already calculates the meta Energy triggers (Phase 2), so the missing part is in the optimiser: let the support step fill a meta
+  skill's skill sockets from the Spells (or shapeshift skills) that fit, scored through the existing triggered calculation. Bigger.
+
+**3. Correct as they are: no hit of their own (not gaps)**
+
+Auras and buffs, whose effect on the other skills is what counts, and utility: Align Fate, Azmerian Wolf (it is Discipline), Blood Boil, Demon Form,
+Discipline, Encase in Jade, Feast of Flesh (recovery), Future-Past, Heart of Ice, Impurity, Into the Breach, Life Remnants, Malice, Mana Drain, Meditate,
+Mirror of Refraction, Primal Bounty, Purity of Fire / Ice / Lightning, Rite of Restoration, Ritual Sacrifice, Sanguine Revelry, Sorcery Ward, Temporal Rift,
+Time Freeze, Time Snap (resets the cooldowns of the other skills), Navira (restorative), Virtuous Barrier, Wildwood's Gifts, Unbound Avatar, Mirage
+Deadeye, Temper Weapon. Three of them matter for damage and are worth a look: *Sigil of Power* (a Spell damage buff for you while standing in it),
+*Unbound Avatar* and *Temper Weapon* ("Empowers subsequent Attacks to Combust"). Their effect on the main skill isn't an optimiser result, because they
+aren't the main skill; they belong to the auxiliary skill search (an item that grants one is a candidate there, as for any aura). Whether the engine
+applies their buff to the main skill when the group is enabled has not been checked.
+
+**4. Limits of the screen itself**
+
+- Item skills were run on one class chosen by skill type (Witch for Spells, Warrior for melee, ...) where the bare-setup damage didn't name a best class;
+  a better class may exist.
+- "Main Hand weapon is not usable with this skill" in the bare setup (Crushing Fear, Hollow Focus / Form / Resonance, Manifest Weapon, Temper Weapon,
+  Archon of Chayula, Mirage Deadeye) is not a gap: the weapon search equips a fitting weapon first, and the first four scored.
+- The first unique that fits is equipped; a skill that several uniques grant (Parry on ten bucklers) is built around the first by name.
+
+Order of work: stat set choice (1, small and general), the Elemental Storm event (2, the Living Lightning code with another damage type), the meta skill
+sockets (2, the largest effect: six skills), then the fixed-interval and Glory triggers, then the options that need a new input (Valako's Charge, Void
+Illusion).
+
 ### Optimizer and performance follow-ups
 
 - **Search variance:** with more mechanics the optimizer's greedy search sometimes ends in a clearly
