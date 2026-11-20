@@ -3431,6 +3431,22 @@ return function(mod, flag, skill)
 	mod("DamageTaken", "MORE", nil, ModFlag.Hit, 0, { type = "GlobalEffect", effectType = "Debuff" }, { type = "ActorCondition", actor = "player", var = "UseApproximations" }, { type = "Multiplier", var = "ApproxDebuffSurvival", actor = "player" }),
 	div = 100,
 },
+-- Unbound Avatar (Invoker node): the Buff's stats apply while Unbound ("Are you Unbound?" in the Configuration tab, Condition:Unbound).
+-- "% more Elemental Damage", "% more chance to inflict Elemental Ailments" (Ignite and Shock, which have a chance) and "% more Elemental
+-- Ailment Buildup" (Freeze and Electrocute, which have buildup).
+-- ponytail: how long the player is Unbound isn't modelled (it is Unbound after 100 Fury, one per Elemental Ailment inflicted, for the buff
+-- duration); the option is the share of time as all or nothing. Upgrade path = an uptime like the Glory skills' (CalcTriggers.lua, gloryUptime)
+["ailment_bearer_elemental_damage_+%_final"] = {
+	mod("ElementalDamage", "MORE", nil, 0, 0, { type = "GlobalEffect", effectType = "Buff" }, { type = "Condition", var = "Unbound" }),
+},
+["unbound_ailment_elemental_ailment_chance_+%_final"] = {
+	mod("EnemyIgniteChance", "MORE", nil, 0, 0, { type = "GlobalEffect", effectType = "Buff" }, { type = "Condition", var = "Unbound" }),
+	mod("EnemyShockChance", "MORE", nil, 0, 0, { type = "GlobalEffect", effectType = "Buff" }, { type = "Condition", var = "Unbound" }),
+},
+["unbound_ailment_hit_damage_elemental_immobilisation_multiplier_+%_final"] = {
+	mod("EnemyFreezeBuildup", "MORE", nil, 0, 0, { type = "GlobalEffect", effectType = "Buff" }, { type = "Condition", var = "Unbound" }),
+	mod("EnemyElectrocuteBuildup", "MORE", nil, 0, 0, { type = "GlobalEffect", effectType = "Buff" }, { type = "Condition", var = "Unbound" }),
+},
 -- Archon Buffs' own stats (data.archonBuffs, Archon of Chayula's from its skill), applied by CalcPerform doActorMisc
 ["elemental_damage_with_spell_skills_+%_final_from_archon_buff"] = {
 	mod("ElementalDamage", "MORE", nil, 0, KeywordFlag.Spell),
