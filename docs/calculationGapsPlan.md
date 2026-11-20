@@ -573,7 +573,14 @@ InfusionRemnantBaseDuration) were already in `data.gameConstants`.
   parent database. Checked by TestPassiveSpec ("builds a weapon set context that calculates like a fresh
   environment of its set"). Measured (November 2026, Stormweaver Spark, no radius jewels, accelerated evaluation): `buildModListForNodeList` (two calls per
   evaluation) is 8.3% of an evaluation at 60 allocated nodes and 10.6% at 120, so a delta that removed it entirely would gain at most
-  that, and building the lists once instead of twice about half; radius jewel and Hulking Form builds weren't measured. Not started
+  that, and building the lists once instead of twice about half; radius jewel and Hulking Form builds weren't measured. Radius jewel builds (saved optimizer results with Time-Lost jewels and a second weapon set, accelerated evaluations as the optimizer
+  runs them): the node lists are 10-14% of an evaluation with 1 jewel (Blood Mage Comet, Lich Hexblast) and 26-27% with 8 jewel
+  functions (Titan Hammer of the Gods), in 3 calls per evaluation, not 2; the weapon set context is 20-28% of an evaluation, of it
+  the item section 3-8%. The third call is the context's first ("flags") node list: the optimizer's evaluations are accelerated
+  (gear candidates keep the allocated nodes, tree candidates keep the radius jewel list), so the main environment's list at that point
+  holds state from the previous evaluation (granted passive nodes, stale radius jewels) that the context's fresh environment doesn't,
+  and CalcSetup.lua buildNodeModList never shares it. Sharing it would change which state that list sees, so it needs a decision on
+  what the flags list should contain, then an output comparison. Not started
   for that reason (the outputs would have to stay bit-identical). Still open, in order of estimated gain: a per-candidate stat-total delta
   instead of rebuilding all node mod lists (`buildModListForNodeList` still runs twice in the main
   environment, 5-20% with radius jewels and Hulking Form-type scaling), the context's item mods for the
