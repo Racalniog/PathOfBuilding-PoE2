@@ -3720,7 +3720,7 @@ end
 -- step is the one to add those. A tie goes to the higher rate, because a skill whose damage doesn't depend on the rate yet scores the
 -- same with every source.
 -- The group is marked (triggerSource, and its label, which a saved build keeps) so the auxiliary and weapon set steps leave it alone.
--- ponytail: one source skill, the rule's filter is applied to the gem's skill types only (the calculation rejects one without hits);
+-- ponytail: one source skill, the rule's filters (source, gem) are applied to the gem's skill types only (the calculation rejects one without hits or without the damage the rule needs);
 -- upgrade path = a second source for a rule with two events, supports chosen for the trigger rate while the score doesn't depend on it
 local function optimizeTriggerSource(ctx)
 	local build = ctx.build
@@ -3759,7 +3759,7 @@ local function optimizeTriggerSource(ctx)
 		if types and not grantedEffect.support and not grantedEffect.fromItem and not grantedEffect.fromTree and not grantedEffect.hideFromSideBar
 			and not types[SkillType.Meta] and not types[SkillType.Triggered] and not types[SkillType.InbuiltTrigger] and not grantedEffect.triggered
 			and (grantedEffect.levels and grantedEffect.levels[1] and grantedEffect.levels[1].levelRequirement or 1) <= build.characterLevel
-			and rule.source({ skillTypes = types }, { hit = true }) then
+			and rule.source({ skillTypes = types }, { hit = true }) and (not rule.gem or rule.gem(types)) then
 			t_insert(candidates, gemData)
 		end
 	end

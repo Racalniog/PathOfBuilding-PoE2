@@ -536,6 +536,9 @@ describe("BuildOptimizer", function()
 		local source = groups[2]
 		assert.are.equals("Trigger source", source.label)
 		assert.is_true(source.gemList[1].gemData.grantedEffect.skillTypes[SkillType.Spell])
+		-- (Elemental Storm needs Elemental damage on the Hit: the source has an elemental damage type)
+		local types = source.gemList[1].gemData.grantedEffect.skillTypes
+		assert.is_truthy(types[SkillType.Fire] or types[SkillType.Cold] or types[SkillType.Lightning])
 		local mainSkill = build.calcsTab.mainEnv.player.mainSkill
 		assert.are.equals("ElementalStormPlayer", mainSkill.activeEffect.grantedEffect.id)
 		assert.is_nil(mainSkill.infoMessage2)

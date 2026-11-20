@@ -2138,8 +2138,12 @@ Huge sets the radius to 11.
 	-- Section: Enemy Stats
 	{ section = "Enemy Stats", col = 2 },
 	{ var = "enemyLevel", type = "count", label = "Enemy Level:", tooltip = "This overrides the default enemy level used to estimate your hit, ^x33FF77evade ^7chance, and damage reduction.\n\nThe maximum level for normal enemies and all bosses is 85.\n\nThe default level of normal enemies and bosses scales with player level unless manually set.\n\nThe default and minimum level for pinnacle bosses and uber pinnacle bosses is 82." },
-	{ var = "conditionEnemyRareOrUnique", type = "check", label = "Is the enemy Rare?", ifFlag = {"CanCull","CritCanCull"}, tooltip = "The enemy will automatically be considered to be Unique if they are a Boss.\nUsed to set base Culling Strike Threshold.", apply = function(val, modList, enemyModList)
+	{ var = "conditionEnemyRareOrUnique", type = "check", label = "Is the enemy Rare?", ifFlag = {"CanCull","CritCanCull","Condition:UseApproximations"}, tooltip = "The enemy will automatically be considered to be Unique if they are a Boss.\nUsed to set base Culling Strike Threshold and, with Use approximations, the enemy's Monster Power (Rare 5, Unique 20) for the Energy of meta skills and Glory.", apply = function(val, modList, enemyModList)
 		enemyModList:NewMod("Condition:RareOrUnique", "FLAG", true, "Config", { type = "Condition", var = "Effective" })
+	end },
+	-- ponytail: only the enemy's Monster Power reads this (Magic 2, poe2db Monster_Power); Rare wins if both are set, a Boss sets 20 itself
+	{ var = "conditionEnemyMagic", type = "check", label = "Is the enemy Magic?", ifOption = "useApproximations", tooltip = "Magic monsters have Monster Power 2 (Normal 1, Rare 5, Unique 20), used for the Energy of meta skills and Glory.\nA Rare enemy or a Boss takes precedence.", apply = function(val, modList, enemyModList)
+		enemyModList:NewMod("Condition:Magic", "FLAG", true, "Config", { type = "Condition", var = "Effective" })
 	end },
 	{ var = "conditionEnemyBeast", type = "check", label = "Is the enemy a Beast?", ifEnemyCond = "Beast", apply = function(val, modList, enemyModList)
 		enemyModList:NewMod("Condition:Beast", "FLAG", true, "Config", { type = "Condition", var = "Effective" })

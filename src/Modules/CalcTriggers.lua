@@ -1456,16 +1456,16 @@ end
 --   used, triggering the Spells as often as the stored Energy pays for: at most floor(maximum / total) times per use, one use per
 --   cooldown (0.2 s, tick-rounded); a total above the maximum never triggers.
 -- * Energy per event = the gem's base x the enemy's Power (poe2db Monster_Power: 20 with the boss options, 5 for "Is the enemy
---   Rare?", else 1) x increased / more Energy, and for Critical Hits, Melee Hits and Ignites also x the percentage of the enemy's
---   Ailment Threshold the Hit (the Ignite) deals, as a number (a Hit for 5% of the threshold counts 5 times).
+--   Rare?", 2 for "Is the enemy Magic?", else 1) x increased / more Energy, and for Critical Hits, Melee Hits and Ignites also x the
+--   percentage of the enemy's Ailment Threshold the Hit (the Ignite) deals, as a number (a Hit for 5% of the threshold counts 5 times).
 -- * Event rates come from the build's own skill with the highest hit rate, Full DPS skills first, in the main skill's weapon set,
 --   an unused Default Attack never: Critical Hits, Shocks, Ignites, Melee Hits, Spells cast (Spellslinger: base x 10 ms steps of
 --   the cast Spell's base cast time). Kills per second (pack monsters, Power 1) with a Melee Attack in the build; enemy hits on you
 --   per second x block chance.
 -- ponytail: the threshold factor's "percentage as a number" reading is unverified (no source states it); the in-game test that
 -- settles it: Cast on Critical with one known Spell (e.g. Fireball, 120 Energy), Critical Hits of known damage against an enemy of
--- known Ailment Threshold, counting hits per trigger (plan Phase 6). Also assumptions: base (unmodified) cast time, Power 2 of
--- magic monsters not selectable, the average instead of the rounded-up number of events per trigger.
+-- known Ailment Threshold, counting hits per trigger (plan Phase 6). Also assumptions: base (unmodified) cast time, the average
+-- instead of the rounded-up number of events per trigger.
 -- ponytail: each candidate source skill is a full calculation; one evaluation (its passes and its Full DPS pass share the override
 -- table) calculates them once (cachedSourceRecord); upgrade path = reuse the Full DPS pass's own result for a source skill.
 -- Not modelled (no event rate): Freeze, Stun, Dodge Roll, Charm use, Minion death, Energy Shield damage taken, mana spent.
@@ -1478,6 +1478,13 @@ local function sourceRecord(cached)
 	local passOutput, critAverage = output.MainHand or output, 0
 	for _, damageType in ipairs({ "Physical", "Lightning", "Cold", "Fire", "Chaos" }) do
 		critAverage = critAverage + (passOutput[damageType .. "CritAverage"] or 0)
+	end
+	-- the Hit's highest Elemental damage type (nil: it deals none)
+	local element, most = nil, 0
+	for _, damageType in ipairs({ "Fire", "Cold", "Lightning" }) do
+		if (passOutput[damageType .. "CritAverage"] or 0) > most then
+			element, most = damageType, passOutput[damageType .. "CritAverage"]
+		end
 	end
 	-- percentage of the enemy's Ailment Threshold a hit of this size deals
 	local threshold = output.EnemyAilmentThreshold or 0
@@ -1492,7 +1499,8 @@ local function sourceRecord(cached)
 		castTime = cached.ActiveSkill.activeEffect.grantedEffect.castTime or 0,
 		shockChance = m_min(output.ShockChance or 0, 100),
 		dealsLightning = (passOutput.LightningCritAverage or 0) > 0,
-		dealsElemental = (passOutput.FireCritAverage or 0) + (passOutput.ColdCritAverage or 0) + (passOutput.LightningCritAverage or 0) > 0,
+		dealsElemental = element ~= nil,
+		element = element,
 		dealsChaos = (passOutput.ChaosCritAverage or 0) > 0,
 		igniteDuration = output.IgniteDuration or 0,
 		duration = output.Duration or 0,
@@ -1534,14 +1542,15 @@ local function sourceCandidates(env, cond, fullDPSOnly)
 	end
 	return list
 end
--- The candidate with the highest rate (default: hit or use rate), Full DPS skills first: its record, then the skill
-local function eventSource(env, cond, rate)
+-- The candidate with the highest rate (default: hit or use rate), Full DPS skills first: its record, then the skill. `recordCond`
+-- (optional) leaves out the candidates whose calculation doesn't qualify (a Hit without Elemental damage, say)
+local function eventSource(env, cond, rate, recordCond)
 	rate = rate or function(record) return record.hitSpeed end
 	for _, fullDPSOnly in ipairs({ true, false }) do
 		local best, bestSkill
 		for _, skill in ipairs(sourceCandidates(env, cond, fullDPSOnly)) do
 			local record = cachedSourceRecord(env, skill)
-			if record and (not best or rate(record) > rate(best)) then
+			if record and (not recordCond or recordCond(record)) and (not best or rate(record) > rate(best)) then
 				best, bestSkill = record, skill
 			end
 		end
@@ -1549,6 +1558,16 @@ local function eventSource(env, cond, rate)
 			return best, bestSkill
 		end
 	end
+end
+
+-- The enemy's Monster Power (poe2db Monster_Power: Normal 1, Magic 2, Rare 5, Unique 20): the boss options set 20, else "Is the enemy
+-- Rare?" 5, "Is the enemy Magic?" 2, else 1. One place for every rule that takes the enemy's Power (the meta skills' Energy, Glory)
+local function enemyPower(env)
+	local power = env.player.modDB:GetMultiplier("EnemyPower")
+	if power <= 0 then
+		power = env.enemyDB:Flag(nil, "Condition:RareOrUnique") and 5 or env.enemyDB:Flag(nil, "Condition:Magic") and 2 or 1
+	end
+	return power
 end
 
 local function metaEnergyTrigger(env, actor)
@@ -1579,10 +1598,7 @@ local function metaEnergyTrigger(env, actor)
 	local cost = required * (1 - refund / 200)
 	local maximum = metaData.maximumEnergyIsTotal and required or metaData.maximumEnergy and metaData.maximumEnergy * calcLib.mod(meta.skillModList, meta.skillCfg, "MaximumEnergy")
 	local energyMod = calcLib.mod(meta.skillModList, meta.skillCfg, "EnergyGenerated")
-	local power = env.player.modDB:GetMultiplier("EnemyPower")
-	if power <= 0 then
-		power = env.enemyDB:Flag(nil, "Condition:RareOrUnique") and 5 or 1
-	end
+	local power = enemyPower(env)
 
 	local function hits(skill, flags) return flags.hit end
 	local function meleeHits(skill, flags) return flags.hit and skill.skillTypes[SkillType.Melee] and skill.skillTypes[SkillType.Attack] end
@@ -1682,13 +1698,6 @@ end
 -- Crash Lightning's pulses, Chayula's Will's 200 ms hits for its 8 s are not multiplied by the Hits one cast makes); all other stat
 -- sets of a skill (the large star beside the small) aren't added; upgrade path = in-game measurement (plan Phase 6) and a damage
 -- per cast for each of those skills.
-local function enemyPower(env)
-	local power = env.player.modDB:GetMultiplier("EnemyPower")
-	if power <= 0 then
-		power = env.enemyDB:Flag(nil, "Condition:RareOrUnique") and 5 or 1
-	end
-	return power
-end
 -- The skill of the main skill's group that carries a stat's value (the parent skill, with the trigger's numbers)
 local function groupSkillWith(env, mainSkill, key)
 	for _, skill in ipairs(env.player.activeSkillList) do
@@ -1855,12 +1864,19 @@ local supportTriggerEvents = {
 	end },
 	-- Elemental Storm (Stormweaver node, "Trigger Elemental Storm on Critical Hit with Spells"): a rule with `source` takes its source
 	-- from the whole build, the Spell with the most Critical Hits per second, not from the group (a node is not tied to a socket group)
-	-- ponytail: the Hit must deal Elemental damage to trigger the storm and picks its element; a Spell without Elemental damage still
-	-- counts, and the storm's element is the skill's own (upgrade path = the source record's Elemental share per type)
-	{ key = "supportTriggerOnSpellCrit", name = "Critical Hits with Spells", source = function(skill, flags)
+	-- "Hits which do not deal Elemental Damage will not Trigger the storm" (skill description, poe2db): `record` leaves out a Spell
+	-- whose calculation deals no Elemental damage, `gem` is the same test on a gem's skill types for the optimiser's source search.
+	-- ponytail: every Critical Hit of an elemental Spell counts (PoB's average Hit has all its damage types), and the storm's element
+	-- (the Hit's highest Elemental type, named in the line) is the selected stat set's, not chosen from the source; upgrade path = the
+	-- optimiser's chooseStatSet following record.element
+	{ key = "supportTriggerOnSpellCrit", name = "Critical Hits with Spells that deal Elemental damage", source = function(skill, flags)
 		return flags.hit and skill.skillTypes[SkillType.Spell]
+	end, record = function(record)
+		return record.dealsElemental
+	end, gem = function(types)
+		return types[SkillType.Fire] or types[SkillType.Cold] or types[SkillType.Lightning]
 	end, rate = function(env, source)
-		return source.rates.crits, s_format("%.2f ^8(Critical Hits per second of %s, the Spell with the most)", source.rates.crits, source.name)
+		return source.rates.crits, s_format("%.2f ^8(Critical Hits per second of %s, the Spell with the most that deals Elemental damage; its highest type is %s)", source.rates.crits, source.name, source.element)
 	end },
 	{ key = "supportTriggerOnCurseExpiry", name = "Curse expiries", rate = function(env, source)
 		local rate = m_min(source.speed, source.duration > 0 and 1 / source.duration or 0)
@@ -1956,7 +1972,7 @@ local function supportTrigger(env, actor)
 	local ignitedConfigured = env.enemyDB:Flag(nil, "Condition:Ignited")
 	local source, rate, lines, triggeredSource = nil, 0, { }, nil
 	if event.source then -- (the loop below then finds no group skill: nothing carries "triggerChance:" for this skill)
-		local record, skill = eventSource(env, event.source, function(record) return record.rates.crits end)
+		local record, skill = eventSource(env, event.source, function(record) return record.rates.crits end, event.record)
 		if record then
 			local events, line = event.rate(env, record)
 			source, rate, lines = skill, events, { line }

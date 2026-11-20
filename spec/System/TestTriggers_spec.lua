@@ -76,6 +76,20 @@ describe("TestTriggers", function()
 		end
 	end)
 
+	it("takes Monster Power 1 / 2 / 5 for a Normal / Magic / Rare enemy (Rare wins when both are set)", function()
+		-- little damage per Critical Hit, so no case is capped at one trigger per Critical Hit
+		local mods = "+50% to Critical Hit Chance" .. string.char(10) .. "99% less Damage"
+		local speeds = { }
+		for _, case in ipairs({ { "normal", { } }, { "magic", { conditionEnemyMagic = true } }, { "rare", { conditionEnemyRareOrUnique = true } }, { "both", { conditionEnemyRareOrUnique = true, conditionEnemyMagic = true } } }) do
+			newBuild()
+			speeds[case[1]] = calc({ "Cast on Critical 20/0  1\nFireball 20/0  1", "Spark 20/0  1" }, mods, with(with(approx, { enemyIsBoss = "None" }), case[2])).Speed
+		end
+		assert.is_true(speeds.normal > 0)
+		assert.are.near(2 * speeds.normal, speeds.magic, speeds.normal * 1e-9)
+		assert.are.near(5 * speeds.normal, speeds.rare, speeds.normal * 1e-9)
+		assert.are.equals(speeds.rare, speeds.both)
+	end)
+
 	it("triggers Cast on Melee Kill from kills, with refunds lowering the cost", function()
 		local groups = { "Cast on Melee Kill 20/0  1\nFireball 20/0  1", "Boneshatter 20/0  1" }
 		-- 2 kills/s x 3 Energy (300 centienergy, Power 1 for pack monsters, no increased Energy on the gem) / 120
