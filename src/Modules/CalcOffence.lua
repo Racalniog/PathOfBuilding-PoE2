@@ -4097,6 +4097,17 @@ function calcs.offence(env, actor, activeSkill)
 		output.ScaledDamageEffect = output.ScaledDamageEffect * (1 + output.DoubleDamageEffect + output.TripleDamageEffect)
 
 		output.DpsMultiplier = ( skillData.dpsMultiplier or 1 ) * calcLib.mod(skillModList, skillCfg, "DPS")
+		-- Mist Raven's Mad Flight, Use approximations on: the flock Hits every `tangmazu_mad_flight_damage_tick_delay_ms` (120 ms) for the
+		-- mirrors' duration while an enemy stands between them, PoB's exact number counts one Hit per use. Hits per use = duration / tick x
+		-- the configured share of it the enemy is there (at least the one Hit). The Command's cooldown still paces the uses.
+		-- ponytail: the share is an assumed input (default 25%, 100% would count about 41 Hits), the Hits are taken to land on one enemy;
+		-- poe2db's other reading of the raven's Command, "Mirror Breaker" (a dive with an explosion), would be one Hit plus an explosion
+		if skillData.madFlightTickMs and globalOutput.Duration and skillData.madFlightTickMs > 0 and env.player.modDB:Flag(nil, "Condition:UseApproximations") then
+			local share = env.player.modDB:GetMultiplier("ApproxMadFlightShare")
+			local flockHits = m_max(globalOutput.Duration * 1000 / skillData.madFlightTickMs * share / 100, 1)
+			output.DpsMultiplier = output.DpsMultiplier * flockHits
+			activeSkill.infoMessage2 = s_format("Approximation: %.1f flock Hits per use (%.2f s / %g ms x %g%% of it between the mirrors)", flockHits, globalOutput.Duration, skillData.madFlightTickMs, share)
+		end
 		-- Aftershocks repeat a Slam's hit, so every 100% chance is one more hit per use.
 		-- Skills that model their Aftershock as a separate stat set (e.g. Earthquake) are left
 		-- alone, as that part already carries its own damage
@@ -6588,6 +6599,18 @@ function calcs.offence(env, actor, activeSkill)
 				s_format("x %.2f ^8(backlashes per second: min(%.2f enemy Hits on you per second, 1 / %.3f s cooldown); an approximation)", backlashes, hits, cooldown),
 				s_format("= %.1f ^8(Total DPS)", output.BacklashDPS),
 			}
+		end
+	end
+
+	-- The other stat set of a skill a trigger calculates in the selected set (The Stars Answer's other star, CalcTriggers.lua, intervalTrigger,
+	-- Use approximations on): its damage per second is added to this skill's Total DPS and Combined DPS
+	if skillData.otherStatSetDps and not skillData.showAverage then
+		output.TotalDPS = output.TotalDPS + skillData.otherStatSetDps
+		output.CombinedDPS = output.CombinedDPS + skillData.otherStatSetDps
+		activeSkill.infoMessage2 = s_format("Approximation: adds %.1f DPS of the skill's other stat set", skillData.otherStatSetDps)
+		if breakdown and breakdown.TotalDPS then
+			t_insert(breakdown.TotalDPS, s_format("+ %.1f ^8(%s; an approximation)", skillData.otherStatSetDps, skillData.otherStatSetInfo))
+			t_insert(breakdown.TotalDPS, s_format("= %.1f ^8(Total DPS)", output.TotalDPS))
 		end
 	end
 

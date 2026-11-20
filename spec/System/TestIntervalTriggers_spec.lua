@@ -77,7 +77,7 @@ describe("TestIntervalTriggers", function()
 			local output, skill = starfall(approx)
 			assert.are.equals("Starfall's Trigger: The Stars Answer", skill.infoMessage)
 			assert.are.near(1000 / 300 * 14 / 15, output.Speed, 1e-9)
-			assert.are.near(output.AverageDamage * output.Speed, output.TotalDPS, 1e-6)
+			assert.is_true(output.TotalDPS > output.AverageDamage * output.Speed) -- plus the other stat set's damage (next test)
 			assert.are.near(output.TotalDPS, output.CombinedDPS, 1e-6)
 			local base = output.Speed
 			newBuild()
@@ -90,7 +90,27 @@ describe("TestIntervalTriggers", function()
 			newBuild()
 			local large = starfall(approx, 2)
 			assert.are.near(1000 / 300 / 15, large.Speed, 1e-9)
-			assert.are.near(large.AverageDamage * large.Speed, large.TotalDPS, 1e-6)
+			assert.is_true(large.TotalDPS > large.AverageDamage * large.Speed)
+		end)
+
+		-- the damage per meteor is the weighted average of both stars at the full meteor rate, whichever stat set is the selected one
+		it("adds the other stat set's damage: the total is the weighted average of the small and the large star", function()
+			local small = starfall(approx, 1)
+			newBuild()
+			local large = starfall(approx, 2)
+			newBuild()
+			local averageSmall = starfall({ }, 1).AverageDamage -- approximations off: each set's own average damage
+			newBuild()
+			local averageLarge = starfall({ }, 2).AverageDamage
+			local expected = 1000 / 300 * (14 / 15 * averageSmall + 1 / 15 * averageLarge)
+			assert.is_true(averageLarge > averageSmall)
+			assert.are.near(expected, small.TotalDPS, expected * 1e-9)
+			assert.are.near(expected, large.TotalDPS, expected * 1e-9)
+			assert.are.near(expected, small.CombinedDPS, expected * 1e-9)
+			-- 3 enemies in the radius: twice the meteors, both parts
+			newBuild()
+			local crowd = starfall({ useApproximations = true, approxEnemiesAroundYou = 3 }, 2)
+			assert.are.near(expected * 2, crowd.TotalDPS, expected * 1e-9)
 		end)
 
 		it("is scored by the optimiser as the group's Starfall, the skill itself deals no damage", function()

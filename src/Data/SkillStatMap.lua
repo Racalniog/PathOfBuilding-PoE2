@@ -3374,6 +3374,10 @@ return function(mod, flag, skill)
 ["walking_calamity_ignore_first_x_enemies_for_frequency_increase"] = {
 	skill("walkingCalamityIgnoreFirst", nil),
 },
+-- Mist Raven's Mad Flight: the flock Hits every this many ms while an enemy stands between the mirrors (CalcOffence.lua, Hits per use)
+["tangmazu_mad_flight_damage_tick_delay_ms"] = {
+	skill("madFlightTickMs", nil),
+},
 ["triggered_by_walking_calamity"] = {
 	skill("supportTriggerChance", nil),
 	skill("intervalStarfall", nil),

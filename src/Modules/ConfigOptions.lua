@@ -164,6 +164,12 @@ local configSettings = {
 	{ var = "approxEnemiesAroundYou", type = "count", label = "Enemies around you:", ifOption = "useApproximations", defaultState = 1, tooltip = "Enemies within the radius of The Stars Answer (the target included).\nIt Triggers more Starfalls the more of them there are, after the first.\nSets the number of meteors; damage is counted for all of them.", apply = function(val, modList, enemyModList)
 		modList:NewMod("Multiplier:ApproxEnemiesAroundYou", "BASE", m_max(val, 0), "Config", { type = "Condition", var = "UseApproximations" })
 	end },
+	-- ponytail: Mad Flight's flock Hits every 0.12 s for the mirrors' 5 s, about 41 Hits, only while an enemy stands between the two mirrors
+	-- (2.2 m wide, 7 m apart); how long a moving enemy does is unknown, so 25% (about 10 Hits) is the conservative guess, because the full
+	-- 100% would raise the damage 40 times; upgrade path = in-game measurement (plan Phase 6)
+	{ var = "approxMadFlightShare", type = "count", label = "Mad Flight: enemy between the mirrors (%):", ifOption = "useApproximations", defaultState = 25, tooltip = "Share of Mad Flight's duration (Mist Raven's Command) that the enemy stands between the illusory mirrors.\nThe flock Hits every 0.12 s while it does, PoB's exact number counts one Hit per use.\nAt least one Hit is always counted.", apply = function(val, modList, enemyModList)
+		modList:NewMod("Multiplier:ApproxMadFlightShare", "BASE", m_min(m_max(val, 0), 100), "Config", { type = "Condition", var = "UseApproximations" })
+	end },
 	-- ponytail: 100% (the enemy outlives the debuff, a boss) is an assumption; a mapping pack dies first and the recorded damage is wasted;
 	-- upgrade path = a share from the enemy's Life and the build's damage, calibrated by in-game measurement (plan Phase 6)
 	{ var = "approxDebuffSurvival", type = "count", label = "Debuff duration the enemy survives (%):", ifOption = "useApproximations", defaultState = 100, tooltip = "Share of a damage-recording debuff's duration (Inevitable Agony) that the enemy stays alive.\nThe damage it recorded is dealt when it ends: a MORE multiplier of the recorded share x this.\nAn enemy that dies first wastes what was recorded: set a lower value for packs.", apply = function(val, modList, enemyModList)

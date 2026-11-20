@@ -1678,8 +1678,10 @@ end
 -- rates or configured inputs. Rules, from the skill and stat descriptions:
 -- * The Stars Answer (Starfall): a meteor every `walking_calamity_spawn_meteor_every_ms` (300 ms), +`..._per_enemy_in_..._radius`% (50%)
 --   for each enemy in the radius after the first `..._ignore_first_x_enemies...` (1), at most +`..._cap`% (200%); every
---   `walking_calamity_large_meteor_every`th (15th) is a large one. The skill's two stat sets are the small and the large star: each set
---   gets its share of the meteors. The enemies in the radius are the configured count (default 1: no bonus).
+--   `walking_calamity_large_meteor_every`th (15th) is a large one. The skill's two stat sets are the small and the large star: the
+--   selected set gets its share of the meteors as its rate and the other set's damage per second (a calculation of its own, at its
+--   share of the meteors) is added to Total DPS, so the total is the weighted average of both stars whichever set is selected. The
+--   enemies in the radius are the configured count (default 1: no bonus).
 -- * Apocalypse (Hailstorm, Meteor, Crash Lightning) and Archon of Chayula (Chayula's Will): Glory builds from Hits that deal Elemental
 --   (Chaos) damage, `active_skill_generates_mp_%_glory_per_..._hit` % of the enemy's Power per Hit (the "mp" is read as Monster Power,
 --   as for the meta skills' Energy), until `active_skill_requires_X_glory` (100). At full Glory the buff lasts its duration (Apocalypse's
@@ -1695,9 +1697,9 @@ end
 --   Crystals made are at most the limit per Crystal duration.
 -- ponytail: Glory is assumed to build only outside the buff, the enemy's Power per Hit is an unverified reading of "mp", the
 -- Apocalypse picks its disaster evenly at random, and the damage of each triggered skill is the one PoB shows (a Hailstorm's bolts,
--- Crash Lightning's pulses, Chayula's Will's 200 ms hits for its 8 s are not multiplied by the Hits one cast makes); all other stat
--- sets of a skill (the large star beside the small) aren't added; upgrade path = in-game measurement (plan Phase 6) and a damage
--- per cast for each of those skills.
+-- Crash Lightning's pulses, Chayula's Will's 200 ms hits for its 8 s are not multiplied by the Hits one cast makes); the large star's
+-- 5 s duration isn't multiplied either (each star is one Hit of its stat set; the large star's lingering hits, if any, are missed);
+-- upgrade path = in-game measurement (plan Phase 6) and a damage per cast for each of those skills.
 -- The skill of the main skill's group that carries a stat's value (the parent skill, with the trigger's numbers)
 local function groupSkillWith(env, mainSkill, key)
 	for _, skill in ipairs(env.player.activeSkillList) do
@@ -1705,6 +1707,31 @@ local function groupSkillWith(env, mainSkill, key)
 			return skill
 		end
 	end
+end
+-- Average Damage of a skill's other stat set `index` (The Stars Answer's large star beside the small one), from a calculation of its own:
+-- a copy of the skill with that set selected, in a new environment, as a self-cast (limited, so no trigger handler runs and nothing
+-- recurses). A calculation caches itself under the skill's uuid, so the entry of the set being calculated is put back.
+-- ponytail: one extra full calculation per calculation of the triggered skill (only with Use approximations on); upgrade path = share
+-- the result per evaluation like cachedSourceRecord
+local function statSetAverageDamage(env, skill, index)
+	local effect = { }
+	for key, value in pairs(skill.activeEffect) do
+		effect[key] = value
+	end
+	effect[env.mode == "CALCS" and "statSetCalcs" or "statSet"] = { index = index }
+	local newEnv = calcs.initEnv(env.build, env.mode, env.override)
+	local newSkill = calcs.createActiveSkill(effect, skill.supportList, newEnv, newEnv.player, skill.socketGroup, skill.summonSkill)
+	calcs.buildActiveSkillModList(newEnv, newSkill)
+	newSkill.skillModList = new("ModList"):ModList(newSkill.baseSkillModList)
+	local uuid = cacheSkillUUID(newSkill, newEnv)
+	newEnv.limitedSkills = newEnv.limitedSkills or { }
+	newEnv.limitedSkills[uuid] = true
+	newEnv.player.mainSkill = newSkill
+	local cache = GlobalCache.cachedData[env.mode]
+	local saved = cache[uuid]
+	calcs.perform(newEnv, true)
+	cache[uuid] = saved
+	return newEnv.player.output.AverageDamage or 0, newSkill.activeEffect.grantedEffect.statSets[index] and newSkill.activeEffect.grantedEffect.statSets[index].label
 end
 -- Share of time a Glory buff of `duration` seconds is up, from the Hits per second of the build's skill that deals the right damage
 -- (record[dealsKey], sourceRecord): the Glory fills at Hits per second x percent of the enemy's Power per Hit. Returns the uptime
@@ -1757,6 +1784,11 @@ local function intervalTrigger(env, actor)
 				skillData.baseDpsMultiplier = skillData.baseDpsMultiplier or skillData.dpsMultiplier or 1
 				skillData.dpsMultiplier = skillData.baseDpsMultiplier * rate * hitTime
 			end
+			-- the other stat set's meteors (the large star's 1 in 15, or the small ones) deal their own damage: added to this skill's Total DPS
+			-- (CalcOffence.lua, otherStatSetDps) at the full meteor rate, so the total is the weighted average of both sets per meteor
+			local otherAverage, otherName = statSetAverageDamage(env, mainSkill, large and 1 or 2)
+			skillData.otherStatSetDps = otherAverage * meteors * (1 - share)
+			skillData.otherStatSetInfo = s_format("%.1f %s average damage x %.2f meteors per second x %.3f", otherAverage, otherName or "other stat set", meteors, 1 - share)
 		end
 	elseif skillData.intervalUnleash or skillData.intervalChayula then
 		local unleash = skillData.intervalUnleash
