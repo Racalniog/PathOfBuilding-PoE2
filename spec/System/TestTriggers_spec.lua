@@ -90,20 +90,34 @@ describe("TestTriggers", function()
 		assert.are.equals(speeds.rare, speeds.both)
 	end)
 
+	it("triggers Spellslinger from the cast Spell's base cast time: 2 Energy per 0.1 s (data: 20 centienergy per 10 ms)", function()
+		local groups = { "Spellslinger 1/0  1\nFireball 20/0  1", "Spark 20/0  1" }
+		local spark = copyTable(calc(groups, "", approx, 2), true)
+		newBuild()
+		local output, skill = calc(groups, "", approx)
+		assert.are.equals("Fireball's Trigger: Spellslinger", skill.infoMessage)
+		-- Spark's base cast time is 0.7 s: 7 x 2 = 14 Energy per cast (no increased Energy at gem level 1), Fireball needs 120
+		assert.are.equals(0.7, data.skills.SparkPlayer.castTime)
+		assert.are.near(spark.Speed * 14 / fireballEnergy, output.Speed, 1e-9)
+	end)
+
 	it("triggers Cast on Melee Kill from kills, with refunds lowering the cost", function()
 		local groups = { "Cast on Melee Kill 20/0  1\nFireball 20/0  1", "Boneshatter 20/0  1" }
-		-- 2 kills/s x 3 Energy (300 centienergy, Power 1 for pack monsters, no increased Energy on the gem) / 120
+		-- "Gains 300 Energy when you kill an enemy with a Melee Hit" (the stat description's raw 300), more than the 120 one trigger needs
 		local output, skill = calc(groups, "", with(approx, { approxKillsPerSecond = 2 }))
 		assert.are.equals("Fireball's Trigger: Cast on Melee Kill", skill.infoMessage)
-		assert.are.near(2 * 3 / fireballEnergy, output.Speed, 1e-9)
-		-- 100% more Energy, and a 25% chance to refund half of a trigger's Energy (costs 1 - 0.25 / 2 of it)
+		assert.are.near(2, output.Speed, 1e-9)
+		-- 75% reduced Energy (75 per kill: 2 kills/s x 75 / 120), then a 25% chance to refund half of a trigger's Energy (costs 1 - 0.25 / 2 of it)
 		newBuild()
-		output = calc(groups, "Energy Generation is doubled\n25% chance for Trigger skills to refund half of Energy Spent", with(approx, { approxKillsPerSecond = 2 }))
-		assert.are.near(2 * 6 / (fireballEnergy * 0.875), output.Speed, 1e-9)
+		output = calc(groups, "Meta Skills gain 75% reduced Energy", with(approx, { approxKillsPerSecond = 2 }))
+		assert.are.near(2 * 75 / fireballEnergy, output.Speed, 1e-9)
+		newBuild()
+		output = calc(groups, "Meta Skills gain 75% reduced Energy\n25% chance for Trigger skills to refund half of Energy Spent", with(approx, { approxKillsPerSecond = 2 }))
+		assert.are.near(2 * 75 / (fireballEnergy * 0.875), output.Speed, 1e-9)
 	end)
 
 	it("caps a trigger at one per event, also with refunds, and at the triggered Spell's cooldown", function()
-		-- 3 x 101 = 303 Energy per kill, more than the 120 one trigger needs: the rest is lost, one trigger per kill, refund or not
+		-- 300 x 101 = 30300 Energy per kill, more than the 120 one trigger needs: the rest is lost, one trigger per kill, refund or not
 		local groups = { "Cast on Melee Kill 20/0  1\nFireball 20/0  1", "Boneshatter 20/0  1" }
 		for _, refund in ipairs({ "", "\n50% chance for Trigger skills to refund half of Energy Spent", "\nTrigger skills refund half of Energy spent" }) do
 			newBuild()

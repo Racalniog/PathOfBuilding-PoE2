@@ -312,9 +312,10 @@ return function(mod, flag, skill)
 	skill("energyOnMeleeHit", nil),
 	div = 100,
 },
+-- (no divisor: the stat description reads "Gains {0} Energy when you kill an enemy with a Melee Hit" with the raw 300, unlike the
+-- other centienergy stats, which divide by 100; poe2db also shows 300)
 ["cast_on_melee_kill_gain_X_centienergy_per_monster_power_on_melee_kill"] = {
 	skill("energyOnMeleeKill", nil),
-	div = 100,
 },
 ["melee_kill_invocation_gain_X_centienergy_per_monster_power_on_melee_kill"] = {
 	skill("energyOnMeleeKill", nil),
