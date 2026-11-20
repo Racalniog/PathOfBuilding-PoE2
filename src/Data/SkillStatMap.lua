@@ -3398,6 +3398,13 @@ return function(mod, flag, skill)
 ["unleash_the_elements_trigger_frequency_+%"] = {
 	mod("UnleashFrequency", "INC", nil),
 },
+-- Hits per cast of the triggered skills: Hailstorm's bolts, Crash Lightning's pulses (CalcTriggers.lua, intervalTrigger: a DPS multiplier)
+["unleash_blizzard_number_of_bolts"] = {
+	skill("unleashHitsPerCast", nil),
+},
+["unleash_static_field_number_of_pluses"] = {
+	skill("unleashHitsPerCast", nil),
+},
 ["triggered_by_unleash_the_elements"] = {
 	skill("supportTriggerChance", nil),
 	skill("intervalUnleash", nil),

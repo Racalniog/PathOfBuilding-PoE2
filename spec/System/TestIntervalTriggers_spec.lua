@@ -129,8 +129,8 @@ describe("TestIntervalTriggers", function()
 
 	describe("Apocalypse", function()
 		-- Druid, Shaman: the node grants Apocalypse, whose Hailstorm, Meteor and Crash Lightning are the group's other skills
-		local function disaster(index, groups, config)
-			return calc("Druid", "Apocalypse", "tree", { groups = groups, config = config, index = index })
+		local function disaster(index, groups, config, statSet)
+			return calc("Druid", "Apocalypse", "tree", { groups = groups, config = config, index = index, skillId = statSet and "ApocalypseLightningPlayer", statSet = statSet })
 		end
 
 		it("keeps the self-cast numbers with approximations off", function()
@@ -145,14 +145,21 @@ describe("TestIntervalTriggers", function()
 			-- 100 Glory needed, 100% of the enemy's Power per Hit; the buff lasts 12 s, a trigger every 750 ms, one of three disasters
 			local fill = 100 / (hits * p)
 			local expected = 1000 / 750 * 12 / (12 + fill) / 3
+			-- Hits per cast from the skills' data: Hailstorm 9 bolts, Meteor one impact, Crash Lightning's pulses 3 (its Final Strike set: one)
+			local hitsPerCast = { Hailstorm = 9, Meteor = 1, ["Crash Lightning"] = 3 }
 			for index, name in pairs({ [2] = "Hailstorm", [3] = "Meteor", [4] = "Crash Lightning" }) do
 				newBuild()
 				local output, skill = disaster(index, { "Spark 20/0  1" }, approx)
 				assert.are.equals(name, skill.activeEffect.grantedEffect.name)
 				assert.are.equals("Apocalypse's Trigger: Spark", skill.infoMessage)
 				assert.are.near(expected, output.Speed, expected * 1e-9)
-				assert.are.near(output.AverageDamage * output.Speed, output.TotalDPS, output.TotalDPS * 1e-9)
+				assert.are.near(output.AverageDamage * output.Speed * hitsPerCast[name], output.TotalDPS, output.TotalDPS * 1e-9)
+				assert.are.equals(hitsPerCast[name] > 1, skill.infoMessage2:find("Hits per cast", 1, true) ~= nil)
 			end
+			newBuild()
+			local output = disaster(4, { "Spark 20/0  1" }, approx, 2)
+			assert.are.near(expected, output.Speed, expected * 1e-9)
+			assert.are.near(output.AverageDamage * output.Speed, output.TotalDPS, output.TotalDPS * 1e-9)
 		end)
 
 		it("needs a skill that Hits: nothing without one", function()
@@ -183,12 +190,37 @@ describe("TestIntervalTriggers", function()
 			local output, skill = tornado({ "Spark 20/0  1" }, approx, chaos)
 			assert.are.equals("Archon of Chayula's Trigger: Spark", skill.infoMessage)
 			assert.are.near(expected, output.Speed, expected * 1e-9)
-			assert.are.near(output.AverageDamage * output.Speed, output.TotalDPS, output.TotalDPS * 1e-9)
+			-- the tornado hits every 200 ms for its 8 s
+			assert.are.near(output.AverageDamage * output.Speed * 40, output.TotalDPS, output.TotalDPS * 1e-9)
+			assert.is_truthy(skill.infoMessage2:find("40 Hits per cast", 1, true))
+			newBuild()
+			output = tornado({ "Spark 20/0  1" }, approx, chaos .. "\n20% increased Skill Effect Duration")
+			assert.are.near(output.AverageDamage * output.Speed * 48, output.TotalDPS, output.TotalDPS * 1e-9)
+		end)
+
+		it("uses one uptime for the Archon Buff and the tornado's triggers: the Glory rule's", function()
+			local hits, _, p = spark(chaos .. "\n20% increased Archon Buff duration")
+			local fill = 100 / (hits * p)
+			local uptime = 12 / (12 + fill)
+			local output = tornado({ "Spark 20/0  1" }, approx, chaos .. "\n20% increased Archon Buff duration")
+			-- the tornado every 3 s of the buff, the buff's effects (Archon of Chayula: 20% more Physical and Chaos damage) scaled by the same uptime
+			assert.are.near(uptime / 3, output.Speed, 1e-9)
+			assert.are.near(uptime * 100, output.ArchonEffectMod, 1e-6)
+			assert.are.near(output.ArchonEffectMod / 100, output.Speed * 3, 1e-9)
+			-- with approximations off there is no Archon Buff, and the numbers are the build's own
+			newBuild()
+			local off = tornado({ "Spark 20/0  1" }, nil, chaos)
+			assert.is_nil(off.ArchonEffectMod)
+			-- a configured Archon Buff wins: always up, and the tornado's rate keeps the Glory uptime
+			newBuild()
+			local up = tornado({ "Spark 20/0  1" }, { useApproximations = true, conditionAffectedByArchon = true, archonBuff = "ArchonOfChayula" }, chaos)
+			assert.are.near(100, up.ArchonEffectMod, 1e-9)
 		end)
 
 		it("needs Hits that deal Chaos damage", function()
 			local output = tornado({ "Spark 20/0  1" }, approx)
 			assert.are.equals(0, output.Speed)
+			assert.is_nil(output.ArchonEffectMod) -- no Glory source: no Archon Buff approximation either
 		end)
 	end)
 

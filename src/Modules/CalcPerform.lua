@@ -780,6 +780,17 @@ local function doActorMisc(env, actor)
 				end
 			end
 			archonUptime = duration > 0 and duration / (duration + recovery + wait) or 0
+		elseif archonUptime == 0 and not archonSource and actor == env.player and skill and skill.skillData.intervalChayula and modDB:Flag(nil, "Condition:UseApproximations") then
+			-- Archon of Chayula in the build with Chayula's Will as the main skill: the Glory rule (CalcTriggers.lua, calcs.chayulaGlory)
+			-- gives the buff's uptime from the build's Chaos Hits, the same one as the tornado's trigger rate. With no Chaos Hits (no
+			-- Glory source) the uptime stays 0, as it was. With another Archon source the first source wins as before.
+			-- ponytail: the tornado itself only exists during the buff but is scaled by the uptime like every other effect of the buff
+			-- (its own trigger rate already holds the uptime once); upgrade path = scale the tornado's own damage by 1
+			local parent, _, uptime = calcs.chayulaGlory(env, skill)
+			if parent and uptime > 0 then
+				archonId, archon, archonUptime = "ArchonOfChayula", data.archonBuffs.ArchonOfChayula, uptime
+				uptimeNote = ", approx., from the Glory rule: duration / (duration + time to fill the Glory)"
+			end
 		end
 		if archonUptime > 0 then
 			local effect = m_max(calcLib.mod(modDB, nil, "ArchonEffect", "BuffEffectOnSelf"), 0)
