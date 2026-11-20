@@ -581,7 +581,15 @@ InfusionRemnantBaseDuration) were already in `data.gameConstants`.
   holds state from the previous evaluation (granted passive nodes, stale radius jewels) that the context's fresh environment doesn't,
   and CalcSetup.lua buildNodeModList never shares it. Sharing it would change which state that list sees, so it needs a decision on
   what the flags list should contain, then an output comparison. Not started
-  for that reason (the outputs would have to stay bit-identical). Still open, in order of estimated gain: a per-candidate stat-total delta
+  for that reason (the outputs would have to stay bit-identical).
+  Inside the node lists (timers around the sections of `buildModListForNode`, Titan / Blood Mage Comet, ~480 node builds per
+  evaluation; the timers add some overhead): no section dominates. Titan: the scaling of small passives by "increased effect of small
+  passive skills" (`ScaleAddList` copying and rounding every mod of every small node) 0.31 ms of 1.05 ms, the per-node set-up and the
+  first radius pass 0.21 ms, the mod loop 0.08 ms, the second radius pass 0.05 ms, the rest of the per-node steps under 0.1 ms; 0.30 ms
+  outside the per-node code (the effect sum, merging each node's list, finishing the radius jewels). Comet (1 jewel): the same shape
+  without the scaling. Ideas, each with its limit: reuse the scaled list of a node while its mods, the scale and the jewels are
+  unchanged (up to ~10% of an evaluation on builds with that scaling, none elsewhere; stale if a node's mods change in place), and
+  share the context's first node list (3-9%). Still open, in order of estimated gain: a per-candidate stat-total delta
   instead of rebuilding all node mod lists (`buildModListForNodeList` still runs twice in the main
   environment, 5-20% with radius jewels and Hulking Form-type scaling), the context's item mods for the
   slots that aren't weapons (about 6%), and the context's skill mod lists for groups the main environment
