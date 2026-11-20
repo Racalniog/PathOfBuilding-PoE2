@@ -1145,7 +1145,7 @@ function calcs.createMinionSkills(env, activeSkill)
 
 	minion.activeSkillList = { }
 	local skillIdList = { }
-	for _, skillId in ipairs(minionData.skillList) do
+	for _, skillId in ipairs(activeEffect.grantedEffect.minionSkillList or minionData.skillList) do
 		if env.data.skills[skillId] then
 			t_insert(skillIdList, skillId)
 		end

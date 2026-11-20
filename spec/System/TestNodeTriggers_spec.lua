@@ -25,7 +25,7 @@ describe("TestNodeTriggers", function()
 
 	-- Allocates the node, pastes `groups` (each a socket group text), and calculates the main skill of the socket group that
 	-- has `skillId`; returns the output and the main skill
-	local function calc(groups, skillId, config, customMods)
+	local function calc(groups, skillId, config, customMods, statSet)
 		allocStormNode()
 		build.itemsTab:CreateDisplayItemFromRaw("New Item\nWooden Club\n")
 		build.itemsTab:AddDisplayItem()
@@ -47,6 +47,13 @@ describe("TestNodeTriggers", function()
 		runCallback("OnFrame")
 		local mainSkill = build.calcsTab.mainEnv.player.mainSkill
 		assert.are.equals(skillId, mainSkill.activeEffect.grantedEffect.id)
+		if statSet then -- the storm's first stat set deals nothing, its damage is in the "Fire", "Cold" and "Lightning" ones
+			local instance = mainSkill.activeEffect.srcInstance
+			instance.statSet, instance.statSetCalcs = { [skillId] = statSet }, { [skillId] = statSet }
+			build.buildFlag = true
+			runCallback("OnFrame")
+			mainSkill = build.calcsTab.mainEnv.player.mainSkill
+		end
 		return copyTable(build.calcsTab.mainOutput, true), mainSkill
 	end
 	local approx = { useApproximations = true }
@@ -98,6 +105,38 @@ describe("TestNodeTriggers", function()
 		local output, skill = calc({ "Spark 20/0  1", "Fireball 20/0  1" }, "ElementalStormPlayer", approx)
 		assert.are.equals("Elemental Storm's Trigger: " .. best, skill.infoMessage)
 		assert.are.near(rates[best], output.Speed, rates[best] * 1e-9)
+	end)
+
+	it("scores the damage of the storms alive: triggers per second x duration, at most the limit", function()
+		-- approximations off: the damage while one storm exists, a Hit every 250 ms
+		local off = calc({ "Spark 20/0  1" }, "ElementalStormPlayer", nil, nil, 2)
+		assert.are.near(off.AverageDamage * 4, off.TotalDPS, 1e-6)
+		assert.is_nil(off.ObjectsAlive)
+		-- on: x the storms alive on average, which follows the Critical Hits of the Spell (below the cooldown cap)
+		local dps = { }
+		for _, crit in ipairs({ 0, 10 }) do
+			newBuild()
+			local output = calc({ "Spark 20/0  1" }, "ElementalStormPlayer", approx, crit > 0 and "+" .. crit .. "% to Critical Hit Chance" or "", 2)
+			assert.is_true(output.Speed > 0 and output.Speed < 1 / 3)
+			assert.are.near(output.Speed * output.Duration, output.ObjectsAlive, 1e-9)
+			assert.is_true(output.ObjectsAlive < 50)
+			assert.are.near(off.AverageDamage * 4 * output.ObjectsAlive, output.TotalDPS, off.AverageDamage * 4e-9)
+			dps[#dps + 1] = output
+		end
+		assert.is_true(dps[2].Speed > dps[1].Speed)
+		assert.are.near(dps[2].Speed / dps[1].Speed, dps[2].TotalDPS / dps[1].TotalDPS, 1e-9)
+		-- a long duration: capped at the 50 storms allowed
+		newBuild()
+		local capped = calc({ "Spark 20/0  1" }, "ElementalStormPlayer", approx, "10000% increased Skill Effect Duration", 2)
+		assert.are.equals(50, capped.ObjectsAlive)
+		assert.are.near(off.AverageDamage * 4 * 50, capped.TotalDPS, off.AverageDamage * 4e-9)
+	end)
+
+	it("scores no storm damage without a Spell", function()
+		local output = calc({ }, "ElementalStormPlayer", approx, nil, 2)
+		assert.are.equals(0, output.ObjectsAlive)
+		assert.are.equals(0, output.TotalDPS)
+		assert.are.equals(0, output.CombinedDPS)
 	end)
 
 	it("doesn't trigger without a Spell", function()

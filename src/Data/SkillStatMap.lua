@@ -216,6 +216,10 @@ return function(mod, flag, skill)
 ["trigger_skills_refund_half_energy_spent_chance_%"] = {
 	mod("EnergyRefundChance", "BASE", nil),
 },
+-- the most objects of a triggered skill alive at once (Elemental Storm; CalcOffence.lua, with approximations on)
+["number_of_tornados_allowed"] = {
+	skill("instanceLimit", nil),
+},
 ["trigger_meta_gem_damage_+%_final"] = {
 	-- only when triggered: a meta-triggered Spell PoB calculates as self-cast (approximations off) keeps its damage
 	mod("Damage", "MORE", nil, 0, 0, { type = "Condition", var = "SkillIsTriggered" }),

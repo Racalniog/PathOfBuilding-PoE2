@@ -3147,6 +3147,16 @@ function calcs.offence(env, actor, activeSkill)
 			end
 			output.HitTime = skillData.hitTimeOverride
 			output.HitSpeed = 1 / output.HitTime
+			-- A skill that a support or node triggers (Elemental Storm) whose damage is a Hit every `hitTime` for as long as it exists:
+			-- the Hit rate is that of one object x the objects alive on average, the triggers per second x the duration, at most the
+			-- limit. Only with approximations on; self-cast numbers are unchanged.
+			-- ponytail: the average count, not a distribution (a Poisson count capped at the limit would be a little lower near the cap);
+			-- every object's Hits land on the enemy (no per-enemy hit limit across objects); a triggered attack (the dual wield
+			-- branch below overrides HitSpeed) isn't covered, no such skill exists
+			if skillData.triggered and skillData.supportTriggerChance and skillModList:Flag(nil, "Condition:UseApproximations") then
+				output.ObjectsAlive = m_min(skillData.instanceLimit or m_huge, (output.Speed or 0) * (output.Duration or 0))
+				output.HitSpeed = output.HitSpeed * output.ObjectsAlive
+			end
 			--Brands always have hitTimeOverride
 			if skillFlags.brand and not skillModList:Flag(nil, "UnlimitedBrandDuration") then
 				output.BrandTicks = m_floor(output.Duration * output.HitSpeed)
@@ -3289,6 +3299,9 @@ function calcs.offence(env, actor, activeSkill)
 		if skillData.hitTimeOverride and not skillData.triggeredOnDeath then
 			breakdown.HitSpeed = { }
 			t_insert(breakdown.HitSpeed, s_format("1 / %.2f ^8(hit time override)", output.HitTime))
+			if output.ObjectsAlive then
+				t_insert(breakdown.HitSpeed, s_format("x %.2f ^8(alive on average: %.2f triggers per second x %.2f s, at most %s)", output.ObjectsAlive, output.Speed, output.Duration, skillData.instanceLimit or "unlimited"))
+			end
 			t_insert(breakdown.HitSpeed, s_format("= %.2f", output.HitSpeed))
 		elseif skillData.hitTimeMultiplier and output.Time and not skillData.triggeredOnDeath then
 			breakdown.HitTime = { }
@@ -5294,9 +5307,11 @@ function calcs.offence(env, actor, activeSkill)
 			-- landed hits per second on the target, the basis of ailmentStacks (used by the Bleeding aggravation estimate)
 			local hitRate
 			if not skillData.triggeredOnDeath then
-				if output.Cooldown then
+				if output.Cooldown and not output.ObjectsAlive then
 					ailmentStacks = ailmentStacks * globalOutput[ailment .. "Duration"] / m_max(output.Cooldown, (output.HitTime or output.Time))
 					hitRate = output.HitChance / 100 * output.DpsMultiplier / m_max(output.Cooldown, (output.HitTime or output.Time))
+				elseif output.ObjectsAlive == 0 then
+					ailmentStacks = 0 -- a triggered skill that never triggers (no objects alive) hits nothing
 				elseif (globalOutput.HitSpeed or globalOutput.Speed) > 0 then
 					-- assume skills with no cast, attack, or cooldown time are single cast
 					ailmentStacks = ailmentStacks * globalOutput[ailment .. "Duration"] * (globalOutput.HitSpeed or globalOutput.Speed)

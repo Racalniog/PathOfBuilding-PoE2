@@ -762,6 +762,8 @@ statMap = {
 #skillEnd
 
 #from item
+#minionList MistRaven
+#minionSkillList TangmazuMadFlightMinion
 #skill SummonMistRavenPlayer
 #set SummonMistRavenPlayer
 #flags

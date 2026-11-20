@@ -211,6 +211,13 @@ directiveTable.skill = function(state, args, out)
 		end
 		out:write('\t},\n')
 	end
+	if state.minionSkillList then
+		out:write('\tminionSkillList = {\n')
+		for _, skillId in ipairs(state.minionSkillList) do
+			out:write('\t\t"', skillId, '",\n')
+		end
+		out:write('\t},\n')
+	end
 	state.noGem = false
 	skill.baseFlags = { }
 	skill.baseStatRow = { }
@@ -480,6 +487,7 @@ directiveTable.skillEnd = function(state, args, out)
 	state.skill = nil
 	state.fromSpec = nil
 	state.minionList = nil
+	state.minionSkillList = nil
 end
 
 -- #set <GrantedEffectStatSetsId>
@@ -791,6 +799,16 @@ directiveTable.minionList = function(state, args, out)
 	state.minionList = { }
 	for minion in args:gmatch("%a+") do
 		table.insert(state.minionList, minion)
+	end
+end
+
+-- #minionSkillList <skillId>[ <skillId>[...]]
+-- The skills the minion of this active skill has, instead of the minion's own skill list (a minion that two skills summon and
+-- that uses different skills for each: Mist Raven commands Mad Flight, Spiraling Conspiracy's flock has the swarm aura too)
+directiveTable.minionSkillList = function(state, args, out)
+	state.minionSkillList = { }
+	for skillId in args:gmatch("%a+") do
+		table.insert(state.minionSkillList, skillId)
 	end
 end
 
