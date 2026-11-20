@@ -216,6 +216,10 @@ return function(mod, flag, skill)
 ["trigger_skills_refund_half_energy_spent_chance_%"] = {
 	mod("EnergyRefundChance", "BASE", nil),
 },
+-- the most objects of a triggered skill alive at once (Elemental Storm; CalcOffence.lua, with approximations on)
+["number_of_tornados_allowed"] = {
+	skill("instanceLimit", nil),
+},
 ["trigger_meta_gem_damage_+%_final"] = {
 	-- only when triggered: a meta-triggered Spell PoB calculates as self-cast (approximations off) keeps its damage
 	mod("Damage", "MORE", nil, 0, 0, { type = "Condition", var = "SkillIsTriggered" }),
@@ -386,6 +390,26 @@ return function(mod, flag, skill)
 },
 ["cast_on_damage_taken_threshold"] = {
 	skill("triggeredByDamageTaken", nil, { type = "SkillType", skillType = SkillType.Triggerable }, { type = "SkillType", skillType = SkillType.Spell }),
+	-- Valako's Charge (the only skill with this stat, in both of its stat sets): triggered by Lightning damage taken, with Use
+	-- approximations on (CalcTriggers.lua, supportTrigger)
+	{
+		skill("supportTriggerChance", nil),
+		skill("supportTriggerOnLightningDamageTaken", nil),
+		value = 100,
+	},
+},
+-- Void Illusion's explosion, the hidden skill of the node (CalcTriggers.lua, supportTrigger, with Use approximations on)
+["triggered_by_void_illusion"] = {
+	{
+		skill("supportTriggerChance", nil),
+		skill("supportTriggerOnCopyDestroyed", nil),
+		value = 100,
+	},
+},
+-- Runic Tempering (CalcOffence.lua, its backlash with Use approximations on): the time between backlashes
+["runic_tempering_backlash_cooldown_ms"] = {
+	skill("runicTemperingBacklashCooldown", nil),
+	div = 1000,
 },
 ["support_autocast_instant_spells"] = {
 	skill("triggeredByAutomation", nil, { type = "SkillType", skillTypeList = {SkillType.Triggerable, SkillType.Spell, SkillType.Instant} }),
@@ -3330,6 +3354,82 @@ return function(mod, flag, skill)
 ["gain_archon_elemental_when_you_ignite_enemy_chance_%"] = {
 	{ mod("ArchonSource", "LIST", "ArchonElemental"), value = "ArchonElemental" },
 	mod("ArchonOnIgniteChance", "BASE", nil),
+},
+-- Skills from items and the tree that trigger a damage skill on an interval or an event of the build, calculated only with Use approximations
+-- on (CalcTriggers.lua, intervalTrigger). The parent skill's numbers go to its skillData, the triggered skill carries the marker
+-- (supportTriggerChance as for the supports' skills, and its own key). A mapped list gets one value, so the markers share the value 100.
+["walking_calamity_spawn_meteor_every_ms"] = {
+	skill("walkingCalamityIntervalMs", nil),
+},
+["walking_calamity_large_meteor_every"] = {
+	skill("walkingCalamityLargeEvery", nil),
+},
+["walking_calamity_meteor_frequency_+%_per_enemy_in_walking_calamity_radius"] = {
+	skill("walkingCalamityPerEnemy", nil),
+},
+["walking_calamity_meteor_frequency_+%_cap"] = {
+	skill("walkingCalamityCap", nil),
+},
+["walking_calamity_ignore_first_x_enemies_for_frequency_increase"] = {
+	skill("walkingCalamityIgnoreFirst", nil),
+},
+["triggered_by_walking_calamity"] = {
+	skill("supportTriggerChance", nil),
+	skill("intervalStarfall", nil),
+	value = 100,
+},
+["active_skill_requires_X_glory"] = {
+	skill("gloryRequired", nil),
+},
+["active_skill_generates_mp_%_glory_per_elemental_hit"] = {
+	skill("gloryPerElementalHit", nil),
+},
+["active_skill_generates_mp_%_glory_per_chaos_hit"] = {
+	skill("gloryPerChaosHit", nil),
+},
+["unleash_the_elements_base_trigger_frequency_ms"] = {
+	skill("unleashIntervalMs", nil),
+},
+["unleash_the_elements_trigger_frequency_+%"] = {
+	mod("UnleashFrequency", "INC", nil),
+},
+["triggered_by_unleash_the_elements"] = {
+	skill("supportTriggerChance", nil),
+	skill("intervalUnleash", nil),
+	value = 100,
+},
+-- (the tornado's own stat: "secondary_skill_triggered_by_primary_skill_of_gem" is shared by other skills. Archon of Chayula's own
+-- "archon_of_chayula_spawn_chaos_tornado_interval_ms" is not mapped: CalcPerform applies every mapped "archon_of_chayula_" stat of that skill
+-- as the Archon Buff's own stat, so CalcTriggers.lua reads that one from the skill's data)
+["archon_of_chayula_tornado_attack_interval_ms"] = {
+	skill("supportTriggerChance", nil),
+	skill("intervalChayula", nil),
+	value = 100,
+},
+-- Midnight Zenith (Eventide Petals): the skill itself creates the Ice Crystals, so the skill is the triggered one
+["midnight_star_gain_x_ice_seeds_when_you_critically_hit_a_rare_or_unique_enemy"] = {
+	skill("midnightSeedsOnRareCrit", nil),
+},
+["midnight_star_attempt_to_consume_x_ice_seeds_to_create_an_ice_crystal_each_time_you_gain_ice_seeds"] = {
+	skill("midnightSeedsPerAttempt", nil),
+},
+["unique_nattblom_crystals_per_trigger"] = {
+	skill("midnightCrystalsPerAttempt", nil),
+},
+["midnight_star_max_ice_crystals"] = {
+	skill("midnightMaxCrystals", nil),
+},
+["midnight_star_gain_ice_seeds_equal_to_enemy_power_on_kill_with_critical_hit"] = {
+	skill("supportTriggerChance", nil),
+	skill("intervalMidnight", nil),
+	value = 100,
+},
+-- Inevitable Agony: the debuff records this share of the Hits the enemy takes and deals it when it ends. With Use approximations on, a
+-- MORE multiplier of that share x the share of the debuff's duration the enemy survives (Multiplier:ApproxDebuffSurvival, in percent,
+-- so the mapped value is per 1%: div 100). Hits only (the multiplier is on the enemy, evaluated in the player's approximations state)
+["curse_pain_synchronisation_base_recorded_damage_%_to_apply"] = {
+	mod("DamageTaken", "MORE", nil, ModFlag.Hit, 0, { type = "GlobalEffect", effectType = "Debuff" }, { type = "ActorCondition", actor = "player", var = "UseApproximations" }, { type = "Multiplier", var = "ApproxDebuffSurvival", actor = "player" }),
+	div = 100,
 },
 -- Archon Buffs' own stats (data.archonBuffs, Archon of Chayula's from its skill), applied by CalcPerform doActorMisc
 ["elemental_damage_with_spell_skills_+%_final_from_archon_buff"] = {

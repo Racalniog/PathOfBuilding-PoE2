@@ -1492,6 +1492,8 @@ local function sourceRecord(cached)
 		castTime = cached.ActiveSkill.activeEffect.grantedEffect.castTime or 0,
 		shockChance = m_min(output.ShockChance or 0, 100),
 		dealsLightning = (passOutput.LightningCritAverage or 0) > 0,
+		dealsElemental = (passOutput.FireCritAverage or 0) + (passOutput.ColdCritAverage or 0) + (passOutput.LightningCritAverage or 0) > 0,
+		dealsChaos = (passOutput.ChaosCritAverage or 0) > 0,
 		igniteDuration = output.IgniteDuration or 0,
 		duration = output.Duration or 0,
 		critPercent = percent(critAverage),
@@ -1515,6 +1517,38 @@ local function cachedSourceRecord(env, skill)
 		cache[key] = cached and cached.Env and (cached.HitSpeed or cached.Speed) and sourceRecord(cached) or false
 	end
 	return cache[key] or nil
+end
+
+-- Skills of the build that can cause an event: in the main skill's weapon set, not a Default Attack left out of Full DPS, never a
+-- triggered skill. Anywhere in the build (a trigger from a passive node or a meta skill is not tied to one socket group)
+local function sourceCandidates(env, cond, fullDPSOnly)
+	local list = { }
+	for _, skill in ipairs(env.player.activeSkillList) do
+		local group = skill.socketGroup
+		local flags = (env.mode == "CALCS" and skill.activeEffect.statSetCalcs or skill.activeEffect.statSet).skillFlags
+		if group and flags and not flags.disable and not flags.minion and not flags.totem and not isTriggered(skill) and not skill.skillTypes[SkillType.Meta]
+			and (group.usingSkillSet or env.weaponSet) == env.weaponSet and (group.source ~= "Default Attack" or group.includeInFullDPS)
+			and (group.includeInFullDPS or not fullDPSOnly) and cond(skill, flags) then
+			t_insert(list, skill)
+		end
+	end
+	return list
+end
+-- The candidate with the highest rate (default: hit or use rate), Full DPS skills first: its record, then the skill
+local function eventSource(env, cond, rate)
+	rate = rate or function(record) return record.hitSpeed end
+	for _, fullDPSOnly in ipairs({ true, false }) do
+		local best, bestSkill
+		for _, skill in ipairs(sourceCandidates(env, cond, fullDPSOnly)) do
+			local record = cachedSourceRecord(env, skill)
+			if record and (not best or rate(record) > rate(best)) then
+				best, bestSkill = record, skill
+			end
+		end
+		if best then
+			return best, bestSkill
+		end
+	end
 end
 
 local function metaEnergyTrigger(env, actor)
@@ -1550,35 +1584,6 @@ local function metaEnergyTrigger(env, actor)
 		power = env.enemyDB:Flag(nil, "Condition:RareOrUnique") and 5 or 1
 	end
 
-	-- skills of the build that can cause the event: in the main skill's weapon set, not a Default Attack left out of Full DPS
-	local function candidates(cond, fullDPSOnly)
-		local list = { }
-		for _, skill in ipairs(env.player.activeSkillList) do
-			local group = skill.socketGroup
-			local flags = (env.mode == "CALCS" and skill.activeEffect.statSetCalcs or skill.activeEffect.statSet).skillFlags
-			if group and flags and not flags.disable and not flags.minion and not flags.totem and not isTriggered(skill) and not skill.skillTypes[SkillType.Meta]
-				and (group.usingSkillSet or env.weaponSet) == env.weaponSet and (group.source ~= "Default Attack" or group.includeInFullDPS)
-				and (group.includeInFullDPS or not fullDPSOnly) and cond(skill, flags) then
-				t_insert(list, skill)
-			end
-		end
-		return list
-	end
-	-- the candidate with the highest hit (or use) rate, Full DPS skills first
-	local function eventSource(name, cond)
-		for _, fullDPSOnly in ipairs({ true, false }) do
-			local best
-			for _, skill in ipairs(candidates(cond, fullDPSOnly)) do
-				local record = cachedSourceRecord(env, skill)
-				if record and (not best or record.hitSpeed > best.hitSpeed) then
-					best = record
-				end
-			end
-			if best then
-				return best
-			end
-		end
-	end
 	local function hits(skill, flags) return flags.hit end
 	local function meleeHits(skill, flags) return flags.hit and skill.skillTypes[SkillType.Melee] and skill.skillTypes[SkillType.Attack] end
 	local function spells(skill) return skill.skillTypes[SkillType.Spell] and (skill.activeEffect.grantedEffect.castTime or 0) > 0 end
@@ -1591,7 +1596,7 @@ local function metaEnergyTrigger(env, actor)
 		t_insert(lines, s_format("%.2f/s x %.1f Energy ^8(%s%s)", rate, perEvent, label, sourceName and " of " .. sourceName or ""))
 	end
 	if metaData.energyOnCrit or metaData.energyOnShock or metaData.energyOnIgnite then
-		local source = eventSource("hits", hits)
+		local source = eventSource(env, hits)
 		if source then
 			if metaData.energyOnCrit then
 				add("Critical Hits", source.rates.crits, metaData.energyOnCrit * power * source.critPercent, source.name)
@@ -1605,19 +1610,19 @@ local function metaEnergyTrigger(env, actor)
 		end
 	end
 	if metaData.energyOnMeleeHit then
-		local source = eventSource("meleeHits", meleeHits)
+		local source = eventSource(env, meleeHits)
 		if source then
 			add("Melee Hits", source.rates.hits, metaData.energyOnMeleeHit * power * source.hitPercent, source.name)
 		end
 	end
 	if metaData.energyPer10msCastTime then
-		local source = eventSource("spells", spells)
+		local source = eventSource(env, spells)
 		if source then
 			add("Spells cast", source.speed, metaData.energyPer10msCastTime * source.castTime * 100, source.name)
 		end
 	end
 	-- ponytail: every kill counts as a Melee kill of a Power 1 monster if the build has a Melee Attack; upgrade path = kill rate per skill
-	if metaData.energyOnMeleeKill and #candidates(meleeHits) > 0 then
+	if metaData.energyOnMeleeKill and #sourceCandidates(env, meleeHits) > 0 then
 		add("kills", env.player.modDB:GetMultiplier("ApproxKillsPerSecond"), metaData.energyOnMeleeKill)
 	end
 	if metaData.energyOnBlock then
@@ -1650,6 +1655,168 @@ local function metaEnergyTrigger(env, actor)
 	return { source = meta, trigRate = rate, triggerName = metaName, sourceRateBreakdown = lines, accumulatingSource = true }
 end
 
+-- ===== Skills from items and the tree that trigger a damage skill on an interval or on events of the build =====
+-- Like the supports' skills (supportTrigger), CalcPerform only calls this with Use approximations on (the triggered skill carries
+-- supportTriggerChance, SkillStatMap.lua); off, PoB keeps the self-cast numbers. Everything here is an approximation: the interval or
+-- Glory numbers are the game data's, but the events (enemies in a radius, Hits that fill Glory, Critical kills) are the build's own
+-- rates or configured inputs. Rules, from the skill and stat descriptions:
+-- * The Stars Answer (Starfall): a meteor every `walking_calamity_spawn_meteor_every_ms` (300 ms), +`..._per_enemy_in_..._radius`% (50%)
+--   for each enemy in the radius after the first `..._ignore_first_x_enemies...` (1), at most +`..._cap`% (200%); every
+--   `walking_calamity_large_meteor_every`th (15th) is a large one. The skill's two stat sets are the small and the large star: each set
+--   gets its share of the meteors. The enemies in the radius are the configured count (default 1: no bonus).
+-- * Apocalypse (Hailstorm, Meteor, Crash Lightning) and Archon of Chayula (Chayula's Will): Glory builds from Hits that deal Elemental
+--   (Chaos) damage, `active_skill_generates_mp_%_glory_per_..._hit` % of the enemy's Power per Hit (the "mp" is read as Monster Power,
+--   as for the meta skills' Energy), until `active_skill_requires_X_glory` (100). At full Glory the buff lasts its duration (Apocalypse's
+--   12 s, Archon Buffs' 10 s, with increased Archon duration), then the Glory builds again: uptime = duration / (duration + time to
+--   fill). During it, Apocalypse triggers one of three skills every `unleash_the_elements_base_trigger_frequency_ms` (750 ms, at
+--   increased frequency), so each gets a third; Archon of Chayula spawns its tornado every `..._tornado_interval_ms` (3 s).
+--   The Hits come from the build's skill with the most of them (eventSource), never a triggered skill.
+-- * Midnight Zenith (Eventide Petals): Critical Hits with other skills that hit a Rare or Unique enemy give 2 to 7 Arctic Petals
+--   (`midnight_star_gain_x_ice_seeds_when_you_critically_hit_a_rare_or_unique_enemy`), Critical Hits that kill give the dead enemy's
+--   Power (pack monsters: 1);
+--   10 Petals are consumed for 5 Ice Crystals ("Consumes {0} Arctic Petals to create {1} Ice Crystals"). Critical Hits per second
+--   come from the build's skill with the most; the kills are the kills per second input x the share of Hits that are Critical.
+--   Crystals made are at most the limit per Crystal duration.
+-- ponytail: Glory is assumed to build only outside the buff, the enemy's Power per Hit is an unverified reading of "mp", the
+-- Apocalypse picks its disaster evenly at random, and the damage of each triggered skill is the one PoB shows (a Hailstorm's bolts,
+-- Crash Lightning's pulses, Chayula's Will's 200 ms hits for its 8 s are not multiplied by the Hits one cast makes); all other stat
+-- sets of a skill (the large star beside the small) aren't added; upgrade path = in-game measurement (plan Phase 6) and a damage
+-- per cast for each of those skills.
+local function enemyPower(env)
+	local power = env.player.modDB:GetMultiplier("EnemyPower")
+	if power <= 0 then
+		power = env.enemyDB:Flag(nil, "Condition:RareOrUnique") and 5 or 1
+	end
+	return power
+end
+-- The skill of the main skill's group that carries a stat's value (the parent skill, with the trigger's numbers)
+local function groupSkillWith(env, mainSkill, key)
+	for _, skill in ipairs(env.player.activeSkillList) do
+		if skill.socketGroup == mainSkill.socketGroup and skill.skillData[key] then
+			return skill
+		end
+	end
+end
+-- Share of time a Glory buff of `duration` seconds is up, from the Hits per second of the build's skill that deals the right damage
+-- (record[dealsKey], sourceRecord): the Glory fills at Hits per second x percent of the enemy's Power per Hit. Returns the uptime
+-- (0 without such Hits), the source skill and breakdown lines
+local function gloryUptime(env, parent, percentKey, dealsKey, duration, damageName)
+	local percent, required = parent.skillData[percentKey] or 0, parent.skillData.gloryRequired or 0
+	local record, skill = eventSource(env, function(_, flags) return flags.hit end, function(record) return record[dealsKey] and record.rates.hits or 0 end)
+	local hits = record and record[dealsKey] and record.rates.hits or 0
+	local power = enemyPower(env)
+	local glory = hits * percent / 100 * power
+	if glory <= 0 or required <= 0 then
+		return 0, nil, { s_format("No skill of the build Hits with %s damage to build Glory for %s", damageName, parent.activeEffect.grantedEffect.name) }
+	end
+	local fill = required / glory
+	local uptime = duration / (duration + fill)
+	return uptime, skill, {
+		s_format("%.2f x %g%% x %g ^8(%s Hits per second of %s x %% of the enemy's Power as Glory per Hit x Power)", hits, percent, power, damageName, record.name),
+		s_format("= %.2f ^8(Glory per second)", glory),
+		s_format("%g / %.2f = %.1f s ^8(time to fill the Glory)", required, glory, fill),
+		s_format("%.1f / (%.1f + %.1f) = %.3f ^8(uptime of the %.1f s buff)", duration, duration, fill, uptime, duration),
+	}
+end
+local function intervalTrigger(env, actor)
+	local mainSkill = actor.mainSkill
+	local skillData = mainSkill.skillData
+	local modDB = env.player.modDB
+	local source, rate, lines, parent
+	if skillData.intervalStarfall then
+		parent = groupSkillWith(env, mainSkill, "walkingCalamityIntervalMs")
+		if parent then
+			local data = parent.skillData
+			local enemies = m_max(modDB:GetMultiplier("ApproxEnemiesAroundYou"), 0)
+			local more = m_min((data.walkingCalamityPerEnemy or 0) * m_max(enemies - (data.walkingCalamityIgnoreFirst or 0), 0), data.walkingCalamityCap or m_huge)
+			local meteors = 1000 / data.walkingCalamityIntervalMs * (1 + more / 100)
+			local every = m_max(data.walkingCalamityLargeEvery or 1, 1)
+			-- the skill's second stat set is the large star (the first one is the small star)
+			local effect = mainSkill.activeEffect
+			local large = (env.mode == "CALCS" and effect.statSetCalcs or effect.statSet).index == 2
+			local share = large and 1 / every or (every - 1) / every
+			source, rate = parent, meteors * share
+			lines = {
+				s_format("1000 / %g ms x (1 + %g%%) = %.2f ^8(meteors per second; %g enemies around you, +%g%% for each after the first %g, at most +%g%%)", data.walkingCalamityIntervalMs, more, meteors, enemies, data.walkingCalamityPerEnemy or 0, data.walkingCalamityIgnoreFirst or 0, data.walkingCalamityCap or 0),
+				s_format("x %.3f ^8(%s)", share, large and s_format("1 in %g meteors is a large star, this stat set", every) or "the other meteors are small stars, this stat set"),
+			}
+			-- Offence takes the Hit rate from the skill's own "hit time" (the meteor interval, 0.3 s, the large star's 2 s) and no mod can
+			-- remove it, so the DPS multiplier turns that rate into the rate calculated here (Hit rate x hit time x rate / hit time)
+			-- (from the skill's own multiplier each time: a second pass over the same skill must not compound it)
+			local hitTime = skillData.hitTimeOverride
+			if hitTime then
+				skillData.baseDpsMultiplier = skillData.baseDpsMultiplier or skillData.dpsMultiplier or 1
+				skillData.dpsMultiplier = skillData.baseDpsMultiplier * rate * hitTime
+			end
+		end
+	elseif skillData.intervalUnleash or skillData.intervalChayula then
+		local unleash = skillData.intervalUnleash
+		parent = groupSkillWith(env, mainSkill, unleash and "unleashIntervalMs" or "gloryPerChaosHit")
+		if parent then
+			local parentData = parent.skillData
+			local duration, uptime, glorySkill, gloryLines
+			local interval, count
+			if unleash then
+				duration = (parentData.duration or 0) * calcLib.mod(parent.skillModList, parent.skillCfg, "Duration")
+				uptime, glorySkill, gloryLines = gloryUptime(env, parent, "gloryPerElementalHit", "dealsElemental", duration, "Elemental")
+				interval = parentData.unleashIntervalMs / calcLib.mod(parent.skillModList, parent.skillCfg, "UnleashFrequency")
+				count = 0
+				for _, skill in ipairs(env.player.activeSkillList) do
+					count = count + (skill.socketGroup == mainSkill.socketGroup and skill.skillData.intervalUnleash and 1 or 0)
+				end
+			else
+				duration = data.archonBuffs.ArchonOfChayula.duration * calcLib.mod(modDB, nil, "ArchonDuration")
+				uptime, glorySkill, gloryLines = gloryUptime(env, parent, "gloryPerChaosHit", "dealsChaos", duration, "Chaos")
+				interval, count = 0, 1
+				for _, stat in ipairs(parent.activeEffect.grantedEffect.statSets[1].constantStats) do
+					if stat[1] == "archon_of_chayula_spawn_chaos_tornado_interval_ms" then
+						interval = stat[2]
+					end
+				end
+			end
+			lines = gloryLines
+			if uptime > 0 and interval > 0 then
+				rate = 1000 / interval * uptime / m_max(count, 1)
+				t_insert(lines, s_format("1000 / %.0f ms x %.3f%s = %.3f ^8(triggers of %s per second: every interval while the buff lasts, x uptime)", interval, uptime, count > 1 and s_format(" / %d", count) or "", rate, mainSkill.activeEffect.grantedEffect.name))
+			end
+			source = glorySkill or parent
+		end
+	elseif skillData.intervalMidnight then
+		parent = mainSkill
+		local record, skill = eventSource(env, function(skill, flags) return flags.hit and skill ~= mainSkill end, function(record) return record.rates.crits end)
+		if record then
+			local rare = env.enemyDB:Flag(nil, "Condition:RareOrUnique")
+			local kills = modDB:GetMultiplier("ApproxKillsPerSecond")
+			local critKills = m_min(kills * (record.rates.hits > 0 and record.rates.crits / record.rates.hits or 0), record.rates.crits)
+			-- (the killed enemies are pack monsters of Power 1, as for the meta skills' kill Energy)
+			local petals = (rare and record.rates.crits * (skillData.midnightSeedsOnRareCrit or 0) or 0) + critKills
+			local perAttempt = skillData.midnightSeedsPerAttempt or 0
+			local crystals = perAttempt > 0 and petals / perAttempt * (skillData.midnightCrystalsPerAttempt or 0) or 0
+			local limit = (skillData.duration or 0) > 0 and (skillData.midnightMaxCrystals or m_huge) / skillData.duration or m_huge
+			source, rate = skill, m_min(crystals, limit)
+			lines = {
+				s_format("%.2f ^8(Critical Hits per second of %s, the skill with the most)", record.rates.crits, record.name),
+				s_format("%.2f x %g + %.2f = %.2f ^8(Arctic Petals per second: Critical Hits x Petals for a Rare or Unique enemy%s + Critical kills, Power 1 each)", rare and record.rates.crits or 0, skillData.midnightSeedsOnRareCrit or 0, critKills, petals, rare and "" or ", which the enemy isn't"),
+				s_format("/ %g x %g = %.2f ^8(Ice Crystals per second: Petals per attempt, Crystals created per attempt)", perAttempt, skillData.midnightCrystalsPerAttempt or 0, crystals),
+			}
+			if crystals > limit then
+				t_insert(lines, s_format("= %.2f ^8(at most %g Crystals per %.1f s Crystal duration)", limit, skillData.midnightMaxCrystals or 0, skillData.duration or 0))
+			end
+		end
+	else
+		return
+	end
+	if not parent then
+		return
+	end
+	local name = parent.activeEffect.grantedEffect.name
+	lines = lines or { }
+	t_insert(lines, 1, "Approximation (Use approximations on): see the rules in CalcTriggers.lua, intervalTrigger")
+	mainSkill.infoMessage2 = "Approximation: trigger rate from " .. (skillData.intervalMidnight and "the build's Critical Hits" or name .. "'s interval and events")
+	return { source = source or mainSkill, trigRate = rate or 0, triggerName = name, sourceRateBreakdown = lines, accumulatingSource = true }
+end
+-- ===== end of the interval triggers =====
+
 -- Supports that grant a skill of their own and trigger it on an event of the skill they support in the same group. Like the meta
 -- skills' Energy, CalcPerform only calls this with Use approximations on; off, PoB keeps the granted skill's self-cast rate. Rules,
 -- from the support and skill descriptions:
@@ -1661,6 +1828,8 @@ end
 --   else 1 - e^(-Ignites/s x Ignite duration) from the source's own Ignites (calcLib.approxUptime).
 --   Fiery Death: kills per second x that share. Impending Doom's Doom Blast ("when the Curse expires"): one per Curse duration,
 --   at most the curse's cast rate.
+-- * A rule with `source` (Elemental Storm, a Stormweaver node's skill) takes the Spell of the whole build with the most events,
+--   not the group's supported skill; the node line marks the skill through ExtraSkillMod (ModParser.lua).
 -- * The granted skill's cooldown caps the rate (defaultTriggerHandler: server ticks; with stored uses min(rate, 1 / cooldown), with
 --   one use the cooldown alignment simulation); without a cooldown each event triggers.
 -- ponytail: Critical Hits and Shocks are random, the simulation spaces them evenly; Hits on the one target PoB calculates, all kills
@@ -1684,13 +1853,92 @@ local supportTriggerEvents = {
 		local kills = env.player.modDB:GetMultiplier("ApproxKillsPerSecond")
 		return kills * ignited, s_format("%.2f x %.3f ^8(kills per second x %s)", kills, ignited, ignitedText)
 	end },
+	-- Elemental Storm (Stormweaver node, "Trigger Elemental Storm on Critical Hit with Spells"): a rule with `source` takes its source
+	-- from the whole build, the Spell with the most Critical Hits per second, not from the group (a node is not tied to a socket group)
+	-- ponytail: the Hit must deal Elemental damage to trigger the storm and picks its element; a Spell without Elemental damage still
+	-- counts, and the storm's element is the skill's own (upgrade path = the source record's Elemental share per type)
+	{ key = "supportTriggerOnSpellCrit", name = "Critical Hits with Spells", source = function(skill, flags)
+		return flags.hit and skill.skillTypes[SkillType.Spell]
+	end, rate = function(env, source)
+		return source.rates.crits, s_format("%.2f ^8(Critical Hits per second of %s, the Spell with the most)", source.rates.crits, source.name)
+	end },
 	{ key = "supportTriggerOnCurseExpiry", name = "Curse expiries", rate = function(env, source)
 		local rate = m_min(source.speed, source.duration > 0 and 1 / source.duration or 0)
 		return rate, s_format("min(%.2f, 1 / %.2f) ^8(cast rate of %s, once per Curse duration)", source.speed, source.duration, source.name)
 	end },
 }
+
+-- Skills of items and nodes that trigger on what happens to you (rules with `build`: the rate comes from the approximation inputs,
+-- not from a skill of the build; the skill is its own source). Only with Use approximations on, as above.
+-- * Valako's Charge (Lightning Coil): "taking Lightning damage builds up charge ... Reaching full charge expends all charge to Trigger
+--   this skill" (cast_on_damage_taken_threshold, in its first stat set: the damage that fills the charge; 100% chance). Rate = enemy
+--   Hits on you per second x the share of them that deal Lightning damage x the share of the charge one such Hit fills (at most 1: all
+--   charge is spent at once, so a Hit triggers at most once).
+-- ponytail: a Lightning Hit deals the enemy Lightning damage of the configuration (the default enemy hit) less your Lightning
+--   resistance, none of your other damage taken modifiers; upgrade path = the Lightning damage taken from the defence calculation
+--   (the optimizer skips it by default).
+t_insert(supportTriggerEvents, { key = "supportTriggerOnLightningDamageTaken", name = "Lightning damage taken", build = function(env, skill)
+	local effect = skill.activeEffect
+	local first = effect.grantedEffect.statSets[1]
+	local threshold = 0
+	for index, stat in ipairs(first.stats) do
+		if stat == "cast_on_damage_taken_threshold" then
+			threshold = first.levels[effect.level] and first.levels[effect.level][index] or 0
+		end
+	end
+	local hits = env.player.modDB:GetMultiplier("ApproxEnemyHitsOnYouPerSecond")
+	local share = env.player.modDB:GetMultiplier("ApproxEnemyLightningHitShare")
+	local enemyDamage = tonumber(env.configInput.enemyLightningDamage) or tonumber(env.configPlaceholder.enemyLightningDamage) or 0
+	local damage = enemyDamage * (1 - (env.player.output.LightningResist or 0) / 100)
+	local filled = threshold > 0 and enemyDamage > 0 and m_min(damage / threshold, 1) or 1
+	return hits * share / 100 * filled, {
+		s_format("%.2f x %.0f%% ^8(enemy Hits on you per second x share of them that deal Lightning damage; an approximation)", hits, share),
+		s_format("x %.2f ^8(share of the charge one Lightning Hit fills: %.0f Lightning damage taken / %.0f to fill it, at most 1)", filled, damage, threshold),
+	}
+end })
+-- * Void Illusion (tree node): a copy of you is made on each dodge roll, and a copy an enemy destroys explodes (the node's hidden
+--   skill VoidIllusionSpawnPlayer, one explosion per copy destroyed). Rate = the lower of dodge rolls and enemy Hits on you per
+--   second (a copy has 1 Life and lasts 2 s, so an enemy Hit on it destroys it: every Hit on a copy counts as a Hit on you).
+-- ponytail: every enemy Hit is taken to land on a copy while copies exist; upgrade path = copies alive (rolls x duration) x the share
+--   of enemy attacks that pick a copy as target, measured in the game
+t_insert(supportTriggerEvents, { key = "supportTriggerOnCopyDestroyed", name = "Illusions destroyed by enemies", build = function(env)
+	local rolls = env.player.modDB:GetMultiplier("ApproxDodgeRollsPerSecond")
+	local hits = env.player.modDB:GetMultiplier("ApproxEnemyHitsOnYouPerSecond")
+	return m_min(rolls, hits), { s_format("min(%.2f, %.2f) ^8(dodge rolls per second, enemy Hits on you per second: one copy per roll, destroyed by an enemy Hit; an approximation)", rolls, hits) }
+end })
+-- * Elemental Expression (Invoker node, "Trigger Elemental Expression on Melee Critical Hit"): the Melee Attack of the whole build
+--   with the most Critical Hits per second (a source rule, like Elemental Storm). The skill's stat sets are the three outcomes, each
+--   with the chance proportional to an attribute: explosion (Fire) Strength, wave (Cold) Intelligence, bolt (Lightning)
+--   Dexterity, as that attribute's share of Strength + Dexterity + Intelligence; the first set (the roll itself) takes them all.
+-- ponytail: "proportional" is read as a plain share of the three attributes (the description gives no formula); upgrade path = the
+--   game's formula, if one is found
+local expressionAttributes = { ["Fiery Explosion"] = "Str", ["Arcing Bolt"] = "Dex", ["Icy Wave"] = "Int" }
+t_insert(supportTriggerEvents, { key = "supportTriggerOnMeleeCrit", name = "Critical Hits with Melee Attacks", source = function(skill, flags)
+	return flags.hit and skill.skillTypes[SkillType.Melee] and skill.skillTypes[SkillType.Attack]
+end, rate = function(env, source)
+	return source.rates.crits, s_format("%.2f ^8(Critical Hits per second of %s, the Melee Attack with the most)", source.rates.crits, source.name)
+end, chance = function(env, skill)
+	local effect = skill.activeEffect
+	local set = effect.grantedEffect.statSets[(env.mode == "CALCS" and effect.statSetCalcs or effect.statSet).index]
+	local attribute = expressionAttributes[set and set.label]
+	if not attribute then
+		return 1
+	end
+	local output = env.player.output
+	local total = (output.Str or 0) + (output.Dex or 0) + (output.Int or 0)
+	local share = total > 0 and (output[attribute] or 0) / total or 0
+	return share, s_format("x %.1f%% ^8(%s of %.0f Strength + Dexterity + Intelligence: the chance for the %s is proportional to it; an approximation)", share * 100, attribute, total, set.label)
+end })
+
+-- (the optimiser reads the rules with a `source`: it adds a source skill for a skill marked with one; after all rules are added)
+calcs.supportTriggerEvents = supportTriggerEvents
 local function supportTrigger(env, actor)
 	local mainSkill = actor.mainSkill
+	-- skills of items and the tree with an interval or events of their own (above)
+	local interval = intervalTrigger(env, actor)
+	if interval then
+		return interval
+	end
 	local event
 	for _, rule in ipairs(supportTriggerEvents) do
 		if mainSkill.skillData[rule.key] then
@@ -1707,6 +1955,24 @@ local function supportTrigger(env, actor)
 	local supportName = srcInstance and srcInstance.gemData and srcInstance.gemData.name or triggeredName
 	local ignitedConfigured = env.enemyDB:Flag(nil, "Condition:Ignited")
 	local source, rate, lines, triggeredSource = nil, 0, { }, nil
+	if event.source then -- (the loop below then finds no group skill: nothing carries "triggerChance:" for this skill)
+		local record, skill = eventSource(env, event.source, function(record) return record.rates.crits end)
+		if record then
+			local events, line = event.rate(env, record)
+			source, rate, lines = skill, events, { line }
+			if event.chance then
+				local share, chanceLine = event.chance(env, mainSkill)
+				rate = rate * share
+				if chanceLine then
+					t_insert(lines, chanceLine)
+				end
+			end
+		end
+	elseif event.build then
+		-- (the rate comes from the approximation inputs, the skill is its own source)
+		local events, eventLines = event.build(env, mainSkill)
+		source, rate, lines = mainSkill, events, eventLines
+	end
 	for _, skill in ipairs(env.player.activeSkillList) do
 		local flags = (env.mode == "CALCS" and skill.activeEffect.statSetCalcs or skill.activeEffect.statSet).skillFlags
 		local chance = skill.skillData[chanceKey]
@@ -1738,7 +2004,7 @@ local function supportTrigger(env, actor)
 	if not source and triggeredSource then
 		lines = { s_format("%s is triggered: triggers by a triggered skill are not modelled", triggeredSource.activeEffect.grantedEffect.name) }
 	elseif not source then
-		lines = { s_format("No skill in the group is supported by %s", supportName) }
+		lines = { event.source and s_format("No skill of the build has %s", event.name) or s_format("No skill in the group is supported by %s", supportName) }
 	end
 	if rate == 0 then
 		mainSkill.infoMessage2 = not source and triggeredSource and "Supported skill is triggered: no triggers modelled" or s_format("No %s to trigger %s: no triggers", event.name, triggeredName)

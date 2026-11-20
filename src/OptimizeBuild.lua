@@ -26,6 +26,9 @@ Usage: OptimizeBuild.lua --class <name> --skill <gem name> [options]
                          a fresh character, and refine it. Its tree is refined, not searched anew; the
                          rare-only search is skipped (unless --no-uniques is given), as its uniques are the
                          start. --level and --gem-level are ignored
+  --per-second           Score skills that show average damage instead of DPS (Comet, Firestorm, Volatile Dead, ...,
+                         58 gem skills) by damage per second: average damage x use rate (cast rate, cooldown or
+                         trigger rate). Default: their average damage per use, as the program shows it
   --roll <0..1>         Roll quality of crafted affixes and unique ranges (default 1 = perfect)
   --item-level <n>       Highest affix tier level allowed on crafted items (default 82)
   --supports <n>         Number of support gems (default 5)
@@ -64,7 +67,7 @@ Usage: OptimizeBuild.lua --class <name> --skill <gem name> [options]
 
 local args = { config = { } }
 do
-	local flags = { ["no-lineage"] = true, ["no-runes"] = true, ["no-uniques"] = true, ["no-aux"] = true, ["no-flasks"] = true, ["no-weapon-sets"] = true, ["no-combos"] = true, thorough = true, ["legacy-uniques"] = true, ["unique-variants"] = true, ["only-uniques"] = true, debug = true, quiet = true, help = true, coverage = true }
+	local flags = { ["no-lineage"] = true, ["no-runes"] = true, ["no-uniques"] = true, ["no-aux"] = true, ["no-flasks"] = true, ["no-weapon-sets"] = true, ["no-combos"] = true, thorough = true, ["legacy-uniques"] = true, ["unique-variants"] = true, ["only-uniques"] = true, ["per-second"] = true, debug = true, quiet = true, help = true, coverage = true }
 	local index = 1
 	while arg and arg[index] do
 		local key = arg[index]:match("^%-%-(.+)$")
@@ -264,6 +267,7 @@ local options = {
 	uniqueVariants = args["unique-variants"],
 	autoAscendancy = not args.ascendancy or args.ascendancy:lower() == "auto",
 	treeWidth = tonumber(args["tree-width"]),
+	perSecond = args["per-second"],
 	pin = pin,
 }
 

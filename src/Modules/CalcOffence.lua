@@ -3147,6 +3147,17 @@ function calcs.offence(env, actor, activeSkill)
 			end
 			output.HitTime = skillData.hitTimeOverride
 			output.HitSpeed = 1 / output.HitTime
+			-- A skill that a support or node triggers (Elemental Storm) whose damage is a Hit every `hitTime` for as long as it exists:
+			-- the Hit rate is that of one object x the objects alive on average, the triggers per second x the duration, at most the
+			-- limit. Only with approximations on; self-cast numbers are unchanged.
+			-- ponytail: the average count, not a distribution (a Poisson count capped at the limit would be a little lower near the cap);
+			-- every object's Hits land on the enemy (no per-enemy hit limit across objects); a triggered attack (the dual wield
+			-- branch below overrides HitSpeed) isn't covered, no such skill exists
+			-- (only a skill that states how many objects can be alive and has a duration: Starfall, a meteor per trigger, sets its own rate)
+			if skillData.triggered and skillData.supportTriggerChance and skillData.instanceLimit and output.Duration and skillModList:Flag(nil, "Condition:UseApproximations") then
+				output.ObjectsAlive = m_min(skillData.instanceLimit or m_huge, (output.Speed or 0) * output.Duration)
+				output.HitSpeed = output.HitSpeed * output.ObjectsAlive
+			end
 			--Brands always have hitTimeOverride
 			if skillFlags.brand and not skillModList:Flag(nil, "UnlimitedBrandDuration") then
 				output.BrandTicks = m_floor(output.Duration * output.HitSpeed)
@@ -3289,6 +3300,9 @@ function calcs.offence(env, actor, activeSkill)
 		if skillData.hitTimeOverride and not skillData.triggeredOnDeath then
 			breakdown.HitSpeed = { }
 			t_insert(breakdown.HitSpeed, s_format("1 / %.2f ^8(hit time override)", output.HitTime))
+			if output.ObjectsAlive then
+				t_insert(breakdown.HitSpeed, s_format("x %.2f ^8(alive on average: %.2f triggers per second x %.2f s, at most %s)", output.ObjectsAlive, output.Speed, output.Duration, skillData.instanceLimit or "unlimited"))
+			end
 			t_insert(breakdown.HitSpeed, s_format("= %.2f", output.HitSpeed))
 		elseif skillData.hitTimeMultiplier and output.Time and not skillData.triggeredOnDeath then
 			breakdown.HitTime = { }
@@ -5294,9 +5308,11 @@ function calcs.offence(env, actor, activeSkill)
 			-- landed hits per second on the target, the basis of ailmentStacks (used by the Bleeding aggravation estimate)
 			local hitRate
 			if not skillData.triggeredOnDeath then
-				if output.Cooldown then
+				if output.Cooldown and not output.ObjectsAlive then
 					ailmentStacks = ailmentStacks * globalOutput[ailment .. "Duration"] / m_max(output.Cooldown, (output.HitTime or output.Time))
 					hitRate = output.HitChance / 100 * output.DpsMultiplier / m_max(output.Cooldown, (output.HitTime or output.Time))
+				elseif output.ObjectsAlive == 0 then
+					ailmentStacks = 0 -- a triggered skill that never triggers (no objects alive) hits nothing
 				elseif (globalOutput.HitSpeed or globalOutput.Speed) > 0 then
 					-- assume skills with no cast, attack, or cooldown time are single cast
 					ailmentStacks = ailmentStacks * globalOutput[ailment .. "Duration"] * (globalOutput.HitSpeed or globalOutput.Speed)
@@ -6539,6 +6555,39 @@ function calcs.offence(env, actor, activeSkill)
 					s_format("= %.1f ^8(in Combined DPS)", output.ThornsOnHitDPS),
 				}
 			end
+		end
+	end
+
+	-- Runic Tempering (Serle's Grit), Use approximations on: "When you are Hit while you have these plates ... this skill will cause backlash,
+	-- dealing your Thorns damage in an area around your attacker. Can backlash once every 0.4 seconds" (runic_tempering_backlash_cooldown_ms;
+	-- a plate is lost for every 5 backlashes, up to 4 plates are held). Backlashes per second = the enemy Hits on you per second (the
+	-- Thorns approximation input), at most one per cooldown (server ticks); each deals the hidden Thorns skill's Average Damage, which
+	-- already counts the Runic Plates (the "# of Runic Plates" input, else approxRunicPlates). It is this skill's own damage: Total DPS.
+	-- ponytail: plates are assumed to be held by channelling and every Hit on you backlashes; the plate gain rate isn't in the data
+	-- (upgrade path = in-game measurement, plan Phase 6), nor is whether Hits of every type count (assumed: all)
+	if actor == env.player and skillData.runicTemperingBacklashCooldown and skillModList:Flag(nil, "Condition:UseApproximations") then
+		local thorns
+		for _, skill in ipairs(actor.activeSkillList) do
+			if skill.activeEffect.grantedEffect.id == "ThornsPlayer" then
+				thorns = skill
+				break
+			end
+		end
+		local thornsHit = thorns and calcs.getCachedOutputValue(env, thorns, "AverageDamage") or 0
+		local cooldown = m_ceil(skillData.runicTemperingBacklashCooldown * data.misc.ServerTickRate) / data.misc.ServerTickRate
+		local hits = skillModList:GetMultiplier("ApproxEnemyHitsOnYouPerSecond")
+		local backlashes = m_min(hits, cooldown > 0 and 1 / cooldown or m_huge)
+		output.BacklashDPS = thornsHit * backlashes
+		output.TotalDPS = output.TotalDPS + output.BacklashDPS
+		output.CombinedDPS = output.CombinedDPS + output.BacklashDPS
+		activeSkill.infoMessage2 = thorns and s_format("Approximation: %.2f backlashes per second (enemy Hits on you, at most one per %.2f s) of %.1f Thorns damage", backlashes, cooldown, thornsHit)
+			or "No Thorns damage to backlash with"
+		if breakdown then
+			breakdown.TotalDPS = {
+				s_format("%.1f ^8(Thorns damage per backlash)", thornsHit),
+				s_format("x %.2f ^8(backlashes per second: min(%.2f enemy Hits on you per second, 1 / %.3f s cooldown); an approximation)", backlashes, hits, cooldown),
+				s_format("= %.1f ^8(Total DPS)", output.BacklashDPS),
+			}
 		end
 	end
 

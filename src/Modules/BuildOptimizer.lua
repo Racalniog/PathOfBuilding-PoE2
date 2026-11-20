@@ -57,6 +57,9 @@ optimizer.defaultOptions = {
 	auxSkills = true,
 	-- Skill gems the character can have in total (the main skill included)
 	maxSkills = 9,
+	-- Spells the optimiser sockets into a meta skill (Cast on Critical, ...); more are added while the group's Full DPS rises
+	-- ponytail: the game's number of Spell sockets of a meta gem isn't in the data; upgrade path = that number
+	maxMetaSpells = 3,
 	-- Equip flasks and charms where they add damage (they are assumed to be active)
 	flasks = true,
 	-- Use the second weapon set: supporting skills that gain from it are cast with their own
@@ -103,6 +106,8 @@ optimizer.defaultOptions = {
 	-- local optimum. ponytail: a build that already has a tree (the unique stage after the rare one)
 	-- only gets the changed order; upgrade path = perturb the equipment choices too
 	restarts = 1,
+	-- Score a skill that shows average damage instead of DPS by damage per second (average x use rate) instead of its average damage per use
+	perSecond = false,
 	-- Relative improvement below which a change is not considered worth it
 	epsilon = 1e-6,
 	-- Configuration tab conditions to switch on because the build keeps them up by itself:
@@ -133,6 +138,36 @@ local function baseSignature(build)
 		tostring(build.partyTab and build.partyTab.enemyModList), tostring(build.characterLevel), tostring(build.spec.curClassId) }, "|")
 end
 
+-- Spells that follow a meta skill (Cast on Block, Cast on Critical, ...) in its group: the group is the meta skill, its Spells, then the
+-- supports. The meta skill triggers the Spells, and they deal the damage. Returns how many Spells the group has (0 for a group that
+-- isn't a meta skill's, or a meta skill without a Spell yet)
+local function metaSpellCount(group)
+	local meta = group.displaySkillList and group.displaySkillList[1]
+	local count = 0
+	if meta and meta.activeEffect.grantedEffect.skillTypes[SkillType.Meta] then
+		while true do
+			local spell = group.gemList[count + 2] and group.gemList[count + 2].gemData
+			if not spell or spell.grantedEffect.support then
+				break
+			end
+			count = count + 1
+		end
+	end
+	return count
+end
+
+-- The engine calculates the main skill of the selected socket group only. A meta skill's group with several Spells has each of them
+-- as its own skill (all triggered at the group's rate, which falls with every Spell: the Energy they need is summed), so its damage is
+-- the program's Full DPS of the group (the group has "Include in Full DPS" on, which the optimiser only sets for a group with several
+-- Spells), added to the output as FullDPS and scored instead of CombinedDPS (scoreOutput)
+local function addGroupTotal(ctx, override, output)
+	local group = ctx.group
+	if group.includeInFullDPS and metaSpellCount(group) > 0 then
+		local base = ctx.baseDB
+		output.FullDPS = ctx.calcs.calcFullDPS(ctx.build, "CALCULATOR", override, { cachedPlayerDB = base.player, cachedEnemyDB = base.enemy, cachedMinionDB = base.minion }).combinedDPS
+	end
+end
+
 local function calcOutput(ctx, override)
 	local build = ctx.build
 	local signature = baseSignature(build)
@@ -145,6 +180,7 @@ local function calcOutput(ctx, override)
 			-- for skills calculated in their own environment during perform (calcs.buildActiveSkill: Thorns hits, buff rates)
 			env.override, env.cachedDBs = override, cachedDBs
 			ctx.calcs.perform(env, ctx.skipEHP)
+			addGroupTotal(ctx, override, env.player.output)
 			return env.player.output, env
 		end
 	end
@@ -152,6 +188,7 @@ local function calcOutput(ctx, override)
 	ctx.baseDB = { signature = signature, player = player, enemy = enemy, minion = minion }
 	env.override = override
 	ctx.calcs.perform(env, ctx.skipEHP)
+	addGroupTotal(ctx, override, env.player.output)
 	return env.player.output, env
 end
 
@@ -260,6 +297,15 @@ local function scoreOutput(ctx, output, env)
 		value = metric(output, minions)
 	else
 		value = output[metric] or 0
+		if metric == "CombinedDPS" and output.FullDPS then
+			value = output.FullDPS -- (a meta skill's group with several Spells, see addGroupTotal)
+		end
+		-- A skill that shows average damage instead of DPS (Comet, Firestorm, Volatile Dead, ...: 58 gem skills) has its average damage per use
+		-- as Combined DPS. perSecond scores it per second instead: x the rate (Speed: cast rate, cooldown or trigger rate)
+		local skillData = env and env.player and env.player.mainSkill and env.player.mainSkill.skillData
+		if ctx.opts.perSecond and skillData and skillData.showAverage and (output.AverageDamage or 0) > 0 and output.TotalDPS then
+			value = value * output.TotalDPS / output.AverageDamage
+		end
 		if output.Minion and type(output.Minion[metric]) == "number" then
 			value = value + output.Minion[metric] * minions
 		end
@@ -304,6 +350,7 @@ end
 
 local function eval(ctx, override)
 	ctx.evals = ctx.evals + 1
+	ctx.lastOutput = nil
 	if pinVetoes(ctx, override) then
 		return 0
 	end
@@ -313,6 +360,7 @@ local function eval(ctx, override)
 		ctx.lastError = output
 		return -1
 	end
+	ctx.lastOutput = output -- (for callers that look at more than the score)
 	return scoreOutput(ctx, output, env)
 end
 
@@ -555,6 +603,11 @@ local function setupGrantedSkill(build, setup, wanted)
 		local gem = group.gemList[1]
 		if gem and gem.skillId == pin.skillId and (group.sourceItem or group.sourceNode) then
 			build.mainSocketGroup = index
+			-- (calculate again with that group as the main skill: an item may grant several skills)
+			build.buildFlag = true
+			if runCallback then
+				runCallback("OnFrame")
+			end
 			return true, pin
 		end
 	end
@@ -763,9 +816,11 @@ local function optimizeSupports(ctx)
 	local gemList = ctx.group.gemList
 	local candidates = supportCandidates(ctx)
 	local cur
+	-- (the first support slot: after the meta skill's Spells, if it has any)
+	local first = metaSpellCount(ctx.group) + 2
 
 	local function conflicts(gemData, skipIndex)
-		for index = 2, #gemList do
+		for index = first, #gemList do
 			local other = gemList[index].gemData
 			if index ~= skipIndex and other and sharesFamily(other.grantedEffect, gemData.grantedEffect) then
 				return true
@@ -788,7 +843,7 @@ local function optimizeSupports(ctx)
 		return best, bestScore
 	end
 	local function setLinks(links)
-		for index = #gemList, 2, -1 do
+		for index = #gemList, first, -1 do
 			gemList[index] = nil
 		end
 		for _, gemData in ipairs(links) do
@@ -797,7 +852,7 @@ local function optimizeSupports(ctx)
 	end
 	local function getLinks()
 		local links = { }
-		for index = 2, #gemList do
+		for index = first, #gemList do
 			if gemList[index].gemData then
 				t_insert(links, gemList[index].gemData)
 			end
@@ -807,7 +862,7 @@ local function optimizeSupports(ctx)
 	-- Complete and polish the links that are currently set
 	local function finish()
 		cur = eval(ctx)
-		while #gemList - 1 < ctx.opts.maxSupports do
+		while #gemList - (first - 1) < ctx.opts.maxSupports do
 			local best, bestScore = bestForIndex(#gemList + 1)
 			if not best then
 				break
@@ -817,7 +872,7 @@ local function optimizeSupports(ctx)
 		end
 		for _ = 1, 3 do
 			local improved = false
-			for index = 2, #gemList do
+			for index = first, #gemList do
 				local best, bestScore = bestForIndex(index)
 				if best then
 					gemList[index] = makeGemInstance(ctx, best)
@@ -871,10 +926,10 @@ local function optimizeSupports(ctx)
 		setLinks({ })
 		local ranked = { }
 		for _, gemData in ipairs(candidates) do
-			gemList[2] = makeGemInstance(ctx, gemData)
+			gemList[first] = makeGemInstance(ctx, gemData)
 			t_insert(ranked, { gemData = gemData, score = eval(ctx) })
 		end
-		gemList[2] = nil
+		gemList[first] = nil
 		local emptyScore = eval(ctx)
 		for _, entry in ipairs(ranked) do
 			if entry.score == emptyScore then
@@ -1725,6 +1780,12 @@ local function isAuxGroup(ctx, group)
 	return group ~= ctx.group and not group.source and not group.sourceItem and not group.sourceNode
 end
 
+-- The group that holds the source of a node- or item-triggered main skill (optimizeTriggerSource); the label is what a saved build keeps
+local triggerSourceLabel = "Trigger source"
+local function isTriggerSource(group)
+	return group.triggerSource or group.label == triggerSourceLabel
+end
+
 -- Skill gems with an effect outside of their own damage (auras and other persistent buffs, curses,
 -- marks, ...) that the character doesn't use yet
 local function auxCandidates(ctx)
@@ -1824,7 +1885,7 @@ local function optimizeAuxSkills(ctx)
 	local cur = eval(ctx)
 	for index = #groups, 1, -1 do
 		local group = groups[index]
-		if isAuxGroup(ctx, group) then
+		if isAuxGroup(ctx, group) and not isTriggerSource(group) then
 			t_remove(groups, index)
 			sync(ctx)
 			local score = eval(ctx)
@@ -2724,7 +2785,7 @@ local function optimizeWeaponSets(ctx, allowUniques)
 		local gemData = group.gemList[1] and group.gemList[1].gemData
 		-- Persistent buffs have to stay available in the set the main skill is used in, so only
 		-- skills that are cast (curses, marks, offerings, ...) are candidates for set 2
-		if group.enabled and isAuxGroup(ctx, group) and gemData and not gemData.tags.persistent then
+		if group.enabled and isAuxGroup(ctx, group) and not isTriggerSource(group) and gemData and not gemData.tags.persistent then
 			t_insert(aux, group)
 		end
 	end
@@ -3542,13 +3603,259 @@ local function treeStep(ctx, round)
 	log(ctx, "  -> %.1f", score)
 end
 
+-- Meta skills trigger the Spell that is socketed in their group, and the optimiser only filled support sockets: such a main skill had no
+-- damage. Try every Spell that can be triggered as that Spell (the engine rejects the ones a meta skill can't trigger with a score of 0),
+-- socket the best one at index 2 and select it as the group's active skill, so that the supports found next support it. Then more
+-- Spells are added while the group's Full DPS rises (the Energy they need is summed: the engine gives a group that needs more than the
+-- meta skill can hold no triggers, and a Spell that costs more Energy than it adds damage lowers the rate of the others), at most
+-- opts.maxMetaSpells. A group with one Spell is scored by the selected skill as before; with several, by the group's Full DPS
+-- (addGroupTotal), which the group's "Include in Full DPS" shows in the program too
+local function optimizeMetaSpell(ctx)
+	local group = ctx.group
+	local meta = group.displaySkillList and group.displaySkillList[1]
+	if not (meta and meta.activeEffect.grantedEffect.skillTypes[SkillType.Meta]) then
+		return
+	end
+	local gemList = group.gemList
+	local function select(skillId)
+		for index, skill in ipairs(group.displaySkillList) do
+			if skill.activeEffect.grantedEffect.id == skillId then
+				group.mainActiveSkill, group.mainActiveSkillCalcs = index, index
+				return
+			end
+		end
+	end
+	local build = ctx.build
+	local candidates = { }
+	for _, gemData in pairs(build.data.gems) do
+		local grantedEffect = gemData.grantedEffect
+		local types = grantedEffect and grantedEffect.skillTypes
+		if types and not grantedEffect.support and not grantedEffect.fromItem and not grantedEffect.fromTree and not grantedEffect.hideFromSideBar
+			and types[SkillType.Spell] and types[SkillType.Triggerable] and not types[SkillType.Meta]
+			and (grantedEffect.levels and grantedEffect.levels[1] and grantedEffect.levels[1].levelRequirement or 1) <= build.characterLevel then
+			t_insert(candidates, gemData)
+		end
+	end
+	t_sort(candidates, function(a, b) return a.id < b.id end)
+	-- more Spells: the group's Full DPS decides; one Spell is scored by the selected skill
+	local function addSpells()
+		local function show()
+			build.skillsTab:ProcessSocketGroup(group)
+			build.buildFlag = true
+			runCallback("OnFrame")
+			select(gemList[2].skillId)
+		end
+		if metaSpellCount(group) >= ctx.opts.maxMetaSpells then
+			return
+		end
+		local added = false
+		group.includeInFullDPS = true
+		local cur = eval(ctx)
+		while metaSpellCount(group) < ctx.opts.maxMetaSpells do
+			local at = metaSpellCount(group) + 2
+			local taken = { }
+			for index = 2, at - 1 do
+				taken[gemList[index].gemData] = true
+			end
+			local best, bestScore = nil, cur
+			for _, gemData in ipairs(candidates) do
+				if not taken[gemData] then
+					t_insert(gemList, at, makeGemInstance(ctx, gemData))
+					local score = eval(ctx)
+					t_remove(gemList, at)
+					if better(ctx, score, bestScore) then
+						best, bestScore = gemData, score
+					end
+				end
+			end
+			if not best then
+				break
+			end
+			t_insert(gemList, at, makeGemInstance(ctx, best))
+			cur, added = bestScore, true
+			log(ctx, "  + %s as a second Spell of %s: group Full DPS %.1f", best.name, gemList[1].nameSpec or "the meta skill", cur)
+		end
+		group.includeInFullDPS = (added or metaSpellCount(group) > 1) or nil
+		show()
+	end
+	if metaSpellCount(group) > 0 then
+		select(gemList[2].skillId)
+		addSpells()
+		sync(ctx)
+		return
+	elseif #gemList > 1 then
+		return
+	end
+	local best, bestScore = nil, 0
+	for _, gemData in ipairs(candidates) do
+		gemList[2] = makeGemInstance(ctx, gemData)
+		build.skillsTab:ProcessSocketGroup(group)
+		-- (the group's skill list has the new gem after a frame only)
+		build.buildFlag = true
+		runCallback("OnFrame")
+		select(gemData.grantedEffectId)
+		local score = eval(ctx)
+		if score > bestScore then
+			best, bestScore = gemData, score
+		end
+	end
+	gemList[2] = best and makeGemInstance(ctx, best) or nil
+	build.skillsTab:ProcessSocketGroup(group)
+	if best then
+		select(best.grantedEffectId)
+		log(ctx, "  %s triggers %s: %.1f", gemList[1].nameSpec or "the meta skill", best.name, bestScore)
+		addSpells()
+	else
+		group.mainActiveSkill, group.mainActiveSkillCalcs = 1, 1
+	end
+	sync(ctx)
+end
+
+-- A skill that a passive node or an item triggers on an event of the whole build (Elemental Storm: Critical Hits with Spells) has a
+-- rule with a `source` in CalcTriggers.lua (supportTriggerEvents): the source is any skill of the build that the rule accepts. The
+-- optimiser built around the triggered skill alone, so the build had no source and the skill never triggered. This adds a socket
+-- group for the source: every gem the rule's `source` filter accepts is tried in it and scored by the MAIN skill, the best stays and
+-- gets its supports like an auxiliary skill (supportAuxGroup, the main skill's score decides). A candidate only counts when it raises
+-- the trigger rate (Speed of the triggered skill): a curse or an aura raises the score without being a source, and the auxiliary
+-- step is the one to add those. A tie goes to the higher rate, because a skill whose damage doesn't depend on the rate yet scores the
+-- same with every source.
+-- The group is marked (triggerSource, and its label, which a saved build keeps) so the auxiliary and weapon set steps leave it alone.
+-- ponytail: one source skill, the rule's filter is applied to the gem's skill types only (the calculation rejects one without hits);
+-- upgrade path = a second source for a rule with two events, supports chosen for the trigger rate while the score doesn't depend on it
+local function optimizeTriggerSource(ctx)
+	local build = ctx.build
+	local groups = build.skillsTab.socketGroupList
+	for index = #groups, 1, -1 do
+		if isTriggerSource(groups[index]) then
+			t_remove(groups, index)
+		end
+	end
+	-- (the rules only run with Use approximations on)
+	if not build.configTab.input.useApproximations or ctx.opts.maxSkills < 2 then
+		return
+	end
+	sync(ctx)
+	local ok, _, env = pcall(calcOutput, ctx)
+	local skillData = ok and env.player.mainSkill and env.player.mainSkill.skillData
+	local rule
+	for _, candidate in ipairs(ctx.calcs.supportTriggerEvents or { }) do
+		if candidate.source and skillData and skillData[candidate.key] then
+			rule = candidate
+			break
+		end
+	end
+	if not rule then
+		return
+	end
+	local cur = eval(ctx)
+	local curRate = ctx.lastOutput and ctx.lastOutput.Speed or 0
+	local best, bestScore, bestRate = nil, 0, 0
+	local group = { label = triggerSourceLabel, triggerSource = true, enabled = true, gemList = { } }
+	t_insert(groups, group)
+	local candidates = { }
+	for _, gemData in pairs(build.data.gems) do
+		local grantedEffect = gemData.grantedEffect
+		local types = grantedEffect and grantedEffect.skillTypes
+		if types and not grantedEffect.support and not grantedEffect.fromItem and not grantedEffect.fromTree and not grantedEffect.hideFromSideBar
+			and not types[SkillType.Meta] and not types[SkillType.Triggered] and not types[SkillType.InbuiltTrigger] and not grantedEffect.triggered
+			and (grantedEffect.levels and grantedEffect.levels[1] and grantedEffect.levels[1].levelRequirement or 1) <= build.characterLevel
+			and rule.source({ skillTypes = types }, { hit = true }) then
+			t_insert(candidates, gemData)
+		end
+	end
+	t_sort(candidates, function(a, b) return a.id < b.id end)
+	for _, gemData in ipairs(candidates) do
+		group.gemList[1] = makeGemInstance(ctx, gemData)
+		local score = eval(ctx)
+		local rate = ctx.lastOutput and ctx.lastOutput.Speed or 0
+		if rate > curRate * (1 + 1e-9) and not better(ctx, cur, score)
+			and (better(ctx, score, bestScore) or (not better(ctx, bestScore, score) and rate > bestRate * (1 + 1e-9))) then
+			best, bestScore, bestRate = gemData, score, rate
+		end
+	end
+	if best then
+		group.gemList[1] = makeGemInstance(ctx, best)
+		build.skillsTab:ProcessSocketGroup(group)
+		local score = supportAuxGroup(ctx, group, bestScore)
+		log(ctx, "  %s is the source of %s's trigger (%s): %.1f", best.name, ctx.group.gemList[1].nameSpec or "the main skill", rule.name, score)
+	else
+		t_remove(groups)
+	end
+	sync(ctx)
+end
+
+-- A skill with several stat sets calculates the one that is selected (the program's "Stat set" choice, shown one at a time). When the
+-- selected set deals nothing, the best of the others is selected: Volatile Dead's first set is the skill, its damage is in "Explosion"
+-- and "Core". A set that already deals damage is left alone (the first one, unless the build says otherwise)
+local function chooseStatSet(ctx)
+	local group = ctx.group
+	local active = group.displaySkillList and group.displaySkillList[group.mainActiveSkill or 1]
+	local effect = active and active.activeEffect
+	local statSets = effect and effect.srcInstance and effect.grantedEffect.statSets
+	if not statSets or #statSets < 2 or eval(ctx) > 0 then
+		return
+	end
+	local instance, id = effect.srcInstance, effect.grantedEffect.id
+	instance.statSet, instance.statSetCalcs = instance.statSet or { }, instance.statSetCalcs or { }
+	local first = instance.statSet[id] or 1
+	local best, bestScore = first, 0
+	for index = 1, #statSets do
+		instance.statSet[id], instance.statSetCalcs[id] = index, index
+		local score = eval(ctx)
+		if score > bestScore then
+			best, bestScore = index, score
+		end
+	end
+	instance.statSet[id], instance.statSetCalcs[id] = best, best
+	if best ~= first then
+		log(ctx, "  stat set \"%s\": %.1f (the selected one dealt nothing)", statSets[best].label or tostring(best), bestScore)
+	end
+	sync(ctx)
+end
+
+-- A skill that deals no damage itself but triggers the skills granted with it (The Stars Answer: Starfall, Apocalypse: three disasters,
+-- Archon of Chayula: Chayula's Will, with Use approximations on the engine gives them a rate) has its damage in the group's other active
+-- skills. When the selected skill deals nothing, select the group's best one; if none deals damage yet (an Attack without a weapon),
+-- the first triggered one, so that the weapon step has something to compare. A skill that deals damage stays selected
+local function chooseGroupSkill(ctx)
+	local group = ctx.group
+	local list = group.displaySkillList
+	-- (a meta skill's group is handled by optimizeMetaSpell)
+	if not list or #list < 2 or list[1].activeEffect.grantedEffect.skillTypes[SkillType.Meta] or eval(ctx) > 0 then
+		return
+	end
+	local first = group.mainActiveSkill or 1
+	local best, bestScore, triggered = first, 0, nil
+	for index, skill in ipairs(list) do
+		if index ~= first then
+			group.mainActiveSkill, group.mainActiveSkillCalcs = index, index
+			local score = eval(ctx)
+			if score > bestScore then
+				best, bestScore = index, score
+			end
+			triggered = triggered or skill.activeEffect.grantedEffect.skillTypes[SkillType.Triggered] and index or nil
+		end
+	end
+	best = bestScore > 0 and best or triggered or first
+	group.mainActiveSkill, group.mainActiveSkillCalcs = best, best
+	if best ~= first then
+		log(ctx, "  %s: %.1f (the selected skill dealt nothing)", list[best].activeEffect.grantedEffect.name, bestScore)
+	end
+	sync(ctx)
+end
+
 local function runRound(ctx, round, allowUniques)
 	local score
+	optimizeMetaSpell(ctx)
 	if eval(ctx) <= 0 then
+		chooseGroupSkill(ctx)
 		-- Attacks do nothing without a weapon, so supports can't be compared before one is equipped
 		log(ctx, "[round %d] weapons", round)
 		optimizeWeapons(ctx, allowUniques)
+		chooseGroupSkill(ctx)
+		chooseStatSet(ctx)
 	end
+	optimizeTriggerSource(ctx)
 	log(ctx, "[round %d] support gems", round)
 	ctx.multiStart = round == 1
 	if ctx.group.noSupports then
@@ -3722,6 +4029,9 @@ function optimizer.Describe(build, options)
 	local detail = output.Minion or output
 	local mainGroup = build.skillsTab.socketGroupList[build.mainSocketGroup]
 	local minions = output.Minion and mainGroup and mainGroup.gemList[1] and mainGroup.gemList[1].count or 1
+	if output.FullDPS and mainGroup and mainGroup.includeInFullDPS then
+		add("Full DPS of the group's Spells (the score): %.0f", output.FullDPS)
+	end
 	add("Combined DPS: %.0f   (%shit DPS %.0f, crit chance %.1f%%, speed %.2f/s)", (output.CombinedDPS or 0) + (output.Minion and output.Minion.CombinedDPS or 0) * minions, output.Minion and "per minion: " or "", detail.TotalDPS or 0, detail.CritChance or 0, detail.Speed or 0)
 	if output.Minion then
 		add("Minions: %d (gem count; the engine's own figures are for one minion)", minions)
@@ -3763,7 +4073,8 @@ function optimizer.Describe(build, options)
 	add("== Skill links ==")
 	local group = build.skillsTab.socketGroupList[build.mainSocketGroup]
 	for index, gemInstance in ipairs(group and group.gemList or { }) do
-		add("%s %s (level %d, quality %d)", index == 1 and "Skill:  " or "Support:", gemInstance.nameSpec or "?", gemInstance.level or 1, gemInstance.quality or 0)
+		local isSpell = index > 1 and index <= metaSpellCount(group) + 1
+		add("%s %s (level %d, quality %d)", index == 1 and "Skill:  " or (isSpell and "Spell:  " or "Support:"), gemInstance.nameSpec or "?", gemInstance.level or 1, gemInstance.quality or 0)
 	end
 
 	local others = { }
@@ -3774,7 +4085,7 @@ function optimizer.Describe(build, options)
 				t_insert(names, other.gemList[gemIndex].nameSpec or "?")
 			end
 			local set2 = other.set1 == false and other.set2 ~= false
-			t_insert(others, s_format("%s (level %d)%s%s", other.gemList[1].nameSpec or "?", other.gemList[1].level or 1, #names > 0 and (" + " .. t_concat(names, ", ")) or "", set2 and "   [cast with weapon set 2]" or ""))
+			t_insert(others, s_format("%s (level %d)%s%s", other.gemList[1].nameSpec or "?", other.gemList[1].level or 1, #names > 0 and (" + " .. t_concat(names, ", ")) or "", set2 and "   [cast with weapon set 2]" or (isTriggerSource(other) and "   [source of the main skill's trigger]" or "")))
 		end
 	end
 	if #others > 0 then

@@ -126,6 +126,29 @@ local configSettings = {
 	{ var = "approxEnemyHitsOnYouPerSecond", type = "float", label = "Enemy hits on you per second:", ifOption = "useApproximations", defaultState = 2, tooltip = "Enemy Hits you take per second, used for the damage your Thorns retaliate with.\nThorns retaliate against Melee Hits, assumed to be half of them, unless they can retaliate against all Hits.\nSets the hidden Thorns skill's rate; never part of another skill's Combined DPS.", apply = function(val, modList, enemyModList)
 		modList:NewMod("Multiplier:ApproxEnemyHitsOnYouPerSecond", "BASE", m_max(val, 0), "Config", { type = "Condition", var = "UseApproximations" })
 	end },
+	-- Items and nodes that trigger on an event of the build's play (CalcTriggers.lua, supportTrigger; Runic Tempering in CalcOffence.lua)
+	-- ponytail: one of the five damage types (20%) is a guessed share of enemy Hits that deal Lightning damage; upgrade path = a Lightning
+	-- share read from the enemy's damage (the enemy skill options) or boss data, calibrated in the game (plan Phase 6)
+	{ var = "approxEnemyLightningHitShare", type = "float", label = "Enemy Hits that deal Lightning damage (%):", ifOption = "useApproximations", defaultState = 20, tooltip = "Share of the Hits you take that deal Lightning damage, used for Valako's Charge (charge builds up when you take Lightning damage).\nSet 0 for no charge.", apply = function(val, modList, enemyModList)
+		modList:NewMod("Multiplier:ApproxEnemyLightningHitShare", "BASE", m_min(m_max(val, 0), 100), "Config", { type = "Condition", var = "UseApproximations" })
+	end },
+	-- ponytail: one dodge roll every 5 s is a guess (the game data gives no rate); upgrade path = in-game measurement of how often a
+	-- build rolls (plan Phase 6)
+	{ var = "approxDodgeRollsPerSecond", type = "float", label = "Dodge rolls per second:", ifOption = "useApproximations", defaultState = 0.2, tooltip = "Dodge rolls you make per second, used for Void Illusion (an illusory copy is made on each roll, and an explosion follows when an enemy destroys it).\nSet 0 for no explosions.", apply = function(val, modList, enemyModList)
+		modList:NewMod("Multiplier:ApproxDodgeRollsPerSecond", "BASE", m_max(val, 0), "Config", { type = "Condition", var = "UseApproximations" })
+	end },
+	-- ponytail: Runic Plates come from channelling Runic Tempering at a rate the game data doesn't give (a plate is lost for every
+	-- runic_tempering_hit_per_rune backlashes), so the maximum is assumed to be held; upgrade path = the plates gained per second of
+	-- channelling, measured in the game. The "# of Runic Plates" input above wins when it is set
+	{ var = "approxRunicPlates", type = "count", label = "Runic Plates while channelling (approximation):", ifOption = "useApproximations", ifMult = "RunicPlate", defaultState = 4, tooltip = "Runic Plates assumed when '# of Runic Plates' is not set, at most 4 (Runic Tempering's maximum).", apply = function(val, modList, enemyModList, build)
+		if build.configTab.input.multiplierRunicPlate == nil then
+			local max = 4
+			for _, stat in ipairs(data.skills.RunicTemperingPlayer.statSets[1].constantStats) do
+				max = stat[1] == "runic_tempering_max_runes" and stat[2] or max
+			end
+			modList:NewMod("Multiplier:RunicPlate", "BASE", m_min(val, max), "Config", { type = "Condition", var = "UseApproximations" })
+		end
+	end },
 	-- ponytail: 0.1 Minion deaths/s (one every 10 s) is a guess; PoB doesn't model what kills your Minions.
 	-- upgrade path = a rate from the Minions' Life and the enemy's damage, calibrated by in-game measurement (plan Phase 6)
 	{ var = "approxMinionDeathsPerSecond", type = "float", label = "Minion deaths per second:", ifOption = "useApproximations", defaultState = 0.1, tooltip = "Minions of yours that die per second (all of them together), used to estimate effects that happen when a Minion dies or is revived.", apply = function(val, modList, enemyModList)
@@ -135,6 +158,16 @@ local configSettings = {
 	-- upgrade path = measure it in the game
 	{ var = "approxArchonRecovery", type = "float", label = "Archon recovery period (s):", ifOption = "useApproximations", defaultState = 10, tooltip = "Base time after losing an Archon Buff before you can gain one again.\nNot in the game data: 10 seconds is a guess.", apply = function(val, modList, enemyModList)
 		modList:NewMod("Multiplier:ApproxArchonRecovery", "BASE", m_max(val, 0), "Config", { type = "Condition", var = "UseApproximations" })
+	end },
+	-- ponytail: 1 enemy (only the one PoB calculates) gives The Stars Answer no extra meteors, so the default is the conservative end;
+	-- upgrade path = scenario defaults calibrated by in-game measurement (plan Phase 6)
+	{ var = "approxEnemiesAroundYou", type = "count", label = "Enemies around you:", ifOption = "useApproximations", defaultState = 1, tooltip = "Enemies within the radius of The Stars Answer (the target included).\nIt Triggers more Starfalls the more of them there are, after the first.\nSets the number of meteors; damage is counted for all of them.", apply = function(val, modList, enemyModList)
+		modList:NewMod("Multiplier:ApproxEnemiesAroundYou", "BASE", m_max(val, 0), "Config", { type = "Condition", var = "UseApproximations" })
+	end },
+	-- ponytail: 100% (the enemy outlives the debuff, a boss) is an assumption; a mapping pack dies first and the recorded damage is wasted;
+	-- upgrade path = a share from the enemy's Life and the build's damage, calibrated by in-game measurement (plan Phase 6)
+	{ var = "approxDebuffSurvival", type = "count", label = "Debuff duration the enemy survives (%):", ifOption = "useApproximations", defaultState = 100, tooltip = "Share of a damage-recording debuff's duration (Inevitable Agony) that the enemy stays alive.\nThe damage it recorded is dealt when it ends: a MORE multiplier of the recorded share x this.\nAn enemy that dies first wastes what was recorded: set a lower value for packs.", apply = function(val, modList, enemyModList)
+		modList:NewMod("Multiplier:ApproxDebuffSurvival", "BASE", m_min(m_max(val, 0), 100), "Config", { type = "Condition", var = "UseApproximations" })
 	end },
 	-- ponytail: infusion remnants from skills and class mechanics aren't tied to a modifier PoB can read; upgrade path = per-skill generation rules
 	{ var = "approxFireRemnantsPerSecond", type = "float", label = "^xB97123Fire ^7Infusion Remnants/s, other:", ifOption = "useApproximations", tooltip = "Fire Infusion Remnants you collect per second from sources PoB can't read,\ne.g. skills that leave a Remnant or class mechanics. Used to estimate your Fire Infusions\nwhen '# of Fire Infusions' is left empty.", apply = function(val, modList, enemyModList)

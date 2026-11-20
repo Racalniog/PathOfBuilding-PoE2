@@ -425,4 +425,128 @@ describe("BuildOptimizer", function()
 		assert.is_nil(ok)
 		assert.is_truthy(errMsg:match("is not an active skill gem"))
 	end)
+
+	it("selects the stat set that deals the damage when the selected one deals none", function()
+		-- Volatile Dead: set 1 is the skill, "Explosion" and "Core" hit
+		local ok, pin = optimizer.SetupCharacter(build, { class = "Witch", skill = "Volatile Dead", skillSource = "item" })
+		assert.is_true(ok)
+		assert.are.equals(0, build.calcsTab.mainOutput.CombinedDPS)
+		local options = copyTable(quickOptions)
+		options.pin = pin
+		local result = optimizer.Optimize(build, options)
+		assert.is_true(result.score > 0)
+		local instance = build.skillsTab.socketGroupList[build.mainSocketGroup].gemList[1]
+		local index = instance.statSet.VolatileDeadPlayer
+		assert.is_true(index == 2 or index == 3)
+		-- a skill that deals damage in its first set keeps it
+		newBuild()
+		assert.is_true(optimizer.SetupCharacter(build, { class = "Sorceress", skill = "Spark" }))
+		optimizer.Optimize(build, quickOptions)
+		local spark = build.skillsTab.socketGroupList[build.mainSocketGroup].gemList[1]
+		assert.is_true(not spark.statSet or not next(spark.statSet) or spark.statSet.SparkPlayer == nil or spark.statSet.SparkPlayer == 1)
+	end)
+
+	it("scores a skill that shows average damage by damage per second when asked to", function()
+		-- Volatile Dead's Core set shows average damage per cast (1.25 casts per second)
+		local function run(perSecond)
+			newBuild()
+			local ok, pin = optimizer.SetupCharacter(build, { class = "Witch", skill = "Volatile Dead", skillSource = "item" })
+			assert.is_true(ok)
+			local options = copyTable(quickOptions)
+			options.pin = pin
+			options.perSecond = perSecond
+			local result = optimizer.Optimize(build, options)
+			return result.score, build.calcsTab.mainOutput
+		end
+		local perUse, output = run(false)
+		assert.are.near(output.CombinedDPS, perUse, perUse * 1e-6)
+		assert.are.near(output.AverageDamage, perUse, perUse * 1e-6)
+		local perSecond, output2 = run(true)
+		assert.are.near(output2.TotalDPS, perSecond, perSecond * 1e-6)
+		assert.is_true(output2.TotalDPS > output2.AverageDamage)
+	end)
+
+	it("sockets a Spell into a meta skill and supports that Spell", function()
+		-- Cast on Block comes from Svalinn: the group is the meta skill alone, with no damage of its own
+		local ok, pin = optimizer.SetupCharacter(build, { class = "Warrior", skill = "Cast on Block" })
+		assert.is_true(ok)
+		assert.are.equals(0, build.calcsTab.mainOutput.CombinedDPS or 0)
+		local options = copyTable(quickOptions)
+		options.pin = pin
+		options.approximations = true
+		options.maxSupports = 2
+		options.maxMetaSpells = 1
+		local result = optimizer.Optimize(build, options)
+		assert.is_true(result.score > 0)
+		local group = build.skillsTab.socketGroupList[build.mainSocketGroup]
+		assert.are.equals("Cast on Block", group.gemList[1].nameSpec)
+		local spell = group.gemList[2].gemData
+		assert.is_falsy(spell.grantedEffect.support)
+		-- the Spell is the group's selected skill, the supports come after it
+		assert.are.equals(spell.grantedEffectId, group.displaySkillList[group.mainActiveSkill].activeEffect.grantedEffect.id)
+		for index = 3, #group.gemList do
+			assert.is_true(group.gemList[index].gemData.grantedEffect.support)
+		end
+		assert.is_true(#group.gemList >= 3)
+		assert.is_falsy(group.includeInFullDPS) -- one Spell: scored by the selected skill, as before
+		assert.are.equals(spell.name .. "'s Trigger: Cast on Block", build.calcsTab.mainEnv.player.mainSkill.infoMessage)
+		-- the same with a meta skill that is a gem
+		newBuild()
+		assert.is_true(optimizer.SetupCharacter(build, { class = "Sorceress", skill = "Cast on Critical" }))
+		options.pin = nil
+		local gem = optimizer.Optimize(build, options)
+		assert.is_true(gem.score > 0)
+		assert.is_falsy(build.skillsTab.socketGroupList[build.mainSocketGroup].gemList[2].gemData.grantedEffect.support)
+	end)
+
+	it("adds Spells to a meta skill while the group's Full DPS rises, and scores the group by it", function()
+		assert.is_true(optimizer.SetupCharacter(build, { class = "Sorceress", skill = "Cast on Critical" }))
+		local options = copyTable(quickOptions)
+		options.approximations = true
+		options.maxMetaSpells = 2
+		local result = optimizer.Optimize(build, options)
+		local group = build.skillsTab.socketGroupList[build.mainSocketGroup]
+		-- the meta skill, two Spells, then the supports
+		assert.is_falsy(group.gemList[2].gemData.grantedEffect.support)
+		assert.is_falsy(group.gemList[3].gemData.grantedEffect.support)
+		assert.are_not.equals(group.gemList[2].gemData, group.gemList[3].gemData)
+		for index = 4, #group.gemList do
+			assert.is_true(group.gemList[index].gemData.grantedEffect.support)
+		end
+		assert.is_true(group.includeInFullDPS)
+		-- the score is the program's Full DPS of the group, which is more than the selected Spell's own damage
+		local output = build.calcsTab.mainOutput
+		assert.are.near(output.FullDPS, result.score, result.score * 1e-6)
+		assert.is_true(output.FullDPS > output.CombinedDPS)
+		assert.are.equals(group.gemList[2].skillId, group.displaySkillList[group.mainActiveSkill].activeEffect.grantedEffect.id)
+	end)
+
+	it("adds the source skill of a node-triggered skill, and only for one", function()
+		-- Elemental Storm triggers on Critical Hits with Spells of the build: built alone it has no source and never triggers
+		local ok, pin = optimizer.SetupCharacter(build, { class = "Sorceress", ascendancy = "Stormweaver", skill = "Elemental Storm", skillSource = "tree" })
+		assert.is_true(ok)
+		local options = copyTable(quickOptions)
+		options.pin = pin
+		options.approximations = true
+		options.rounds = 2 -- (the second round starts from the saved build: the group is found again by its label)
+		local result = optimizer.Optimize(build, options)
+		assert.is_true(result.score > 0)
+		local groups = build.skillsTab.socketGroupList
+		assert.are.equals(2, #groups)
+		local source = groups[2]
+		assert.are.equals("Trigger source", source.label)
+		assert.is_true(source.gemList[1].gemData.grantedEffect.skillTypes[SkillType.Spell])
+		local mainSkill = build.calcsTab.mainEnv.player.mainSkill
+		assert.are.equals("ElementalStormPlayer", mainSkill.activeEffect.grantedEffect.id)
+		assert.is_nil(mainSkill.infoMessage2)
+		assert.are.equals("Elemental Storm's Trigger: " .. source.gemList[1].nameSpec, mainSkill.infoMessage)
+		assert.is_true(build.calcsTab.mainOutput.Speed > 0)
+		-- a main skill without such a rule gets no extra group
+		newBuild()
+		assert.is_true(optimizer.SetupCharacter(build, { class = "Sorceress", skill = "Spark" }))
+		options.pin = nil
+		options.rounds = 1
+		optimizer.Optimize(build, options)
+		assert.are.equals(1, #build.skillsTab.socketGroupList)
+	end)
 end)

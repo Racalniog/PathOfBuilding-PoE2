@@ -11657,6 +11657,12 @@ skills["SummonMistRavenPlayer"] = {
 	baseTypeName = "Mist Raven",
 	icon = "Art/2DArt/SkillIcons/MistRavenSummon.dds",
 	fromItem = true,
+	minionList = {
+		"MistRaven",
+	},
+	minionSkillList = {
+		"TangmazuMadFlightMinion",
+	},
 	color = 4,
 	description = "Summons a mysterious undamageable Mist Raven that can be Commanded to dive at target location, crashing through an otherworldly mirror and damaging enemies in an area. The raven grants you a Frenzy Charge for each enemy it Culls.",
 	skillTypes = { [SkillType.Minion] = true, [SkillType.CreatesMinion] = true, [SkillType.HasReservation] = true, [SkillType.Persistent] = true, [SkillType.Physical] = true, [SkillType.Chaos] = true, [SkillType.CommandableMinion] = true, [SkillType.Companion] = true, [SkillType.MinionsAreUndamagable] = true, [SkillType.CreatesCompanion] = true, [SkillType.GeneratesCharges] = true, },
