@@ -6602,6 +6602,18 @@ function calcs.offence(env, actor, activeSkill)
 		end
 	end
 
+	-- The other stat set of a skill a trigger calculates in the selected set (The Stars Answer's other star, CalcTriggers.lua, intervalTrigger,
+	-- Use approximations on): its damage per second is added to this skill's Total DPS and Combined DPS
+	if skillData.otherStatSetDps and not skillData.showAverage then
+		output.TotalDPS = output.TotalDPS + skillData.otherStatSetDps
+		output.CombinedDPS = output.CombinedDPS + skillData.otherStatSetDps
+		activeSkill.infoMessage2 = s_format("Approximation: adds %.1f DPS of the skill's other stat set", skillData.otherStatSetDps)
+		if breakdown and breakdown.TotalDPS then
+			t_insert(breakdown.TotalDPS, s_format("+ %.1f ^8(%s; an approximation)", skillData.otherStatSetDps, skillData.otherStatSetInfo))
+			t_insert(breakdown.TotalDPS, s_format("= %.1f ^8(Total DPS)", output.TotalDPS))
+		end
+	end
+
 	-- Ignites that don't come from this skill's Hits. Rules from the stat descriptions: "Enemies in your Presence are Ignited as though dealt
 	-- N Base Fire Damage" (ignite_as_though_dealing_X_damage_in_your_presence), and the Ignited Ground that "Drop Ignited Ground while moving,
 	-- which ... Ignites as though dealing Fire Damage equal to N% of your maximum Life" leaves (unique_boots_secondary_ground_ignite_while_
