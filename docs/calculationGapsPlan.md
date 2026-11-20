@@ -291,6 +291,11 @@ Progress:
     with *Is the enemy Ignited?* (its explosion is 10% of the configured enemy's Life, a boss's by
     default, not the pack monster that dies: unchanged). Impending Doom's Doom Blast ("when the Curse expires"): one per Curse
     duration, at most the curse's cast rate.
+  - Living Lightning I / II: triggered by Hits of the supported skill that deal Lightning damage (a source without Lightning damage: 0
+    triggers). Its Minions are counted in Full DPS: triggers per second (capped by the 0.2 s cooldown) x the Minions' 30 s duration, at
+    most the limit (5 / 8); the Minion's own output is one Minion's. Approximations off: one Minion, as before. The export has the
+    cooldown and stored uses of the single level skill on level 1 only (Living Lightning II), so the skill falls back to its level 1
+    row for them.
   - Cooldown: with stored uses (Coursing Current 6, Static Shocks 3, Fan the Flames 5, Doom Blast 7) min(rate, 1 / cooldown); with one
     stored use (Mana Flare, Volcanic Eruption) PoB's cooldown alignment simulation, at most the event rate; without a cooldown (Fiery
     Death) every event.
@@ -305,8 +310,7 @@ Progress:
     option is gone (it changed nothing in PoE2).
   - Not modelled, with the reason: Elemental Discharge (its damage stats, % of Intelligence, aren't mapped, and the ailments it consumes
     come from other skills), Corrupting Cry I / II, Paquate's Pact, Decaying Hex (damage over time debuffs: PoB treats a debuff as
-    applied, so the rate changes nothing), Living Lightning I / II, Skittering Stone I / II (Minions: their count, not the trigger rate,
-    sets the damage), Crater, Brambleslam, Caltrops, Burning Inscription, Accelerated Growth I / II (ground objects and Hazards whose
+    applied, so the rate changes nothing), Skittering Stone I / II (its Minion isn't in the exported data, so there is no damage to calculate), Crater, Brambleslam, Caltrops, Burning Inscription, Accelerated Growth I / II (ground objects and Hazards whose
     hits per object PoB doesn't model), Frozen Spite, Bone Shrapnel, Eonyr's Thunder (kills of Frozen, Pinned or Electrocuted enemies:
     no rate for those states), Xibaqua's Rending (corpses), Electromagnetism, Haemocrystals, Flame Pillar, Battershout, Runeforged
     Blades, Armour Explosion (consume ailments or Fully Broken Armour, no rate), Tawhoa's Tending, Bursting Plague (deaths of totems

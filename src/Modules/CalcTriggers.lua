@@ -1491,6 +1491,7 @@ local function sourceRecord(cached)
 		hitSpeed = cached.HitSpeed or cached.Speed,
 		castTime = cached.ActiveSkill.activeEffect.grantedEffect.castTime or 0,
 		shockChance = m_min(output.ShockChance or 0, 100),
+		dealsLightning = (passOutput.LightningCritAverage or 0) > 0,
 		igniteDuration = output.IgniteDuration or 0,
 		duration = output.Duration or 0,
 		critPercent = percent(critAverage),
@@ -1671,6 +1672,10 @@ local supportTriggerEvents = {
 	end },
 	{ key = "supportTriggerOnShock", name = "Shocks", rate = function(env, source)
 		return source.rates.hits * source.shockChance / 100, s_format("%.2f x %.2f%% ^8(Hits per second x Shock chance of %s)", source.rates.hits, source.shockChance, source.name)
+	end },
+	{ key = "supportTriggerOnLightningHit", name = "Hits that deal Lightning damage", rate = function(env, source)
+		local hits = source.dealsLightning and source.rates.hits or 0
+		return hits, s_format("%.2f ^8(Hits per second of %s%s)", hits, source.name, source.dealsLightning and "" or ", which deals no Lightning damage")
 	end },
 	{ key = "supportTriggerOnHitVsIgnited", name = "Hits against Ignited enemies", rate = function(env, source, ignited, ignitedText)
 		return source.rates.hits * ignited, s_format("%.2f x %.3f ^8(Hits per second of %s x %s)", source.rates.hits, ignited, source.name, ignitedText)

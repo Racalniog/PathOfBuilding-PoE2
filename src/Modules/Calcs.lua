@@ -383,10 +383,18 @@ function calcs.calcFullDPS(build, mode, override, specEnv)
 				if activeSkill.minion or usedEnv.minion then
 					minionOut = captureFields(usedEnv.minion.output)
 					local minionNamePrefix = (activeSkill.minion and activeSkill.minion.minionData.name..": ") or (usedEnv.minion and usedEnv.minion.minionData.name..": ") or ""
+					local minionCount = activeSkillCount
+					-- A support-triggered Minion skill (Living Lightning), with approximations on: the Minions alive are the triggers
+					-- per second x their duration, at most the limit (the Minion's own output is one Minion's)
+					local skillOut = usedEnv.player.output
+					if activeSkill.minion and activeSkill.skillData.supportTriggerChance and skillEnv.modDB:Flag(nil, "Condition:UseApproximations")
+						and skillOut.ActiveMinionLimit and skillOut.Duration then
+						minionCount = minionCount * m_min(skillOut.ActiveMinionLimit, (skillOut.Speed or 0) * skillOut.Duration)
+					end
 					t_insert(pass.actors, {
 						out = minionOut,
 						name = skillName,
-						count = activeSkillCount,
+						count = minionCount,
 						trigger = activeSkill.infoTrigger,
 						skillPart = minionNamePrefix .. activeSkill.skillPartName,
 						sourceName = skillName,

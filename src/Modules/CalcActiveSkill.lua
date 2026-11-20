@@ -825,6 +825,11 @@ function calcs.buildActiveSkillModList(env, activeSkill)
 			grantedEffectLevel[resource.."ReservationPercent"] = 0
 		end
 	end
+	-- (a single level skill's cooldown and stored uses sit on its level 1 row only in the export: Living Lightning II)
+	if activeGrantedEffect.skillTypes and activeGrantedEffect.skillTypes[SkillType.SingleLevelSkill] and activeGrantedEffect.levels[1] then
+		grantedEffectLevel.cooldown = grantedEffectLevel.cooldown or activeGrantedEffect.levels[1].cooldown
+		grantedEffectLevel.storedUses = grantedEffectLevel.storedUses or activeGrantedEffect.levels[1].storedUses
+	end
 	activeEffect.grantedEffectLevel = grantedEffectLevel
 
 	-- Add extra modifiers from granted effect level

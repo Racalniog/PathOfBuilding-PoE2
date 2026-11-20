@@ -248,6 +248,14 @@ return function(mod, flag, skill)
 	skill("supportTriggerChance", nil),
 	skill("supportTriggerOnIgnitedKill", nil),
 },
+["chance_to_trigger_living_lightning_on_lightning_damage_%"] = {
+	skill("supportTriggerChance", nil),
+	skill("supportTriggerOnLightningHit", nil),
+},
+["supported_skill_triggers_living_lightning_on_dealing_lightning_damage"] = {
+	skill("triggerChance:Living Lightning", nil),
+	value = 100,
+},
 ["support_trigger_mana_flare_on_crit"] = {
 	skill("triggerChance:Mana Flare", nil),
 	value = 100,
