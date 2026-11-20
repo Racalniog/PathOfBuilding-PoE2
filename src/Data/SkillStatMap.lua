@@ -394,6 +394,14 @@ return function(mod, flag, skill)
 		value = 100,
 	},
 },
+-- Void Illusion's explosion, the hidden skill of the node (CalcTriggers.lua, supportTrigger, with Use approximations on)
+["triggered_by_void_illusion"] = {
+	{
+		skill("supportTriggerChance", nil),
+		skill("supportTriggerOnCopyDestroyed", nil),
+		value = 100,
+	},
+},
 -- Runic Tempering (CalcOffence.lua, its backlash with Use approximations on): the time between backlashes
 ["runic_tempering_backlash_cooldown_ms"] = {
 	skill("runicTemperingBacklashCooldown", nil),

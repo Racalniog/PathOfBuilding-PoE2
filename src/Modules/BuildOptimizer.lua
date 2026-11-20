@@ -3630,6 +3630,31 @@ local function optimizeMetaSpell(ctx)
 	sync(ctx)
 end
 
+-- A group of several skills calculates the selected one: Void Illusion's node grants the buff that makes the copies and, second, the
+-- explosion that deals the damage. When the selected skill deals nothing, the best of the others is selected (a group that deals damage
+-- is left alone; a meta skill's group is handled by optimizeMetaSpell)
+local function chooseActiveSkill(ctx)
+	local group = ctx.group
+	local list = group.displaySkillList
+	if not list or #list < 2 or list[1].activeEffect.grantedEffect.skillTypes[SkillType.Meta] or eval(ctx) > 0 then
+		return
+	end
+	local first = group.mainActiveSkill or 1
+	local best, bestScore = first, 0
+	for index = 1, #list do
+		group.mainActiveSkill, group.mainActiveSkillCalcs = index, index
+		local score = eval(ctx)
+		if score > bestScore then
+			best, bestScore = index, score
+		end
+	end
+	group.mainActiveSkill, group.mainActiveSkillCalcs = best, best
+	if best ~= first then
+		log(ctx, "  skill \"%s\": %.1f (the selected one dealt nothing)", list[best].activeEffect.grantedEffect.name, bestScore)
+	end
+	sync(ctx)
+end
+
 -- A skill with several stat sets calculates the one that is selected (the program's "Stat set" choice, shown one at a time). When the
 -- selected set deals nothing, the best of the others is selected: Volatile Dead's first set is the skill, its damage is in "Explosion"
 -- and "Core". A set that already deals damage is left alone (the first one, unless the build says otherwise)
@@ -3666,6 +3691,7 @@ local function runRound(ctx, round, allowUniques)
 		-- Attacks do nothing without a weapon, so supports can't be compared before one is equipped
 		log(ctx, "[round %d] weapons", round)
 		optimizeWeapons(ctx, allowUniques)
+		chooseActiveSkill(ctx)
 		chooseStatSet(ctx)
 	end
 	log(ctx, "[round %d] support gems", round)

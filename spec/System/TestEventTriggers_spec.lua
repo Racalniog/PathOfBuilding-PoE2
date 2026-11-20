@@ -81,6 +81,51 @@ describe("TestEventTriggers", function()
 		end)
 	end)
 
+	describe("Void Illusion", function()
+		-- the explosion is the node's hidden second skill (the first is the buff that makes the copies)
+		local setup = { class = "Monk", skill = "Void Illusion", skillSource = "tree", level = 95, active = 2 }
+
+		it("keeps the cooldown-only rate with approximations off", function()
+			local output, skill = calc(setup)
+			assert.is_nil(skill.infoMessage)
+			assert.are.equals("VoidIllusionSpawnPlayer", skill.activeEffect.grantedEffect.id)
+			assert.are.equals(1 / 4, output.Speed)
+			assert.are.equals(100, skill.skillData.supportTriggerOnCopyDestroyed)
+		end)
+
+		it("explodes once per copy that an enemy destroys: the lower of dodge rolls and enemy Hits", function()
+			-- the default is one roll every 5 s
+			local output, skill = calc(setup, approx)
+			assert.are.equals("Void Illusion Trigger", skill.infoMessage)
+			assert.are.near(0.2, output.Speed, 1e-9)
+			assert.are.near(output.Speed * output.AverageDamage, output.TotalDPS, 1e-6)
+			newBuild()
+			assert.are.near(0.1, (calc(setup, with(approx, { approxEnemyHitsOnYouPerSecond = 0.1 }))).Speed, 1e-9)
+			-- more rolls than the 4 s cooldown allows
+			newBuild()
+			assert.are.near(0.25, (calc(setup, with(approx, { approxDodgeRollsPerSecond = 5 }))).Speed, 1e-9)
+		end)
+
+		it("is scored by the optimizer through its explosion, which it selects in the node's group", function()
+			local ok, pin = optimizer.SetupCharacter(build, { class = "Monk", skill = "Void Illusion", skillSource = "tree", level = 95 })
+			assert.is_true(ok)
+			local group = build.skillsTab.socketGroupList[build.mainSocketGroup]
+			assert.are.equals("VoidIllusionPlayer", group.displaySkillList[group.mainActiveSkill or 1].activeEffect.grantedEffect.id)
+			local result = optimizer.Optimize(build, { rounds = 1, points = 4, ascendancyPoints = 1, maxSupports = 1, supportStarts = 1, baseCandidates = 1,
+				weaponCombos = 1, treeVerify = 1, treeRefineFails = 1, runes = false, auxSkills = false, flasks = false, uniquePairAnchors = 1,
+				weaponSets = false, treeWidth = 1, approximations = true, pin = pin })
+			assert.is_true(result.score > 0)
+			assert.are.equals("VoidIllusionSpawnPlayer", build.calcsTab.mainEnv.player.mainSkill.activeEffect.grantedEffect.id)
+		end)
+
+		it("doesn't explode without dodge rolls", function()
+			local output, skill = calc(setup, with(approx, { approxDodgeRollsPerSecond = 0 }))
+			assert.are.equals(0, output.Speed)
+			assert.are.equals(0, output.TotalDPS)
+			assert.are.equals("No Illusions destroyed by enemies to trigger Void Illusion: no triggers", skill.infoMessage2)
+		end)
+	end)
+
 	describe("Runic Tempering", function()
 		local setup = { class = "Warrior", skill = "Runic Tempering", skillSource = "item", level = 95 }
 		local function dps(config, mods)

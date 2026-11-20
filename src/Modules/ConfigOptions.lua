@@ -132,6 +132,11 @@ local configSettings = {
 	{ var = "approxEnemyLightningHitShare", type = "float", label = "Enemy Hits that deal Lightning damage (%):", ifOption = "useApproximations", defaultState = 20, tooltip = "Share of the Hits you take that deal Lightning damage, used for Valako's Charge (charge builds up when you take Lightning damage).\nSet 0 for no charge.", apply = function(val, modList, enemyModList)
 		modList:NewMod("Multiplier:ApproxEnemyLightningHitShare", "BASE", m_min(m_max(val, 0), 100), "Config", { type = "Condition", var = "UseApproximations" })
 	end },
+	-- ponytail: one dodge roll every 5 s is a guess (the game data gives no rate); upgrade path = in-game measurement of how often a
+	-- build rolls (plan Phase 6)
+	{ var = "approxDodgeRollsPerSecond", type = "float", label = "Dodge rolls per second:", ifOption = "useApproximations", defaultState = 0.2, tooltip = "Dodge rolls you make per second, used for Void Illusion (an illusory copy is made on each roll, and an explosion follows when an enemy destroys it).\nSet 0 for no explosions.", apply = function(val, modList, enemyModList)
+		modList:NewMod("Multiplier:ApproxDodgeRollsPerSecond", "BASE", m_max(val, 0), "Config", { type = "Condition", var = "UseApproximations" })
+	end },
 	-- ponytail: Runic Plates come from channelling Runic Tempering at a rate the game data doesn't give (a plate is lost for every
 	-- runic_tempering_hit_per_rune backlashes), so the maximum is assumed to be held; upgrade path = the plates gained per second of
 	-- channelling, measured in the game. The "# of Runic Plates" input above wins when it is set

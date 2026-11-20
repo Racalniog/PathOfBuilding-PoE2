@@ -1732,6 +1732,16 @@ t_insert(supportTriggerEvents, { key = "supportTriggerOnLightningDamageTaken", n
 		s_format("x %.2f ^8(share of the charge one Lightning Hit fills: %.0f Lightning damage taken / %.0f to fill it, at most 1)", filled, damage, threshold),
 	}
 end })
+-- * Void Illusion (tree node): a copy of you is made on each dodge roll, and a copy an enemy destroys explodes (the node's hidden
+--   skill VoidIllusionSpawnPlayer, one explosion per copy destroyed). Rate = the lower of dodge rolls and enemy Hits on you per
+--   second (a copy has 1 Life and lasts 2 s, so an enemy Hit on it destroys it: every Hit on a copy counts as a Hit on you).
+-- ponytail: every enemy Hit is taken to land on a copy while copies exist; upgrade path = copies alive (rolls x duration) x the share
+--   of enemy attacks that pick a copy as target, measured in the game
+t_insert(supportTriggerEvents, { key = "supportTriggerOnCopyDestroyed", name = "Illusions destroyed by enemies", build = function(env)
+	local rolls = env.player.modDB:GetMultiplier("ApproxDodgeRollsPerSecond")
+	local hits = env.player.modDB:GetMultiplier("ApproxEnemyHitsOnYouPerSecond")
+	return m_min(rolls, hits), { s_format("min(%.2f, %.2f) ^8(dodge rolls per second, enemy Hits on you per second: one copy per roll, destroyed by an enemy Hit; an approximation)", rolls, hits) }
+end })
 
 local function supportTrigger(env, actor)
 	local mainSkill = actor.mainSkill
