@@ -549,4 +549,30 @@ describe("BuildOptimizer", function()
 		optimizer.Optimize(build, options)
 		assert.are.equals(1, #build.skillsTab.socketGroupList)
 	end)
+
+	it("gives Midnight Zenith a source of Critical Hits and selects its Crystal stat set", function()
+		-- its damage is in the second stat set and needs Critical Hits of another skill: with no source both sets score 0
+		local ok, pin = optimizer.SetupCharacter(build, { class = "Witch", skill = "Midnight Zenith", skillSource = "item", level = 95 })
+		assert.is_true(ok)
+		local options = copyTable(quickOptions)
+		options.pin = pin
+		options.approximations = true
+		local result = optimizer.Optimize(build, options)
+		assert.is_truthy(result)
+		assert.is_true(result.score > 0)
+		local main = build.skillsTab.socketGroupList[build.mainSocketGroup].gemList[1]
+		assert.are.equals(2, main.statSet.MidnightStarPlayer)
+		local source
+		for _, group in ipairs(build.skillsTab.socketGroupList) do
+			source = source or (group.label == "Trigger source" and group)
+		end
+		assert.is_truthy(source)
+		assert.are.equals("Midnight Zenith's Trigger: " .. source.gemList[1].nameSpec, build.calcsTab.mainEnv.player.mainSkill.infoMessage)
+		-- without Use approximations the skill keeps its self-cast numbers (the Crystal set alone scores): no source group is added
+		newBuild()
+		assert.is_true(optimizer.SetupCharacter(build, { class = "Witch", skill = "Midnight Zenith", skillSource = "item", level = 95 }))
+		options.approximations = false
+		assert.is_truthy(optimizer.Optimize(build, options))
+		assert.are.equals(1, #build.skillsTab.socketGroupList)
+	end)
 end)

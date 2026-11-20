@@ -3711,6 +3711,7 @@ local function optimizeMetaSpell(ctx)
 	sync(ctx)
 end
 
+local chooseStatSet -- (defined below: the source of a skill with a stat set per effect is found before the set is chosen)
 -- A skill that a passive node or an item triggers on an event of the whole build (Elemental Storm: Critical Hits with Spells) has a
 -- rule with a `source` in CalcTriggers.lua (supportTriggerEvents): the source is any skill of the build that the rule accepts. The
 -- optimiser built around the triggered skill alone, so the build had no source and the skill never triggered. This adds a socket
@@ -3738,10 +3739,12 @@ local function optimizeTriggerSource(ctx)
 	local ok, _, env = pcall(calcOutput, ctx)
 	local skillData = ok and env.player.mainSkill and env.player.mainSkill.skillData
 	local rule
-	for _, candidate in ipairs(ctx.calcs.supportTriggerEvents or { }) do
-		if candidate.source and skillData and skillData[candidate.key] then
-			rule = candidate
-			break
+	-- (the rules of the skills that trigger on an interval and take their Hits from the build are in intervalSourceRules)
+	for _, rules in ipairs({ ctx.calcs.supportTriggerEvents or { }, ctx.calcs.intervalSourceRules or { } }) do
+		for _, candidate in ipairs(rules) do
+			if not rule and candidate.source and skillData and skillData[candidate.key] then
+				rule = candidate
+			end
 		end
 	end
 	if not rule then
@@ -3776,6 +3779,9 @@ local function optimizeTriggerSource(ctx)
 	if best then
 		group.gemList[1] = makeGemInstance(ctx, best)
 		build.skillsTab:ProcessSocketGroup(group)
+		-- (Midnight Zenith: the damage is in the second stat set, which scores 0 until a source exists, so chooseStatSet couldn't pick it before)
+		chooseStatSet(ctx)
+		bestScore = eval(ctx)
 		local score = supportAuxGroup(ctx, group, bestScore)
 		log(ctx, "  %s is the source of %s's trigger (%s): %.1f", best.name, ctx.group.gemList[1].nameSpec or "the main skill", rule.name, score)
 	else
@@ -3787,7 +3793,7 @@ end
 -- A skill with several stat sets calculates the one that is selected (the program's "Stat set" choice, shown one at a time). When the
 -- selected set deals nothing, the best of the others is selected: Volatile Dead's first set is the skill, its damage is in "Explosion"
 -- and "Core". A set that already deals damage is left alone (the first one, unless the build says otherwise)
-local function chooseStatSet(ctx)
+function chooseStatSet(ctx)
 	local group = ctx.group
 	local active = group.displaySkillList and group.displaySkillList[group.mainActiveSkill or 1]
 	local effect = active and active.activeEffect
