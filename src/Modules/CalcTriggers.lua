@@ -1671,6 +1671,13 @@ end
 --   fill). During it, Apocalypse triggers one of three skills every `unleash_the_elements_base_trigger_frequency_ms` (750 ms, at
 --   increased frequency), so each gets a third; Archon of Chayula spawns its tornado every `..._tornado_interval_ms` (3 s).
 --   The Hits come from the build's skill with the most of them (eventSource), never a triggered skill.
+--   Hits per cast (approximation, skillData.dpsMultiplier as for The Stars Answer's meteors): the shown damage of a triggered skill is
+--   one Hit, so a cast that Hits several times is multiplied by that number, from the skill's own stats and all on the one enemy:
+--   Hailstorm `unleash_blizzard_number_of_bolts` (9), Crash Lightning's first stat set `unleash_static_field_number_of_pluses` (3
+--   pulses; its second stat set is the Final Strike, one Hit as shown), Chayula's Will the tornado's duration / its
+--   `archon_of_chayula_tornado_attack_interval_ms` (8 s / 200 ms = 40 Hits, the tornado chases and Slows the enemy: it is hit for its whole
+--   duration). Not multiplied: Meteor (one impact; `unleash_meteor_time_till_impact_ms`, 2 s, is a delay, not a repeat).
+--   The Glory rule of Archon of Chayula is also CalcPerform's Archon Buff uptime (calcs.chayulaGlory, doActorMisc): one uptime.
 -- * Midnight Zenith (Eventide Petals): Critical Hits with other skills that hit a Rare or Unique enemy give 2 to 7 Arctic Petals
 --   (`midnight_star_gain_x_ice_seeds_when_you_critically_hit_a_rare_or_unique_enemy`), Critical Hits that kill give the dead enemy's
 --   Power (pack monsters: 1);
@@ -1678,8 +1685,9 @@ end
 --   come from the build's skill with the most; the kills are the kills per second input x the share of Hits that are Critical.
 --   Crystals made are at most the limit per Crystal duration.
 -- ponytail: Glory is assumed to build only outside the buff, the enemy's Power per Hit is an unverified reading of "mp", the
--- Apocalypse picks its disaster evenly at random, and the damage of each triggered skill is the one PoB shows (a Hailstorm's bolts,
--- Crash Lightning's pulses, Chayula's Will's 200 ms hits for its 8 s are not multiplied by the Hits one cast makes); all other stat
+-- Apocalypse picks its disaster evenly at random, the Hits of a cast (Hailstorm's 9 bolts, Crash Lightning's 3 pulses, the tornado's
+-- 40 Hits) all land on the one enemy PoB calculates (a Hailstorm's bolts fall in a radius of 20 and are 8 wide: an upper bound), the
+-- Final Strike's stat set shows its own Hit (both of its damage ranges add up) and is scored apart from the pulses' set; all other stat
 -- sets of a skill (the large star beside the small) aren't added; upgrade path = in-game measurement (plan Phase 6) and a damage
 -- per cast for each of those skills.
 local function enemyPower(env)
@@ -1718,11 +1726,22 @@ local function gloryUptime(env, parent, percentKey, dealsKey, duration, damageNa
 		s_format("%.1f / (%.1f + %.1f) = %.3f ^8(uptime of the %.1f s buff)", duration, duration, fill, uptime, duration),
 	}
 end
+-- Archon of Chayula's Glory rule for the main skill (Chayula's Will): the Archon skill of its group, the Archon Buff's duration and its
+-- uptime, from the build's Chaos Hits. CalcPerform's Archon Buff approximation (doActorMisc) calls this too, so the buff's own and
+-- "also grant" effects and the tornado's trigger rate share one uptime. Returns nothing without the Archon skill in the group
+function calcs.chayulaGlory(env, mainSkill)
+	local parent = groupSkillWith(env, mainSkill, "gloryPerChaosHit")
+	if parent then
+		local duration = data.archonBuffs.ArchonOfChayula.duration * calcLib.mod(env.player.modDB, nil, "ArchonDuration")
+		local uptime, source, lines = gloryUptime(env, parent, "gloryPerChaosHit", "dealsChaos", duration, "Chaos")
+		return parent, duration, uptime, source, lines
+	end
+end
 local function intervalTrigger(env, actor)
 	local mainSkill = actor.mainSkill
 	local skillData = mainSkill.skillData
 	local modDB = env.player.modDB
-	local source, rate, lines, parent
+	local source, rate, lines, parent, hits
 	if skillData.intervalStarfall then
 		parent = groupSkillWith(env, mainSkill, "walkingCalamityIntervalMs")
 		if parent then
@@ -1765,8 +1784,7 @@ local function intervalTrigger(env, actor)
 					count = count + (skill.socketGroup == mainSkill.socketGroup and skill.skillData.intervalUnleash and 1 or 0)
 				end
 			else
-				duration = data.archonBuffs.ArchonOfChayula.duration * calcLib.mod(modDB, nil, "ArchonDuration")
-				uptime, glorySkill, gloryLines = gloryUptime(env, parent, "gloryPerChaosHit", "dealsChaos", duration, "Chaos")
+				parent, duration, uptime, glorySkill, gloryLines = calcs.chayulaGlory(env, mainSkill)
 				interval, count = 0, 1
 				for _, stat in ipairs(parent.activeEffect.grantedEffect.statSets[1].constantStats) do
 					if stat[1] == "archon_of_chayula_spawn_chaos_tornado_interval_ms" then
@@ -1778,6 +1796,28 @@ local function intervalTrigger(env, actor)
 			if uptime > 0 and interval > 0 then
 				rate = 1000 / interval * uptime / m_max(count, 1)
 				t_insert(lines, s_format("1000 / %.0f ms x %.3f%s = %.3f ^8(triggers of %s per second: every interval while the buff lasts, x uptime)", interval, uptime, count > 1 and s_format(" / %d", count) or "", rate, mainSkill.activeEffect.grantedEffect.name))
+				-- Hits per cast (approximation, see the rules above): the DPS multiplier, from the skill's own multiplier each time (a
+				-- second pass over the same skill must not compound it)
+				local hitLine
+				if unleash then
+					hits = skillData.unleashHitsPerCast
+					hitLine = hits and s_format("x %g ^8(approximation: Hits per cast from the skill's data, all on the one enemy)", hits)
+				else
+					local tornadoMs = 0
+					for _, stat in ipairs(mainSkill.activeEffect.grantedEffect.statSets[1].constantStats) do
+						if stat[1] == "archon_of_chayula_tornado_attack_interval_ms" then
+							tornadoMs = stat[2]
+						end
+					end
+					local tornado = (skillData.duration or 0) * calcLib.mod(mainSkill.skillModList, mainSkill.skillCfg, "Duration", "PrimaryDuration")
+					hits = tornadoMs > 0 and tornado * 1000 / tornadoMs or nil
+					hitLine = hits and s_format("x %.1f ^8(approximation: %.1f s tornado / %g ms attack interval = Hits per cast; it chases and Slows the enemy, assumed hit for its whole duration)", hits, tornado, tornadoMs)
+				end
+				if hits and hits ~= 1 then
+					skillData.baseDpsMultiplier = skillData.baseDpsMultiplier or skillData.dpsMultiplier or 1
+					skillData.dpsMultiplier = skillData.baseDpsMultiplier * hits
+					t_insert(lines, hitLine)
+				end
 			end
 			source = glorySkill or parent
 		end
@@ -1812,7 +1852,7 @@ local function intervalTrigger(env, actor)
 	local name = parent.activeEffect.grantedEffect.name
 	lines = lines or { }
 	t_insert(lines, 1, "Approximation (Use approximations on): see the rules in CalcTriggers.lua, intervalTrigger")
-	mainSkill.infoMessage2 = "Approximation: trigger rate from " .. (skillData.intervalMidnight and "the build's Critical Hits" or name .. "'s interval and events")
+	mainSkill.infoMessage2 = "Approximation: trigger rate from " .. (skillData.intervalMidnight and "the build's Critical Hits" or name .. "'s interval and events") .. (hits and hits ~= 1 and s_format(", %.0f Hits per cast", hits) or "")
 	return { source = source or mainSkill, trigRate = rate or 0, triggerName = name, sourceRateBreakdown = lines, accumulatingSource = true }
 end
 -- ===== end of the interval triggers =====
