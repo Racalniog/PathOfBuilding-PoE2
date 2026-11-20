@@ -136,6 +136,16 @@ local configSettings = {
 	{ var = "approxArchonRecovery", type = "float", label = "Archon recovery period (s):", ifOption = "useApproximations", defaultState = 10, tooltip = "Base time after losing an Archon Buff before you can gain one again.\nNot in the game data: 10 seconds is a guess.", apply = function(val, modList, enemyModList)
 		modList:NewMod("Multiplier:ApproxArchonRecovery", "BASE", m_max(val, 0), "Config", { type = "Condition", var = "UseApproximations" })
 	end },
+	-- ponytail: 1 enemy (only the one PoB calculates) gives The Stars Answer no extra meteors, so the default is the conservative end;
+	-- upgrade path = scenario defaults calibrated by in-game measurement (plan Phase 6)
+	{ var = "approxEnemiesAroundYou", type = "count", label = "Enemies around you:", ifOption = "useApproximations", defaultState = 1, tooltip = "Enemies within the radius of The Stars Answer (the target included).\nIt Triggers more Starfalls the more of them there are, after the first.\nSets the number of meteors; damage is counted for all of them.", apply = function(val, modList, enemyModList)
+		modList:NewMod("Multiplier:ApproxEnemiesAroundYou", "BASE", m_max(val, 0), "Config", { type = "Condition", var = "UseApproximations" })
+	end },
+	-- ponytail: 100% (the enemy outlives the debuff, a boss) is an assumption; a mapping pack dies first and the recorded damage is wasted;
+	-- upgrade path = a share from the enemy's Life and the build's damage, calibrated by in-game measurement (plan Phase 6)
+	{ var = "approxDebuffSurvival", type = "count", label = "Debuff duration the enemy survives (%):", ifOption = "useApproximations", defaultState = 100, tooltip = "Share of a damage-recording debuff's duration (Inevitable Agony) that the enemy stays alive.\nThe damage it recorded is dealt when it ends: a MORE multiplier of the recorded share x this.\nAn enemy that dies first wastes what was recorded: set a lower value for packs.", apply = function(val, modList, enemyModList)
+		modList:NewMod("Multiplier:ApproxDebuffSurvival", "BASE", m_min(m_max(val, 0), 100), "Config", { type = "Condition", var = "UseApproximations" })
+	end },
 	-- ponytail: infusion remnants from skills and class mechanics aren't tied to a modifier PoB can read; upgrade path = per-skill generation rules
 	{ var = "approxFireRemnantsPerSecond", type = "float", label = "^xB97123Fire ^7Infusion Remnants/s, other:", ifOption = "useApproximations", tooltip = "Fire Infusion Remnants you collect per second from sources PoB can't read,\ne.g. skills that leave a Remnant or class mechanics. Used to estimate your Fire Infusions\nwhen '# of Fire Infusions' is left empty.", apply = function(val, modList, enemyModList)
 		modList:NewMod("Multiplier:ApproxFireRemnantsPerSecond", "BASE", m_max(val, 0), "Config", { type = "Condition", var = "UseApproximations" })
