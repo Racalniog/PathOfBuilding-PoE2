@@ -80,4 +80,47 @@ describe("TestEventTriggers", function()
 			assert.are.equals("No Lightning damage taken to trigger Valako's Charge: no triggers", skill.infoMessage2)
 		end)
 	end)
+
+	describe("Runic Tempering", function()
+		local setup = { class = "Warrior", skill = "Runic Tempering", skillSource = "item", level = 95 }
+		local function dps(config, mods)
+			return (calc(setup, with(approx, config), mods))
+		end
+
+		it("deals nothing with approximations off", function()
+			local output, skill = calc(setup)
+			assert.are.equals(0, output.TotalDPS)
+			assert.is_nil(output.BacklashDPS)
+			assert.is_nil(skill.infoMessage2)
+			assert.are.equals(0.4, skill.skillData.runicTemperingBacklashCooldown)
+		end)
+
+		it("backlashes with the Thorns damage at the enemy Hit rate, at most once per cooldown", function()
+			local output, skill = calc(setup, with(approx, { approxEnemyHitsOnYouPerSecond = 1 }))
+			local thornsHit = output.BacklashDPS
+			assert.is_true(thornsHit > 0)
+			assert.are.equals(thornsHit, output.TotalDPS)
+			assert.are.equals(thornsHit, output.CombinedDPS)
+			assert.is_truthy(skill.infoMessage2:find("Approximation: 1.00 backlashes per second", 1, true))
+			-- fewer Hits: linear
+			newBuild()
+			assert.are.near(thornsHit / 2, dps({ approxEnemyHitsOnYouPerSecond = 0.5 }).BacklashDPS, 1e-9)
+			-- many Hits: one backlash per cooldown, rounded up to server ticks
+			newBuild()
+			local tick = data.misc.ServerTickRate
+			assert.are.near(thornsHit * tick / math.ceil(0.4 * tick), dps({ approxEnemyHitsOnYouPerSecond = 100 }).BacklashDPS, 1e-6)
+			newBuild()
+			assert.are.equals(0, dps({ approxEnemyHitsOnYouPerSecond = 0 }).BacklashDPS)
+		end)
+
+		it("holds the plates' maximum unless the plates are set", function()
+			local output = calc(setup, with(approx, { approxEnemyHitsOnYouPerSecond = 1 }))
+			local full = output.BacklashDPS
+			newBuild()
+			-- (Thorns per plate, so about half; the game's 4-plate Thorns skill isn't exactly twice its 2-plate one)
+			output = calc(setup, with(approx, { approxEnemyHitsOnYouPerSecond = 1, multiplierRunicPlate = 2 }))
+			assert.are.near(full / 2, output.BacklashDPS, full * 0.01)
+			assert.is_true(output.BacklashDPS < full / 2)
+		end)
+	end)
 end)

@@ -6542,6 +6542,39 @@ function calcs.offence(env, actor, activeSkill)
 		end
 	end
 
+	-- Runic Tempering (Serle's Grit), Use approximations on: "When you are Hit while you have these plates ... this skill will cause backlash,
+	-- dealing your Thorns damage in an area around your attacker. Can backlash once every 0.4 seconds" (runic_tempering_backlash_cooldown_ms;
+	-- a plate is lost for every 5 backlashes, up to 4 plates are held). Backlashes per second = the enemy Hits on you per second (the
+	-- Thorns approximation input), at most one per cooldown (server ticks); each deals the hidden Thorns skill's Average Damage, which
+	-- already counts the Runic Plates (the "# of Runic Plates" input, else approxRunicPlates). It is this skill's own damage: Total DPS.
+	-- ponytail: plates are assumed to be held by channelling and every Hit on you backlashes; the plate gain rate isn't in the data
+	-- (upgrade path = in-game measurement, plan Phase 6), nor is whether Hits of every type count (assumed: all)
+	if actor == env.player and skillData.runicTemperingBacklashCooldown and skillModList:Flag(nil, "Condition:UseApproximations") then
+		local thorns
+		for _, skill in ipairs(actor.activeSkillList) do
+			if skill.activeEffect.grantedEffect.id == "ThornsPlayer" then
+				thorns = skill
+				break
+			end
+		end
+		local thornsHit = thorns and calcs.getCachedOutputValue(env, thorns, "AverageDamage") or 0
+		local cooldown = m_ceil(skillData.runicTemperingBacklashCooldown * data.misc.ServerTickRate) / data.misc.ServerTickRate
+		local hits = skillModList:GetMultiplier("ApproxEnemyHitsOnYouPerSecond")
+		local backlashes = m_min(hits, cooldown > 0 and 1 / cooldown or m_huge)
+		output.BacklashDPS = thornsHit * backlashes
+		output.TotalDPS = output.TotalDPS + output.BacklashDPS
+		output.CombinedDPS = output.CombinedDPS + output.BacklashDPS
+		activeSkill.infoMessage2 = thorns and s_format("Approximation: %.2f backlashes per second (enemy Hits on you, at most one per %.2f s) of %.1f Thorns damage", backlashes, cooldown, thornsHit)
+			or "No Thorns damage to backlash with"
+		if breakdown then
+			breakdown.TotalDPS = {
+				s_format("%.1f ^8(Thorns damage per backlash)", thornsHit),
+				s_format("x %.2f ^8(backlashes per second: min(%.2f enemy Hits on you per second, 1 / %.3f s cooldown); an approximation)", backlashes, hits, cooldown),
+				s_format("= %.1f ^8(Total DPS)", output.BacklashDPS),
+			}
+		end
+	end
+
 	-- Ignites that don't come from this skill's Hits. Rules from the stat descriptions: "Enemies in your Presence are Ignited as though dealt
 	-- N Base Fire Damage" (ignite_as_though_dealing_X_damage_in_your_presence), and the Ignited Ground that "Drop Ignited Ground while moving,
 	-- which ... Ignites as though dealing Fire Damage equal to N% of your maximum Life" leaves (unique_boots_secondary_ground_ignite_while_

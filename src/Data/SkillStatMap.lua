@@ -394,6 +394,11 @@ return function(mod, flag, skill)
 		value = 100,
 	},
 },
+-- Runic Tempering (CalcOffence.lua, its backlash with Use approximations on): the time between backlashes
+["runic_tempering_backlash_cooldown_ms"] = {
+	skill("runicTemperingBacklashCooldown", nil),
+	div = 1000,
+},
 ["support_autocast_instant_spells"] = {
 	skill("triggeredByAutomation", nil, { type = "SkillType", skillTypeList = {SkillType.Triggerable, SkillType.Spell, SkillType.Instant} }),
 },

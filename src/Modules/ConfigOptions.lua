@@ -132,6 +132,18 @@ local configSettings = {
 	{ var = "approxEnemyLightningHitShare", type = "float", label = "Enemy Hits that deal Lightning damage (%):", ifOption = "useApproximations", defaultState = 20, tooltip = "Share of the Hits you take that deal Lightning damage, used for Valako's Charge (charge builds up when you take Lightning damage).\nSet 0 for no charge.", apply = function(val, modList, enemyModList)
 		modList:NewMod("Multiplier:ApproxEnemyLightningHitShare", "BASE", m_min(m_max(val, 0), 100), "Config", { type = "Condition", var = "UseApproximations" })
 	end },
+	-- ponytail: Runic Plates come from channelling Runic Tempering at a rate the game data doesn't give (a plate is lost for every
+	-- runic_tempering_hit_per_rune backlashes), so the maximum is assumed to be held; upgrade path = the plates gained per second of
+	-- channelling, measured in the game. The "# of Runic Plates" input above wins when it is set
+	{ var = "approxRunicPlates", type = "count", label = "Runic Plates while channelling (approximation):", ifOption = "useApproximations", ifMult = "RunicPlate", defaultState = 4, tooltip = "Runic Plates assumed when '# of Runic Plates' is not set, at most 4 (Runic Tempering's maximum).", apply = function(val, modList, enemyModList, build)
+		if build.configTab.input.multiplierRunicPlate == nil then
+			local max = 4
+			for _, stat in ipairs(data.skills.RunicTemperingPlayer.statSets[1].constantStats) do
+				max = stat[1] == "runic_tempering_max_runes" and stat[2] or max
+			end
+			modList:NewMod("Multiplier:RunicPlate", "BASE", m_min(val, max), "Config", { type = "Condition", var = "UseApproximations" })
+		end
+	end },
 	-- ponytail: 0.1 Minion deaths/s (one every 10 s) is a guess; PoB doesn't model what kills your Minions.
 	-- upgrade path = a rate from the Minions' Life and the enemy's damage, calibrated by in-game measurement (plan Phase 6)
 	{ var = "approxMinionDeathsPerSecond", type = "float", label = "Minion deaths per second:", ifOption = "useApproximations", defaultState = 0.1, tooltip = "Minions of yours that die per second (all of them together), used to estimate effects that happen when a Minion dies or is revived.", apply = function(val, modList, enemyModList)
