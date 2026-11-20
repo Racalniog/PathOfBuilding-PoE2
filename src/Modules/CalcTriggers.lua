@@ -1930,6 +1930,8 @@ end, chance = function(env, skill)
 	return share, s_format("x %.1f%% ^8(%s of %.0f Strength + Dexterity + Intelligence: the chance for the %s is proportional to it; an approximation)", share * 100, attribute, total, set.label)
 end })
 
+-- (the optimiser reads the rules with a `source`: it adds a source skill for a skill marked with one; after all rules are added)
+calcs.supportTriggerEvents = supportTriggerEvents
 local function supportTrigger(env, actor)
 	local mainSkill = actor.mainSkill
 	-- skills of items and the tree with an interval or events of their own (above)
