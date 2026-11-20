@@ -347,4 +347,82 @@ describe("BuildOptimizer", function()
 			assert.is_truthy(errMsg:match("^The seed build"))
 		end
 	end)
+
+	it("builds around a skill that a unique item grants, and keeps that item", function()
+		-- not a gem: only Fury of the King grants it
+		local ok, pin = optimizer.SetupCharacter(build, { class = "Warrior", skill = "Molten Crash" })
+		assert.is_true(ok)
+		assert.are.equals("Weapon 1", pin.slotName)
+		assert.are.equals("Fury of the King", pin.itemName)
+		local group = build.skillsTab.socketGroupList[build.mainSocketGroup]
+		assert.are.equals("Molten Crash", group.gemList[1].nameSpec)
+		assert.is_truthy(group.sourceItem)
+		local options = copyTable(quickOptions)
+		options.pin = pin
+		options.allowUniques = false -- rares only still keeps the item that grants the skill
+		local result = optimizer.Optimize(build, options)
+		assert.is_true(result.score > 0)
+		local slot = build.itemsTab.slots["Weapon 1"]
+		assert.are.equals("Fury of the King", build.itemsTab.items[slot.selItemId].title)
+		assert.are.equals("Molten Crash", build.skillsTab.socketGroupList[build.mainSocketGroup].gemList[1].nameSpec)
+	end)
+
+	it("builds around a skill that a passive node grants, and keeps the node", function()
+		-- Pathfinder's node; the class has no ascendancy yet, the skill's node selects it
+		local ok, pin = optimizer.SetupCharacter(build, { class = "Ranger", skill = "Acidic Concoction", skillSource = "tree" })
+		assert.is_true(ok)
+		assert.is_truthy(pin.nodeId)
+		assert.are.equals("Pathfinder", build.spec.curAscendClassName)
+		local options = copyTable(quickOptions)
+		options.pin = pin
+		local result = optimizer.Optimize(build, options)
+		assert.is_true(result.score > 0)
+		assert.is_true(build.spec.nodes[pin.nodeId].alloc)
+		assert.are.equals("Acidic Concoction", build.skillsTab.socketGroupList[build.mainSocketGroup].gemList[1].nameSpec)
+		-- an ascendancy that was asked for for another one: refused
+		newBuild()
+		local refused, errMsg = optimizer.SetupCharacter(build, { class = "Ranger", ascendancy = "Deadeye", skill = "Acidic Concoction", skillSource = "tree" })
+		assert.is_nil(refused)
+		assert.is_truthy(errMsg:match("can be allocated for this class and ascendancy"))
+	end)
+
+	it("says what it can't build around", function()
+		local ok, errMsg = optimizer.SetupCharacter(build, { class = "Ranger", skill = "No Such Skill" })
+		assert.is_nil(ok)
+		assert.is_truthy(errMsg:match("no unique or passive node grants it"))
+		-- a skill that is a gem comes from the gem unless the item is asked for
+		newBuild()
+		local gem, pin = optimizer.SetupCharacter(build, { class = "Sorceress", skill = "Spark" })
+		assert.is_true(gem)
+		assert.is_nil(pin)
+		assert.is_nil(build.skillsTab.socketGroupList[build.mainSocketGroup].sourceItem)
+	end)
+
+	it("keeps an off hand that grants the skill through a main hand search, with its supports", function()
+		-- the shield goes to Weapon 2 (the main hand is empty), the weapon search tries two-handers and rare off hands
+		local ok, pin = optimizer.SetupCharacter(build, { class = "Warrior", skill = "Parry" })
+		assert.is_true(ok)
+		assert.are.equals("Weapon 2", pin.slotName)
+		local shield = build.itemsTab.items[build.itemsTab.slots["Weapon 2"].selItemId]
+		local options = copyTable(quickOptions)
+		options.pin = pin
+		options.allowUniques = true
+		local result = optimizer.Optimize(build, options)
+		assert.is_true(result.score > 0)
+		local slot = build.itemsTab.slots["Weapon 2"]
+		assert.are.equals(shield, build.itemsTab.items[slot.selItemId])
+		local group = build.skillsTab.socketGroupList[build.mainSocketGroup]
+		assert.are.equals("Parry", group.gemList[1].nameSpec)
+		assert.is_truthy(group.sourceItem)
+		assert.is_true(#group.gemList > 1) -- the supports are still in the group the program keeps for the skill
+	end)
+
+	it("refuses a skill source that isn't gem, item or tree, and one that doesn't fit", function()
+		local ok, errMsg = optimizer.SetupCharacter(build, { class = "Warrior", skill = "Molten Crash", skillSource = "items" })
+		assert.is_nil(ok)
+		assert.is_truthy(errMsg:match("expects gem, item or tree"))
+		ok, errMsg = optimizer.SetupCharacter(build, { class = "Warrior", skill = "Molten Crash", skillSource = "gem" })
+		assert.is_nil(ok)
+		assert.is_truthy(errMsg:match("is not an active skill gem"))
+	end)
 end)

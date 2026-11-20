@@ -59,7 +59,8 @@ Every setting of the Optimizer tab has a command-line equivalent (see [Command l
 | In the Optimizer tab | Command line | What it does |
 | --- | --- | --- |
 | Class / Ascendancy | `--class`, `--ascendancy` | *Auto* / leaving out `--ascendancy` builds every ascendancy of the class and keeps the best |
-| Skill gem | `--skill` | The active skill the build is made for |
+| Skill | `--skill` | The active skill the build is made for: a skill gem, or a skill that a unique item or a passive node grants (see below) |
+| Skill source | `--skill-source <gem\|item\|tree>` | Where to look for the skill: default is gems first, then uniques and passive nodes |
 | Character level | `--level` | Level of the character (default 100); limits gem levels, items and passive points |
 | Passive points | `--points` | Points to spend; empty = everything available at the level |
 | Maximise | `--metric` | Calculation output to maximise: `CombinedDPS` (default; includes damage over time and minions), `TotalDPS`, `FullDPS`, ... |
@@ -70,7 +71,7 @@ Every setting of the Optimizer tab has a command-line equivalent (see [Command l
 | Support gems | `--supports` | Number of supports linked to the skill (default 5) |
 | Rounds | `--rounds` | Passes over the whole search (default 2); later rounds let earlier choices react to later ones. A round that makes the build worse is undone |
 | Restarts | `--restarts <n>` | Runs the whole search n times (default 1) and keeps the best build. Every run after the first takes another path: odd runs build the passive tree before the equipment, and each scales the tree variants' travel appetite by 5% more. The run time grows with n |
-| Seed | `--seed <file.xml>` | Starts from a saved build (an earlier result of the same class, ascendancy and skill) instead of a fresh character, and refines it: its equipment and gems are the starting point, its tree is refined instead of searched anew. Runs only the search with uniques (like `--only-uniques`) unless `--no-uniques` is given; the level and gem level are the seed's. A build that doesn't match the class, ascendancy or skill is refused |
+| Seed | `--seed <file.xml>` | Starts from a saved build (an earlier result of the same class, ascendancy and skill) instead of a fresh character, and refines it: its equipment and gems are the starting point, its tree is refined instead of searched anew. Skips the search with rare items only (its uniques are the start) unless `--no-uniques` is given; the level and gem level are the seed's. A build that doesn't match the class, ascendancy or skill is refused |
 | Tree variants | `--tree-width <1-4>` | Number of differently-minded passive trees that are built and compared (default 4) |
 | Unique items | `--no-uniques` (off) | Also make the build with unique items allowed |
 | Lineage supports | `--no-lineage` (off) | Allow lineage support gems |
@@ -84,6 +85,26 @@ Every setting of the Optimizer tab has a command-line equivalent (see [Command l
 | Unique versions | `--unique-variants` | Also try every version of uniques that come in several, e.g. Cursecarver's curse, From Nothing's keystone or Darkness Enthroned's slot (slower, see below) |
 | Use approximations | `--approx [kills/s]` | Switch on the Configuration tab's *Use approximations* in the build (recovery on kill and the like from a kill rate, default 1 per second) |
 | Assume sustained | `--assume sustained` | Switch on the Configuration conditions the build keeps up by itself (see [Configuration](#configuration)) |
+
+### Skills that don't come from a gem
+
+Some skills exist only because an item or a passive node grants them: 91 uniques grant one (Parry on bucklers, Molten Crash on Fury of the King,
+Spark on Earthbound, ...) and 45 passive nodes, mostly ascendancy ones (Acidic Concoction, Unbound Avatar, Temper Weapon, ...). `--skill` takes the
+skill's own name for these (not the node's or the item's). A name that is a gem is built as the gem; `--skill-source item` or `tree` asks for the
+other source. The optimiser then:
+
+* equips the first unique that grants the skill and fits an empty slot (items are tried in name order), or allocates the node and its path, and for an
+  ascendancy node selects that ascendancy when none was asked for (one that was asked for must be the node's, else the setup is refused);
+* makes the skill group that the program creates for it the main skill, and links supports to it as to any skill (unless the item says it can't be
+  supported);
+* freezes that item in its slot for the whole search (another item, even one that grants the same skill, would be another skill group without
+  its supports), a main hand that PoB would clear a shield or off hand for included, and keeps the node (the ascendancy step puts it back first, the
+  tree refinement never gives it or what only connects to it back). Candidates that change them score 0; the rest of the build is searched as usual;
+* skips the search with rare items only, as the unique is in the build either way.
+
+A skill that deals no damage itself (Unbound Avatar, Temper Weapon, a buff) stops with "The skill deals no damage in this setup", as for gems.
+Not covered: the item's variants and rolls (the unique's default version is used), skills granted by several things at once (the first fitting
+unique is equipped), and items that grant a skill through a rune or a socketed gem.
 
 **Which uniques take part.** By default the unique search only uses what can be found in the game
 now: uniques marked "No longer obtainable" (the same rule as the *Obtainable* filter of the unique

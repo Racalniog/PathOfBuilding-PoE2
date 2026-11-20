@@ -12,7 +12,10 @@ Usage: OptimizeBuild.lua --class <name> --skill <gem name> [options]
 
   --class <name>         Character class, e.g. Ranger
   --ascendancy <name>    Ascendancy, e.g. Deadeye. Omit (or "auto") to let the optimiser pick one
-  --skill <name>         Active skill gem to build around, e.g. "Lightning Arrow"
+  --skill <name>         Active skill gem to build around, e.g. "Lightning Arrow". A skill that no gem gives but
+                         a unique item or a passive node does (e.g. "Parry", "Unbound Avatar") is built around
+                         that item (equipped, kept in its slot) or node (allocated, kept)
+  --skill-source <where> gem, item or tree: where to look for --skill (default: gems first, then items and nodes)
   --level <n>            Character level (default 100)
   --points <n>           Passive points to spend (default: all points available at that level)
   --gem-level <n>        Level of the skill gem (default: highest the character can use)
@@ -20,8 +23,9 @@ Usage: OptimizeBuild.lua --class <name> --skill <gem name> [options]
   --restarts <n>         Run the whole search n times, each with a different order of steps and tree
                          variants, and keep the best build (default 1; the run time grows with n)
   --seed <file.xml>      Start from a saved build (an earlier result of the same class and skill) instead of
-                         a fresh character, and refine it. Its tree is refined, not searched anew; implies
-                         --only-uniques unless --no-uniques is given. --level and --gem-level are ignored
+                         a fresh character, and refine it. Its tree is refined, not searched anew; the
+                         rare-only search is skipped (unless --no-uniques is given), as its uniques are the
+                         start. --level and --gem-level are ignored
   --roll <0..1>         Roll quality of crafted affixes and unique ranges (default 1 = perfect)
   --item-level <n>       Highest affix tier level allowed on crafted items (default 82)
   --supports <n>         Number of support gems (default 5)
@@ -199,6 +203,7 @@ if args.coverage and not (args.class and args.skill) then
 	os.exit(0)
 end
 local setup = {
+	skillSource = args["skill-source"],
 	class = args.class,
 	ascendancy = args.ascendancy,
 	skill = args.skill,
@@ -216,12 +221,18 @@ if args.seed then
 	local seedXml = seedFile:read("*a")
 	seedFile:close()
 	ok, errMsg = optimizer.SeedBuild(build, seedXml, setup)
-	-- the seed's equipment (uniques included) is the starting point of the first search: that is the one with uniques
-	if ok and not args["no-uniques"] then
-		args["only-uniques"] = true
-	end
 else
 	ok, errMsg = optimizer.SetupCharacter(build, setup)
+end
+-- (success returns true and the pin of a skill that an item or a node grants, failure nil and the message)
+local pin
+if ok then
+	pin, errMsg = errMsg, nil
+end
+-- A seed's and a granting item's uniques are the start of the search: only the search with uniques makes sense
+local startsWithUniques = (args.seed or (pin and pin.slotName)) and not args["no-uniques"]
+if startsWithUniques then
+	args["only-uniques"] = true
 end
 if not ok then
 	io.stderr:write(errMsg .. "\n")
@@ -253,6 +264,7 @@ local options = {
 	uniqueVariants = args["unique-variants"],
 	autoAscendancy = not args.ascendancy or args.ascendancy:lower() == "auto",
 	treeWidth = tonumber(args["tree-width"]),
+	pin = pin,
 }
 
 -- Parallel workers: the launcher (or the user) says how to start another copy of this script in
@@ -355,16 +367,18 @@ local function save(variant)
 	io.stdout:flush()
 end
 
-say("Optimising with rare items only")
 local result
-result, errMsg = optimizer.Optimize(build, options)
-if not result then
-	io.stderr:write("Optimisation failed: " .. tostring(errMsg) .. "\n")
-	os.exit(1)
-end
-say(string.format("Rare-only build: %.0f (%d calculations)", result.score, result.evals))
-if not args["only-uniques"] then
-	save("rares")
+if not startsWithUniques then
+	say("Optimising with rare items only")
+	result, errMsg = optimizer.Optimize(build, options)
+	if not result then
+		io.stderr:write("Optimisation failed: " .. tostring(errMsg) .. "\n")
+		os.exit(1)
+	end
+	say(string.format("Rare-only build: %.0f (%d calculations)", result.score, result.evals))
+	if not args["only-uniques"] then
+		save("rares")
+	end
 end
 
 if not args["no-uniques"] then

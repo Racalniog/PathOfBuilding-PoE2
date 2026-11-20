@@ -275,8 +275,38 @@ local function scoreOutput(ctx, output, env)
 end
 
 -- Score the build as it currently is, with an optional calculation override applied
+-- The skill's source (ctx.opts.pin: the item in its slot, or the node) is frozen for the whole search. A calculation with an override
+-- keeps the main skill's group as it is, so a candidate that replaces or removes the source would be scored as if the skill were still
+-- there: it is rejected here (score 0) instead. A main hand that can't go with a pinned off hand counts as replacing it
+local function pinVetoes(ctx, override)
+	local pin = ctx.opts.pin
+	if not (pin and override) then
+		return false
+	end
+	local slotName, item = override.repSlotName, override.repItem
+	if pin.slotName and slotName then
+		if slotName == pin.slotName then
+			local slot = ctx.build.itemsTab.slots[slotName]
+			return item ~= (slot and ctx.build.itemsTab.items[slot.selItemId])
+		elseif pin.slotName == "Weapon 2" and slotName == "Weapon 1" and item and item.base then
+			return not (ctx.build.data.weaponTypeInfo[item.base.type] or { }).oneHand
+		end
+	end
+	if pin.nodeId and override.removeNodes then
+		for node in pairs(override.removeNodes) do
+			if type(node) == "table" and node.id == pin.nodeId then
+				return true
+			end
+		end
+	end
+	return false
+end
+
 local function eval(ctx, override)
 	ctx.evals = ctx.evals + 1
+	if pinVetoes(ctx, override) then
+		return 0
+	end
 	local ok, output, env = pcall(calcOutput, ctx, override)
 	if not ok then
 		ctx.errors = ctx.errors + 1
@@ -401,9 +431,141 @@ local function makeGemInstance(ctx, gemData, level)
 	}
 end
 
+-- Skills that don't come from a gem: granted by a unique item ("Grants Skill") or by a passive tree node. PoB makes a socket group
+-- for each of them while the item is equipped / the node allocated, so the build needs that item or node for as long as the skill is
+-- the main skill. The pin returned with the setup says which: { skillId, slotName = the item's slot | nodeId = the node }
+local grantSlots = { "Weapon 1", "Weapon 2", "Helmet", "Body Armour", "Gloves", "Boots", "Amulet", "Ring 1", "Belt" }
+
+-- Granted skills whose name is `wanted` (exact), else contains it. Returns a list of { skillId, name, item | node }
+local function findGrantedSkills(build, wanted, source)
+	local found, exact = { }, false
+	local function consider(skillId, entry)
+		local skill = build.data.skills[skillId]
+		local name = skill and skill.name and skill.name:lower()
+		if name and (name == wanted or (wanted ~= "" and name:find(wanted, 1, true))) then
+			entry.skillId, entry.name = skillId, skill.name
+			t_insert(found, entry)
+			exact = exact or name == wanted
+		end
+	end
+	if source ~= "tree" and main.uniqueDB and main.uniqueDB.list then
+		local names = { }
+		for name in pairs(main.uniqueDB.list) do
+			t_insert(names, name)
+		end
+		t_sort(names)
+		for _, name in ipairs(names) do
+			-- (not the ones that can't be obtained any more, as in the unique search)
+			local item = #optimizer.UniqueVariants(main.uniqueDB.list[name], { }) > 0 and new("Item"):Item(main.uniqueDB.list[name]:BuildRaw())
+			for _, skill in ipairs(item and item.base and item.grantedSkills or { }) do
+				consider(skill.skillId, { item = item })
+			end
+		end
+	end
+	if source ~= "item" then
+		local ids = { }
+		for id in pairs(build.spec.tree.nodes) do
+			t_insert(ids, id)
+		end
+		t_sort(ids, function(a, b) return tostring(a) < tostring(b) end)
+		for _, id in ipairs(ids) do
+			local node = build.spec.tree.nodes[id]
+			for _, mod in ipairs(node.modList or { }) do
+				if mod.name == "ExtraSkill" and type(mod.value) == "table" and mod.value.skillId then
+					consider(mod.value.skillId, { node = node })
+				end
+			end
+		end
+	end
+	if exact then
+		local list = { }
+		for _, entry in ipairs(found) do
+			if entry.name:lower() == wanted then
+				t_insert(list, entry)
+			end
+		end
+		found = list
+	end
+	return found
+end
+
+-- Make the main skill one that an item or a passive node grants: equip the item / allocate the node, let the program make the
+-- skill's socket group and select it. Returns true and the pin, or nil and an error message
+local function setupGrantedSkill(build, setup, wanted)
+	local found = findGrantedSkills(build, wanted, setup.skillSource)
+	local skillIds, names = { }, { }
+	for _, entry in ipairs(found) do
+		if not skillIds[entry.skillId] then
+			skillIds[entry.skillId] = true
+			t_insert(names, entry.name)
+		end
+	end
+	if #found == 0 then
+		return nil, "'" .. tostring(setup.skill) .. "' is not an active skill gem, and no unique or passive node grants it"
+	elseif #names > 1 then
+		t_sort(names)
+		return nil, "Ambiguous skill '" .. tostring(setup.skill) .. "'. Granted skills matching: " .. t_concat(names, ", ")
+	end
+	local spec, itemsTab = build.spec, build.itemsTab
+	local wantedAscendancy = (setup.ascendancy or ""):lower()
+	local pin
+	for _, entry in ipairs(found) do
+		if entry.item then
+			for _, slotName in ipairs(grantSlots) do
+				local slot = itemsTab.slots[slotName]
+				if slot and not itemsTab.items[slot.selItemId] and itemsTab:IsItemValidForSlot(entry.item, slotName) then
+					entry.item.id = nil
+					itemsTab:AddItem(entry.item, true)
+					slot:SetSelItemId(entry.item.id)
+					itemsTab:PopulateSlots()
+					pin = { skillId = entry.skillId, slotName = slotName, itemName = entry.item.title or entry.item.name }
+					break
+				end
+			end
+		else
+			local node = entry.node
+			local fits = true
+			if node.ascendancyName and spec.curAscendClassName ~= node.ascendancyName then
+				-- (an ascendancy that was asked for stays)
+				local ascendClassId = (wantedAscendancy == "" or wantedAscendancy == "auto") and findByName(spec.curClass.classes, node.ascendancyName)
+				if ascendClassId and ascendClassId ~= 0 then
+					spec:SelectAscendClass(ascendClassId)
+				else
+					fits = false
+				end
+			end
+			node = fits and spec.nodes[node.id]
+			if node and node.path then
+				spec:AllocNode(node)
+				pin = { skillId = entry.skillId, nodeId = node.id, itemName = node.dn }
+			end
+		end
+		if pin then
+			break
+		end
+	end
+	if not pin then
+		return nil, "No unique that grants '" .. tostring(setup.skill) .. "' fits an empty slot, and no node granting it can be allocated for this class and ascendancy"
+	end
+	build.buildFlag = true
+	if runCallback then
+		runCallback("OnFrame")
+	end
+	for index, group in ipairs(build.skillsTab.socketGroupList) do
+		local gem = group.gemList[1]
+		if gem and gem.skillId == pin.skillId and (group.sourceItem or group.sourceNode) then
+			build.mainSocketGroup = index
+			return true, pin
+		end
+	end
+	return nil, "The program made no skill group for " .. tostring(pin.itemName)
+end
+
 -- Configure class, ascendancy, level and the main skill on a (fresh) build.
 -- setup = { class = "Ranger", ascendancy = "Deadeye" | nil, skill = "Lightning Arrow", level = 100, gemLevel = nil, config = { } }
--- Returns true, or nil and an error message
+-- A skill that no gem gives but a unique item or a passive node does is set up through that item / node (setupGrantedSkill);
+-- setup.skillSource ("gem", "item", "tree") says where to look, nil tries gems first. Returns true (and the pin for such a
+-- skill), or nil and an error message
 function optimizer.SetupCharacter(build, setup)
 	local spec = build.spec
 	local classId, class = findByName(spec.tree.classes, setup.class or "")
@@ -444,6 +606,12 @@ function optimizer.SetupCharacter(build, setup)
 	local skillsTab = build.skillsTab
 	-- Exact name first, then a unique partial match among the active skill gems
 	local wanted = (setup.skill or ""):lower()
+	if setup.skillSource and setup.skillSource ~= "gem" and setup.skillSource ~= "item" and setup.skillSource ~= "tree" then
+		return nil, "--skill-source expects gem, item or tree, not '" .. tostring(setup.skillSource) .. "'"
+	end
+	if setup.skillSource == "item" or setup.skillSource == "tree" then
+		return setupGrantedSkill(build, setup, wanted)
+	end
 	local gemData
 	local partial = { }
 	for _, candidate in pairs(build.data.gems) do
@@ -468,8 +636,10 @@ function optimizer.SetupCharacter(build, setup)
 			end
 			t_sort(names)
 			return nil, "Ambiguous skill '" .. tostring(setup.skill) .. "'. Matches: " .. t_concat(names, ", ")
-		else
+		elseif setup.skillSource == "gem" then
 			return nil, "'" .. tostring(setup.skill) .. "' is not an active skill gem"
+		else
+			return setupGrantedSkill(build, setup, wanted)
 		end
 	end
 	local group = {
@@ -500,7 +670,7 @@ end
 -- Start from a saved build (the XML text of an earlier result) instead of a fresh character: the search then refines its
 -- equipment, gems and tree (an existing tree is only refined, not searched anew). The build has to match the setup's class,
 -- ascendancy (when given) and main skill (exact or partial name, as in SetupCharacter); level and gems stay the seed's.
--- Returns true, or nil and an error message
+-- Returns true (and the pin of a skill that an item or node grants), or nil and an error message
 function optimizer.SeedBuild(build, xmlText, setup)
 	loadBuildFromXML(xmlText, "seed") -- (the build object stays the same, its tabs are made anew)
 	local spec = build.spec
@@ -526,7 +696,14 @@ function optimizer.SeedBuild(build, xmlText, setup)
 	if runCallback then
 		runCallback("OnFrame")
 	end
-	return true
+	-- a main skill that an item or a node grants keeps that item / node (see setupGrantedSkill)
+	local pin
+	if group.sourceItem and group.slot then
+		pin = { skillId = gem.skillId, slotName = group.slot, itemName = group.sourceItem.title or group.sourceItem.name }
+	elseif group.sourceNode then
+		pin = { skillId = gem.skillId, nodeId = group.sourceNode.id, itemName = group.sourceNode.dn }
+	end
+	return true, pin
 end
 
 -----------------------------------------------------------------------------------------------
@@ -1321,10 +1498,27 @@ local function countUnique(ctx, item, delta)
 	end
 end
 
+-- The item that grants the main skill (ctx.opts.pin) stays in its slot as it is: another item, even one that grants the same skill, or the
+-- same item put back would be another item id, that is another skill group without the supports. A main hand that PoB would clear a
+-- pinned off hand for stays out too
+local function pinBlocks(ctx, slotName, item)
+	local pin = ctx.opts.pin
+	if not (pin and pin.slotName) then
+		return false
+	end
+	if slotName == pin.slotName then
+		return true
+	end
+	return pin.slotName == "Weapon 2" and slotName == "Weapon 1" and item and item.base and not (ctx.build.data.weaponTypeInfo[item.base.type] or { }).oneHand or false
+end
+
 local function unequip(ctx, slotName)
 	local itemsTab = ctx.build.itemsTab
 	local slot = slotFor(ctx, slotName)
 	local old = slot and itemsTab.items[slot.selItemId]
+	if old and pinBlocks(ctx, slotName, nil) then
+		return nil
+	end
 	if old then
 		slot:SetSelItemId(0)
 		itemsTab.items[old.id] = nil
@@ -1342,6 +1536,9 @@ end
 
 local function equip(ctx, slotName, item)
 	local itemsTab = ctx.build.itemsTab
+	if pinBlocks(ctx, slotName, item) then
+		return
+	end
 	unequip(ctx, slotName)
 	if item then
 		item.id = nil
@@ -2001,10 +2198,13 @@ local function refineTree(ctx)
 	local tried = { }
 	local fails = 0
 	local cur = eval(ctx)
+	-- (the node that grants the main skill, and what only connects to it, is never given back)
+	local pinNode = ctx.opts.pin and ctx.opts.pin.nodeId and spec.nodes[ctx.opts.pin.nodeId]
 	while fails < ctx.opts.treeRefineFails do
 		local worst, worstRate
 		for id, node in pairs(spec.allocNodes) do
-			if not tried[id] and not node.ascendancyName and node.type ~= "ClassStart" and node.type ~= "AscendClassStart" and node.depends and #node.depends > 0 and #node.depends <= 8 then
+			local pinned = pinNode and (id == pinNode.id or isValueInArray(node.depends or { }, pinNode))
+			if not pinned and not tried[id] and not node.ascendancyName and node.type ~= "ClassStart" and node.type ~= "AscendClassStart" and node.depends and #node.depends > 0 and #node.depends <= 8 then
 				local removeNodes = { }
 				for _, depNode in ipairs(node.depends) do
 					removeNodes[depNode] = true
@@ -2152,6 +2352,11 @@ local function optimizeAscendancy(ctx)
 	end
 	if hadNodes then
 		spec:BuildAllDependsAndPaths()
+		-- the node that grants the main skill (and its path) goes back first
+		local pinned = ctx.opts.pin and ctx.opts.pin.nodeId and spec.nodes[ctx.opts.pin.nodeId]
+		if pinned and pinned.ascendancyName and pinned.path then
+			spec:AllocNode(pinned)
+		end
 	end
 	growTree(ctx, true)
 	local score = eval(ctx)
@@ -3346,7 +3551,12 @@ local function runRound(ctx, round, allowUniques)
 	end
 	log(ctx, "[round %d] support gems", round)
 	ctx.multiStart = round == 1
-	score = optimizeSupports(ctx)
+	if ctx.group.noSupports then
+		log(ctx, "  the main skill can't be supported")
+		score = eval(ctx)
+	else
+		score = optimizeSupports(ctx)
+	end
 	log(ctx, "  -> %.1f", score)
 
 	if ctx.opts.auxSkills then

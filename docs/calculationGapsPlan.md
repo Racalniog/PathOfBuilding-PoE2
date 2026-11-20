@@ -547,6 +547,12 @@ InfusionRemnantBaseDuration) were already in `data.gameConstants`.
   Ice Strike, Deadeye Rain of Arrows and Infernalist Firestorm with uniques, runes, auxiliary skills, flasks and weapon sets; two
   `--jobs 3` runs of Stormweaver Comet saved byte-identical builds). Not checked: `--thorough`, `--unique-variants`, `--restarts`,
   level 100 builds; if a rerun differs there, the `pairs` loops over `data.gems`, `data.itemBases` and the unique list are the first suspects.
+- **Skills from items and the tree:** done (November 2026). `--skill` can name a skill that a unique or a passive node grants (91 uniques, 45 nodes
+  in the data); the optimiser equips / allocates the source, selects the group the program makes for it and freezes the source for the whole search
+  (`optimizer.SetupCharacter` pin; `equip`, `unequip`, `eval` rejecting candidates that change it, the ascendancy step, the tree refinement). See docs/buildOptimizer.md. Still open: unique variants and rolls for the
+  granting item, the search choosing between several uniques that grant the same skill by their value for the build (it equips the first that fits;
+  swapping the frozen item for a better one that grants the same skill would need the skill group's supports carried over to the new item's group),
+  and a name list of every skill the optimiser can start from, for batch runs.
 - **Speed:** one evaluation takes about 2–4 ms of branchy Lua over modifier tables; a GPU port would
   mean a second engine and isn't worth it. In order: (1) profile an optimizer run to find the hot
   paths (likely modifier lookups and environment setup), (2) recalculate only what a candidate
