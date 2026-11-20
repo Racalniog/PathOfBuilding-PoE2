@@ -542,8 +542,11 @@ InfusionRemnantBaseDuration) were already in `data.gameConstants`.
   n times, each time with another order (the tree before the equipment on every second run) and
   tree exponents scaled by 1 - 0.05 per run, and keeps the best; the run time grows with n.
   Seeding the search from a known good build is done (`--seed <file.xml>`, `optimizer.SeedBuild`: the
-  seed's equipment and gems are the start, its tree is refined). Still open: making ties in the search
-  deterministic (reruns of one setup differ because some steps iterate tables in memory order).
+  seed's equipment and gems are the start, its tree is refined). Deterministic ties: checked in November 2026, reruns don't
+  differ (the same search in separate processes gave identical scores, evaluation counts and builds for Stormweaver Comet, Invoker
+  Ice Strike, Deadeye Rain of Arrows and Infernalist Firestorm with uniques, runes, auxiliary skills, flasks and weapon sets; two
+  `--jobs 3` runs of Stormweaver Comet saved byte-identical builds). Not checked: `--thorough`, `--unique-variants`, `--restarts`,
+  level 100 builds; if a rerun differs there, the `pairs` loops over `data.gems`, `data.itemBases` and the unique list are the first suspects.
 - **Speed:** one evaluation takes about 2–4 ms of branchy Lua over modifier tables; a GPU port would
   mean a second engine and isn't worth it. In order: (1) profile an optimizer run to find the hot
   paths (likely modifier lookups and environment setup), (2) recalculate only what a candidate
