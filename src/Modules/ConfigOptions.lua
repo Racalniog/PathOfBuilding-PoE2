@@ -126,6 +126,12 @@ local configSettings = {
 	{ var = "approxEnemyHitsOnYouPerSecond", type = "float", label = "Enemy hits on you per second:", ifOption = "useApproximations", defaultState = 2, tooltip = "Enemy Hits you take per second, used for the damage your Thorns retaliate with.\nThorns retaliate against Melee Hits, assumed to be half of them, unless they can retaliate against all Hits.\nSets the hidden Thorns skill's rate; never part of another skill's Combined DPS.", apply = function(val, modList, enemyModList)
 		modList:NewMod("Multiplier:ApproxEnemyHitsOnYouPerSecond", "BASE", m_max(val, 0), "Config", { type = "Condition", var = "UseApproximations" })
 	end },
+	-- Items and nodes that trigger on an event of the build's play (CalcTriggers.lua, supportTrigger; Runic Tempering in CalcOffence.lua)
+	-- ponytail: one of the five damage types (20%) is a guessed share of enemy Hits that deal Lightning damage; upgrade path = a Lightning
+	-- share read from the enemy's damage (the enemy skill options) or boss data, calibrated in the game (plan Phase 6)
+	{ var = "approxEnemyLightningHitShare", type = "float", label = "Enemy Hits that deal Lightning damage (%):", ifOption = "useApproximations", defaultState = 20, tooltip = "Share of the Hits you take that deal Lightning damage, used for Valako's Charge (charge builds up when you take Lightning damage).\nSet 0 for no charge.", apply = function(val, modList, enemyModList)
+		modList:NewMod("Multiplier:ApproxEnemyLightningHitShare", "BASE", m_min(m_max(val, 0), 100), "Config", { type = "Condition", var = "UseApproximations" })
+	end },
 	-- ponytail: 0.1 Minion deaths/s (one every 10 s) is a guess; PoB doesn't model what kills your Minions.
 	-- upgrade path = a rate from the Minions' Life and the enemy's damage, calibrated by in-game measurement (plan Phase 6)
 	{ var = "approxMinionDeathsPerSecond", type = "float", label = "Minion deaths per second:", ifOption = "useApproximations", defaultState = 0.1, tooltip = "Minions of yours that die per second (all of them together), used to estimate effects that happen when a Minion dies or is revived.", apply = function(val, modList, enemyModList)

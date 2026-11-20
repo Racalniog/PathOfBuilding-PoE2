@@ -1703,6 +1703,36 @@ local supportTriggerEvents = {
 		return rate, s_format("min(%.2f, 1 / %.2f) ^8(cast rate of %s, once per Curse duration)", source.speed, source.duration, source.name)
 	end },
 }
+
+-- Skills of items and nodes that trigger on what happens to you (rules with `build`: the rate comes from the approximation inputs,
+-- not from a skill of the build; the skill is its own source). Only with Use approximations on, as above.
+-- * Valako's Charge (Lightning Coil): "taking Lightning damage builds up charge ... Reaching full charge expends all charge to Trigger
+--   this skill" (cast_on_damage_taken_threshold, in its first stat set: the damage that fills the charge; 100% chance). Rate = enemy
+--   Hits on you per second x the share of them that deal Lightning damage x the share of the charge one such Hit fills (at most 1: all
+--   charge is spent at once, so a Hit triggers at most once).
+-- ponytail: a Lightning Hit deals the enemy Lightning damage of the configuration (the default enemy hit) less your Lightning
+--   resistance, none of your other damage taken modifiers; upgrade path = the Lightning damage taken from the defence calculation
+--   (the optimizer skips it by default).
+t_insert(supportTriggerEvents, { key = "supportTriggerOnLightningDamageTaken", name = "Lightning damage taken", build = function(env, skill)
+	local effect = skill.activeEffect
+	local first = effect.grantedEffect.statSets[1]
+	local threshold = 0
+	for index, stat in ipairs(first.stats) do
+		if stat == "cast_on_damage_taken_threshold" then
+			threshold = first.levels[effect.level] and first.levels[effect.level][index] or 0
+		end
+	end
+	local hits = env.player.modDB:GetMultiplier("ApproxEnemyHitsOnYouPerSecond")
+	local share = env.player.modDB:GetMultiplier("ApproxEnemyLightningHitShare")
+	local enemyDamage = tonumber(env.configInput.enemyLightningDamage) or tonumber(env.configPlaceholder.enemyLightningDamage) or 0
+	local damage = enemyDamage * (1 - (env.player.output.LightningResist or 0) / 100)
+	local filled = threshold > 0 and enemyDamage > 0 and m_min(damage / threshold, 1) or 1
+	return hits * share / 100 * filled, {
+		s_format("%.2f x %.0f%% ^8(enemy Hits on you per second x share of them that deal Lightning damage; an approximation)", hits, share),
+		s_format("x %.2f ^8(share of the charge one Lightning Hit fills: %.0f Lightning damage taken / %.0f to fill it, at most 1)", filled, damage, threshold),
+	}
+end })
+
 local function supportTrigger(env, actor)
 	local mainSkill = actor.mainSkill
 	local event
@@ -1727,6 +1757,10 @@ local function supportTrigger(env, actor)
 			local events, line = event.rate(env, record)
 			source, rate, lines = skill, events, { line }
 		end
+	elseif event.build then
+		-- (the rate comes from the approximation inputs, the skill is its own source)
+		local events, eventLines = event.build(env, mainSkill)
+		source, rate, lines = mainSkill, events, eventLines
 	end
 	for _, skill in ipairs(env.player.activeSkillList) do
 		local flags = (env.mode == "CALCS" and skill.activeEffect.statSetCalcs or skill.activeEffect.statSet).skillFlags
