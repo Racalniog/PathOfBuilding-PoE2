@@ -178,9 +178,29 @@ describe("TestIntervalTriggers", function()
 			assert.are.near(output.AverageDamage * output.Speed * 48, output.TotalDPS, output.TotalDPS * 1e-9)
 		end)
 
+		it("uses one uptime for the Archon Buff and the tornado's triggers: the Glory rule's", function()
+			local hits, _, p = spark(chaos .. "\n20% increased Archon Buff duration")
+			local fill = 100 / (hits * p)
+			local uptime = 12 / (12 + fill)
+			local output = tornado({ "Spark 20/0  1" }, approx, chaos .. "\n20% increased Archon Buff duration")
+			-- the tornado every 3 s of the buff, the buff's effects (Archon of Chayula: 20% more Physical and Chaos damage) scaled by the same uptime
+			assert.are.near(uptime / 3, output.Speed, 1e-9)
+			assert.are.near(uptime * 100, output.ArchonEffectMod, 1e-6)
+			assert.are.near(output.ArchonEffectMod / 100, output.Speed * 3, 1e-9)
+			-- with approximations off there is no Archon Buff, and the numbers are the build's own
+			newBuild()
+			local off = tornado({ "Spark 20/0  1" }, nil, chaos)
+			assert.is_nil(off.ArchonEffectMod)
+			-- a configured Archon Buff wins: always up, and the tornado's rate keeps the Glory uptime
+			newBuild()
+			local up = tornado({ "Spark 20/0  1" }, { useApproximations = true, conditionAffectedByArchon = true, archonBuff = "ArchonOfChayula" }, chaos)
+			assert.are.near(100, up.ArchonEffectMod, 1e-9)
+		end)
+
 		it("needs Hits that deal Chaos damage", function()
 			local output = tornado({ "Spark 20/0  1" }, approx)
 			assert.are.equals(0, output.Speed)
+			assert.is_nil(output.ArchonEffectMod) -- no Glory source: no Archon Buff approximation either
 		end)
 	end)
 
