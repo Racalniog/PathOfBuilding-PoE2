@@ -3659,13 +3659,45 @@ local function chooseStatSet(ctx)
 	sync(ctx)
 end
 
+-- A skill that deals no damage itself but triggers the skills granted with it (The Stars Answer: Starfall, Apocalypse: three disasters,
+-- Archon of Chayula: Chayula's Will, with Use approximations on the engine gives them a rate) has its damage in the group's other active
+-- skills. When the selected skill deals nothing, select the group's best one; if none deals damage yet (an Attack without a weapon),
+-- the first triggered one, so that the weapon step has something to compare. A skill that deals damage stays selected
+local function chooseGroupSkill(ctx)
+	local group = ctx.group
+	local list = group.displaySkillList
+	if not list or #list < 2 or eval(ctx) > 0 then
+		return
+	end
+	local first = group.mainActiveSkill or 1
+	local best, bestScore, triggered = first, 0, nil
+	for index, skill in ipairs(list) do
+		if index ~= first then
+			group.mainActiveSkill, group.mainActiveSkillCalcs = index, index
+			local score = eval(ctx)
+			if score > bestScore then
+				best, bestScore = index, score
+			end
+			triggered = triggered or skill.activeEffect.grantedEffect.skillTypes[SkillType.Triggered] and index or nil
+		end
+	end
+	best = bestScore > 0 and best or triggered or first
+	group.mainActiveSkill, group.mainActiveSkillCalcs = best, best
+	if best ~= first then
+		log(ctx, "  %s: %.1f (the selected skill dealt nothing)", list[best].activeEffect.grantedEffect.name, bestScore)
+	end
+	sync(ctx)
+end
+
 local function runRound(ctx, round, allowUniques)
 	local score
 	optimizeMetaSpell(ctx)
 	if eval(ctx) <= 0 then
+		chooseGroupSkill(ctx)
 		-- Attacks do nothing without a weapon, so supports can't be compared before one is equipped
 		log(ctx, "[round %d] weapons", round)
 		optimizeWeapons(ctx, allowUniques)
+		chooseGroupSkill(ctx)
 		chooseStatSet(ctx)
 	end
 	log(ctx, "[round %d] support gems", round)
