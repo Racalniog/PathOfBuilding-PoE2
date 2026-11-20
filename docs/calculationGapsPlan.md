@@ -568,7 +568,10 @@ InfusionRemnantBaseDuration) were already in `data.gameConstants`.
   scalars of player and minion output, MAIN / CALCS / calculator / optimizer, with node and item
   overrides); summation order could differ in the last digits, as the context's base mods now sit in the
   parent database. Checked by TestPassiveSpec ("builds a weapon set context that calculates like a fresh
-  environment of its set"). Still open, in order of estimated gain: a per-candidate stat-total delta
+  environment of its set"). Measured (November 2026, Stormweaver Spark, no radius jewels, accelerated evaluation): `buildModListForNodeList` (two calls per
+  evaluation) is 8.3% of an evaluation at 60 allocated nodes and 10.6% at 120, so a delta that removed it entirely would gain at most
+  that, and building the lists once instead of twice about half; radius jewel and Hulking Form builds weren't measured. Not started
+  for that reason (the outputs would have to stay bit-identical). Still open, in order of estimated gain: a per-candidate stat-total delta
   instead of rebuilding all node mod lists (`buildModListForNodeList` still runs twice in the main
   environment, 5-20% with radius jewels and Hulking Form-type scaling), the context's item mods for the
   slots that aren't weapons (about 6%), and the context's skill mod lists for groups the main environment
