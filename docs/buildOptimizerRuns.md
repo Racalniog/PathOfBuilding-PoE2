@@ -17,6 +17,7 @@ How the optimizer works and what it cannot see is described in the [build optimi
 - [Tankiest builds](#tankiest-builds)
 - [Damage builds with approximations](#damage-builds-with-approximations)
 - [Runs on the full engine](#runs-on-the-full-engine)
+- [Skills from items and the tree](#skills-from-items-and-the-tree)
 - [Caveats](#caveats)
 
 ## Settings
@@ -569,6 +570,37 @@ Elemental Infusions, charges, ailments, Thorns and the second approximation pass
   calculate to 84.1M, 74.2M and 47.6M on the full engine; the optimizer simply didn't find them again.
   With more options, its greedy search can end in a weaker local optimum. See the optimizer item in
   the [calculation gaps plan](calculationGapsPlan.md).
+
+## Skills from items and the tree
+
+Skills that no gem gives but a unique item or a passive node does (91 uniques, 45 nodes in the data), built with `--skill` and, where a name is
+also a gem, `--skill-source item|tree`. Level 95 (not 92), `--roll 0.6`, `--item-level 75`, `--assume sustained`, approximations on (1 kill per
+second). The optimiser equips the unique (or allocates the node) and keeps it for the whole search.
+
+1. **Baseline**: all 101 skills that are not also gems, 8 classes, level 95, no search: 39 deal damage with a bare character.
+2. **Screen** (66 runs, `--rounds 1 --tree-width 1 --no-combos`, tree skills rares only): 47 scored, 19 stopped with "The skill deals no damage in
+   this setup" (auras, buffs, utility, and the skills the [calculation gaps plan](calculationGapsPlan.md) lists under *Skills from items and the tree
+   without damage*). Item skills ran on one class chosen by skill type where the baseline didn't name one.
+3. **Full runs** (24 runs): the best eight of the screen, default search, `--unique-variants`, three runs each. All three runs of every skill scored
+   exactly the same.
+
+| # | Skill | Source | Class / ascendancy | Rares only | With uniques |
+|---:|---|---|---|---:|---:|
+| 1 | Supporting Fire | node | Mercenary / Tactician | 7.25M | 9.93M |
+| 2 | Kelari's Malediction | node | Sorceress / Disciple of Varashta | 3.29M | 8.15M |
+| 3 | Wild Protector | node | Huntress / Spirit Walker | 6.61M | 8.10M |
+| 4 | Compose Requiem | Last Lament | Mercenary | - | 7.64M |
+| 5 | Shattering Concoction | node | Ranger / Pathfinder | 4.05M | 6.74M |
+| 6 | Fulminating Concoction | node | Ranger / Pathfinder | 4.44M | 6.62M |
+| 7 | Explosive Concoction | node | Ranger / Pathfinder | 3.21M | 5.25M |
+| 8 | Icestorm | The Whispering Ice | Witch | - | 4.47M |
+
+Screen scores of the others that scored (rares only for nodes, with uniques for items): Lightning Bolt 1.60M, Vivid Stampede 1.34M, Decompose 1.23M,
+Firebolt 0.99M, Molten Crash 0.95M, Elemental Surge 0.93M, Ruzhan, the Blazing Sword 0.91M, Molten Shower 0.89M, Summon Infernal Hound 0.87M, Azmerian
+Wolf 0.82M, Bleeding Concoction 0.77M, Crushing Fear 0.74M, and 23 below that.
+
+None of them comes near the gem builds above (Blood Mage Hexblast 164M with uniques): the best skill from an item or a node is Supporting Fire at
+9.9M. The skills with a trigger the engine can't count yet (Elemental Storm, Valako's Charge, the meta skills, ...) are not in these numbers.
 
 ## Caveats
 
