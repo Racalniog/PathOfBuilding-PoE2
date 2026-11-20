@@ -3153,8 +3153,9 @@ function calcs.offence(env, actor, activeSkill)
 			-- ponytail: the average count, not a distribution (a Poisson count capped at the limit would be a little lower near the cap);
 			-- every object's Hits land on the enemy (no per-enemy hit limit across objects); a triggered attack (the dual wield
 			-- branch below overrides HitSpeed) isn't covered, no such skill exists
-			if skillData.triggered and skillData.supportTriggerChance and skillModList:Flag(nil, "Condition:UseApproximations") then
-				output.ObjectsAlive = m_min(skillData.instanceLimit or m_huge, (output.Speed or 0) * (output.Duration or 0))
+			-- (only a skill that states how many objects can be alive and has a duration: Starfall, a meteor per trigger, sets its own rate)
+			if skillData.triggered and skillData.supportTriggerChance and skillData.instanceLimit and output.Duration and skillModList:Flag(nil, "Condition:UseApproximations") then
+				output.ObjectsAlive = m_min(skillData.instanceLimit or m_huge, (output.Speed or 0) * output.Duration)
 				output.HitSpeed = output.HitSpeed * output.ObjectsAlive
 			end
 			--Brands always have hitTimeOverride
