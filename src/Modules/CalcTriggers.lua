@@ -1742,14 +1742,16 @@ local function intervalTrigger(env, actor)
 			}
 			-- Offence takes the Hit rate from the skill's own "hit time" (the meteor interval, 0.3 s, the large star's 2 s) and no mod can
 			-- remove it, so the DPS multiplier turns that rate into the rate calculated here (Hit rate x hit time x rate / hit time)
+			-- (from the skill's own multiplier each time: a second pass over the same skill must not compound it)
 			local hitTime = skillData.hitTimeOverride
 			if hitTime then
-				skillData.dpsMultiplier = (skillData.dpsMultiplier or 1) * rate * hitTime
+				skillData.baseDpsMultiplier = skillData.baseDpsMultiplier or skillData.dpsMultiplier or 1
+				skillData.dpsMultiplier = skillData.baseDpsMultiplier * rate * hitTime
 			end
 		end
 	elseif skillData.intervalUnleash or skillData.intervalChayula then
 		local unleash = skillData.intervalUnleash
-		parent = groupSkillWith(env, mainSkill, unleash and "unleashIntervalMs" or "chayulaIntervalMs")
+		parent = groupSkillWith(env, mainSkill, unleash and "unleashIntervalMs" or "gloryPerChaosHit")
 		if parent then
 			local parentData = parent.skillData
 			local duration, uptime, glorySkill, gloryLines
@@ -1765,10 +1767,15 @@ local function intervalTrigger(env, actor)
 			else
 				duration = data.archonBuffs.ArchonOfChayula.duration * calcLib.mod(modDB, nil, "ArchonDuration")
 				uptime, glorySkill, gloryLines = gloryUptime(env, parent, "gloryPerChaosHit", "dealsChaos", duration, "Chaos")
-				interval, count = parentData.chayulaIntervalMs, 1
+				interval, count = 0, 1
+				for _, stat in ipairs(parent.activeEffect.grantedEffect.statSets[1].constantStats) do
+					if stat[1] == "archon_of_chayula_spawn_chaos_tornado_interval_ms" then
+						interval = stat[2]
+					end
+				end
 			end
 			lines = gloryLines
-			if uptime > 0 then
+			if uptime > 0 and interval > 0 then
 				rate = 1000 / interval * uptime / m_max(count, 1)
 				t_insert(lines, s_format("1000 / %.0f ms x %.3f%s = %.3f ^8(triggers of %s per second: every interval while the buff lasts, x uptime)", interval, uptime, count > 1 and s_format(" / %d", count) or "", rate, mainSkill.activeEffect.grantedEffect.name))
 			end

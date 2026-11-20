@@ -3374,10 +3374,9 @@ return function(mod, flag, skill)
 	skill("intervalUnleash", nil),
 	value = 100,
 },
-["archon_of_chayula_spawn_chaos_tornado_interval_ms"] = {
-	skill("chayulaIntervalMs", nil),
-},
--- (the tornado's own stat: "secondary_skill_triggered_by_primary_skill_of_gem" is shared by other skills)
+-- (the tornado's own stat: "secondary_skill_triggered_by_primary_skill_of_gem" is shared by other skills. Archon of Chayula's own
+-- "archon_of_chayula_spawn_chaos_tornado_interval_ms" is not mapped: CalcPerform applies every mapped "archon_of_chayula_" stat of that skill
+-- as the Archon Buff's own stat, so CalcTriggers.lua reads that one from the skill's data)
 ["archon_of_chayula_tornado_attack_interval_ms"] = {
 	skill("supportTriggerChance", nil),
 	skill("intervalChayula", nil),
