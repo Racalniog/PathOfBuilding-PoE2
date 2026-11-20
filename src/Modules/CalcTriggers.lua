@@ -2021,6 +2021,20 @@ end })
 
 -- (the optimiser reads the rules with a `source`: it adds a source skill for a skill marked with one; after all rules are added)
 calcs.supportTriggerEvents = supportTriggerEvents
+-- The interval skills (intervalTrigger) that take their Hits from the build's skills (eventSource) have their own rules above, not in
+-- supportTriggerEvents; the optimiser adds a source group for them with `source`, the skill types that can cause the event.
+-- The calculation picks the skill with the most events by itself, a candidate without them (no Critical Hits) leaves the rate at 0
+-- and the optimiser drops it.
+-- ponytail: only Midnight Zenith is listed. Apocalypse (intervalUnleash) and Archon of Chayula (intervalChayula) take their Hits
+-- from the build too, but measured with this rule (quick runs, 2 rounds) they scored no better (Archon 7.35k vs 7.43k, Apocalypse
+-- 0.90M vs 1.10M, search noise): the auxiliary step already finds a Hit skill for them (Essence Drain, Thunderstorm). Upgrade path =
+-- add `{ key = "intervalUnleash", ... }` here, once a source that the auxiliary step can't find is shown
+local function anyHit(skill, flags)
+	return flags.hit and (skill.skillTypes[SkillType.Attack] or skill.skillTypes[SkillType.Damage] or skill.skillTypes[SkillType.Projectile])
+end
+calcs.intervalSourceRules = {
+	{ key = "intervalMidnight", name = "Critical Hits", source = anyHit },
+}
 local function supportTrigger(env, actor)
 	local mainSkill = actor.mainSkill
 	-- skills of items and the tree with an interval or events of their own (above)
