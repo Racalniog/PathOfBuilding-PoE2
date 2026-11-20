@@ -3542,12 +3542,42 @@ local function treeStep(ctx, round)
 	log(ctx, "  -> %.1f", score)
 end
 
+-- A skill with several stat sets calculates the one that is selected (the program's "Stat set" choice, shown one at a time). When the
+-- selected set deals nothing, the best of the others is selected: Volatile Dead's first set is the skill, its damage is in "Explosion"
+-- and "Core". A set that already deals damage is left alone (the first one, unless the build says otherwise)
+local function chooseStatSet(ctx)
+	local group = ctx.group
+	local active = group.displaySkillList and group.displaySkillList[group.mainActiveSkill or 1]
+	local effect = active and active.activeEffect
+	local statSets = effect and effect.srcInstance and effect.grantedEffect.statSets
+	if not statSets or #statSets < 2 or eval(ctx) > 0 then
+		return
+	end
+	local instance, id = effect.srcInstance, effect.grantedEffect.id
+	instance.statSet, instance.statSetCalcs = instance.statSet or { }, instance.statSetCalcs or { }
+	local first = instance.statSet[id] or 1
+	local best, bestScore = first, 0
+	for index = 1, #statSets do
+		instance.statSet[id], instance.statSetCalcs[id] = index, index
+		local score = eval(ctx)
+		if score > bestScore then
+			best, bestScore = index, score
+		end
+	end
+	instance.statSet[id], instance.statSetCalcs[id] = best, best
+	if best ~= first then
+		log(ctx, "  stat set \"%s\": %.1f (the selected one dealt nothing)", statSets[best].label or tostring(best), bestScore)
+	end
+	sync(ctx)
+end
+
 local function runRound(ctx, round, allowUniques)
 	local score
 	if eval(ctx) <= 0 then
 		-- Attacks do nothing without a weapon, so supports can't be compared before one is equipped
 		log(ctx, "[round %d] weapons", round)
 		optimizeWeapons(ctx, allowUniques)
+		chooseStatSet(ctx)
 	end
 	log(ctx, "[round %d] support gems", round)
 	ctx.multiStart = round == 1

@@ -425,4 +425,24 @@ describe("BuildOptimizer", function()
 		assert.is_nil(ok)
 		assert.is_truthy(errMsg:match("is not an active skill gem"))
 	end)
+
+	it("selects the stat set that deals the damage when the selected one deals none", function()
+		-- Volatile Dead: set 1 is the skill, "Explosion" and "Core" hit
+		local ok, pin = optimizer.SetupCharacter(build, { class = "Witch", skill = "Volatile Dead", skillSource = "item" })
+		assert.is_true(ok)
+		assert.are.equals(0, build.calcsTab.mainOutput.CombinedDPS)
+		local options = copyTable(quickOptions)
+		options.pin = pin
+		local result = optimizer.Optimize(build, options)
+		assert.is_true(result.score > 0)
+		local instance = build.skillsTab.socketGroupList[build.mainSocketGroup].gemList[1]
+		local index = instance.statSet.VolatileDeadPlayer
+		assert.is_true(index == 2 or index == 3)
+		-- a skill that deals damage in its first set keeps it
+		newBuild()
+		assert.is_true(optimizer.SetupCharacter(build, { class = "Sorceress", skill = "Spark" }))
+		optimizer.Optimize(build, quickOptions)
+		local spark = build.skillsTab.socketGroupList[build.mainSocketGroup].gemList[1]
+		assert.is_true(not spark.statSet or not next(spark.statSet) or spark.statSet.SparkPlayer == nil or spark.statSet.SparkPlayer == 1)
+	end)
 end)

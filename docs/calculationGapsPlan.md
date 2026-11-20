@@ -543,9 +543,11 @@ setup. Causes, in the order they are worth fixing; every entry is **open**.
 **1. A calculation gap with a direct fix**
 
 - *Skills whose damage sits in another stat set.* Volatile Dead (Enezun's Charge) has three stat sets: "Volatile Dead" (no damage), "Explosion" and
-  "Core" (both with Fire damage). The engine and the optimiser calculate stat set 1 only, so the skill shows 0 although it hits. Fix: for a skill with
-  several stat sets, calculate each, and score the sum of the sets that hit (Explosion + Core: both happen per cast), or the best one when the sets are
-  alternatives; Full DPS needs the same. Check the gem skills for the same pattern (a census of stat sets with and without damage stats wasn't done).
+  "Core" (both with Fire damage). The engine calculates the selected stat set (the program's own "Stat set" choice, one at a time), set 1 by default, so
+  the skill showed 0 although it hits. **Done (November 2026):** when the selected set deals nothing the optimiser selects the best of the others
+  (`chooseStatSet`, after the weapon step; a set that deals damage is left alone, so other builds are unchanged): Volatile Dead scores with "Core" (9.3
+  per cast against 4.9 for "Explosion" at level 95, one cast each). Not done: the sum of the sets that hit (Explosion + Core happen in one cast), which the
+  program doesn't show either, and a census of the gem skills for the same pattern (a first stat set without damage, a later one with).
 - *Companion skills whose damage is in the Command skill.* Mist Raven (The Auspex): the Summon skill has no hit and no minion output in the calculation; the
   raven's damage is in the gem's second skill, Command Mist Raven (`additionalGrantedEffects`), and the flock's own skills (Raven Conspiracy: swarm aura,
   Mad Flight) deal damage over time that the minion's DPS doesn't count (Spiraling Conspiracy: minion TotalDPS 0). Fix: calculate the Command skill as well
@@ -556,9 +558,10 @@ setup. Causes, in the order they are worth fixing; every entry is **open**.
 Same method as the support triggers (Phase 2): a rate from the supported or main skill's own numbers, capped by the skill's cooldown, with a message in
 the calculation, only with Use approximations on.
 
-- *Elemental Storm* (Invoker node): triggered by Hits that deal Elemental damage (the storm's element is the Hit's highest). Event "Hits that deal
-  Elemental damage" of the main skill: the Living Lightning event (`supportTriggerOnLightningHit`) with the elemental types instead of Lightning; the
-  cooldown from the skill's data. Small.
+- *Elemental Storm* (Stormweaver node): "Trigger Elemental Storm on Critical Hit with Spells" (the storm's element is the Hit's highest). The trigger line
+  isn't parsed (ModCache has it as unparsed text), the granted skill has a 3 s cooldown with one stored use. Needs a parser entry that marks the
+  granted skill, and a trigger rule with its source anywhere in the build (a Spell with the highest Critical Hit rate, chosen as the meta Energy source is,
+  not the same socket group as for supports): Critical Hits per second, capped by the cooldown. Not small after all.
 - *Elemental Expression* (Invoker node): "chance for an explosion proportional to your Strength, a bolt to your Dexterity, a wave to your Intelligence";
   the event that rolls the chance isn't in the exported description (`chance_to_be_trigger_elemental_expression_%` is unmapped): read the node's text
   first, then the same event rule.
