@@ -445,4 +445,35 @@ describe("BuildOptimizer", function()
 		local spark = build.skillsTab.socketGroupList[build.mainSocketGroup].gemList[1]
 		assert.is_true(not spark.statSet or not next(spark.statSet) or spark.statSet.SparkPlayer == nil or spark.statSet.SparkPlayer == 1)
 	end)
+
+	it("sockets a Spell into a meta skill and supports that Spell", function()
+		-- Cast on Block comes from Svalinn: the group is the meta skill alone, with no damage of its own
+		local ok, pin = optimizer.SetupCharacter(build, { class = "Warrior", skill = "Cast on Block" })
+		assert.is_true(ok)
+		assert.are.equals(0, build.calcsTab.mainOutput.CombinedDPS or 0)
+		local options = copyTable(quickOptions)
+		options.pin = pin
+		options.approximations = true
+		options.maxSupports = 2
+		local result = optimizer.Optimize(build, options)
+		assert.is_true(result.score > 0)
+		local group = build.skillsTab.socketGroupList[build.mainSocketGroup]
+		assert.are.equals("Cast on Block", group.gemList[1].nameSpec)
+		local spell = group.gemList[2].gemData
+		assert.is_falsy(spell.grantedEffect.support)
+		-- the Spell is the group's selected skill, the supports come after it
+		assert.are.equals(spell.grantedEffectId, group.displaySkillList[group.mainActiveSkill].activeEffect.grantedEffect.id)
+		for index = 3, #group.gemList do
+			assert.is_true(group.gemList[index].gemData.grantedEffect.support)
+		end
+		assert.is_true(#group.gemList >= 3)
+		assert.are.equals(spell.name .. "'s Trigger: Cast on Block", build.calcsTab.mainEnv.player.mainSkill.infoMessage)
+		-- the same with a meta skill that is a gem
+		newBuild()
+		assert.is_true(optimizer.SetupCharacter(build, { class = "Sorceress", skill = "Cast on Critical" }))
+		options.pin = nil
+		local gem = optimizer.Optimize(build, options)
+		assert.is_true(gem.score > 0)
+		assert.is_falsy(build.skillsTab.socketGroupList[build.mainSocketGroup].gemList[2].gemData.grantedEffect.support)
+	end)
 end)

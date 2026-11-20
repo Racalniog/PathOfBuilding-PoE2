@@ -555,6 +555,11 @@ local function setupGrantedSkill(build, setup, wanted)
 		local gem = group.gemList[1]
 		if gem and gem.skillId == pin.skillId and (group.sourceItem or group.sourceNode) then
 			build.mainSocketGroup = index
+			-- (calculate again with that group as the main skill: an item may grant several skills)
+			build.buildFlag = true
+			if runCallback then
+				runCallback("OnFrame")
+			end
 			return true, pin
 		end
 	end
@@ -759,13 +764,25 @@ end
 -- pick (some supports only work alone, or are only good in combination), so the fill is started
 -- from several different first supports, and from the current links; every result is then
 -- polished by swapping single supports, and the best set of links wins
+-- A meta skill (Cast on Block, Cast on Critical, ...) triggers the Spell socketed in its group, and that Spell is what deals the damage:
+-- the group is the meta skill, the Spell, then the supports. Returns the index of that Spell (2) when the group has one
+local function metaSpellIndex(group)
+	local meta = group.displaySkillList and group.displaySkillList[1]
+	local spell = group.gemList[2] and group.gemList[2].gemData
+	if meta and meta.activeEffect.grantedEffect.skillTypes[SkillType.Meta] and spell and not spell.grantedEffect.support then
+		return 2
+	end
+end
+
 local function optimizeSupports(ctx)
 	local gemList = ctx.group.gemList
 	local candidates = supportCandidates(ctx)
 	local cur
+	-- (the first support slot: after the meta skill's Spell, if there is one)
+	local first = metaSpellIndex(ctx.group) and 3 or 2
 
 	local function conflicts(gemData, skipIndex)
-		for index = 2, #gemList do
+		for index = first, #gemList do
 			local other = gemList[index].gemData
 			if index ~= skipIndex and other and sharesFamily(other.grantedEffect, gemData.grantedEffect) then
 				return true
@@ -788,7 +805,7 @@ local function optimizeSupports(ctx)
 		return best, bestScore
 	end
 	local function setLinks(links)
-		for index = #gemList, 2, -1 do
+		for index = #gemList, first, -1 do
 			gemList[index] = nil
 		end
 		for _, gemData in ipairs(links) do
@@ -797,7 +814,7 @@ local function optimizeSupports(ctx)
 	end
 	local function getLinks()
 		local links = { }
-		for index = 2, #gemList do
+		for index = first, #gemList do
 			if gemList[index].gemData then
 				t_insert(links, gemList[index].gemData)
 			end
@@ -807,7 +824,7 @@ local function optimizeSupports(ctx)
 	-- Complete and polish the links that are currently set
 	local function finish()
 		cur = eval(ctx)
-		while #gemList - 1 < ctx.opts.maxSupports do
+		while #gemList - (first - 1) < ctx.opts.maxSupports do
 			local best, bestScore = bestForIndex(#gemList + 1)
 			if not best then
 				break
@@ -817,7 +834,7 @@ local function optimizeSupports(ctx)
 		end
 		for _ = 1, 3 do
 			local improved = false
-			for index = 2, #gemList do
+			for index = first, #gemList do
 				local best, bestScore = bestForIndex(index)
 				if best then
 					gemList[index] = makeGemInstance(ctx, best)
@@ -871,10 +888,10 @@ local function optimizeSupports(ctx)
 		setLinks({ })
 		local ranked = { }
 		for _, gemData in ipairs(candidates) do
-			gemList[2] = makeGemInstance(ctx, gemData)
+			gemList[first] = makeGemInstance(ctx, gemData)
 			t_insert(ranked, { gemData = gemData, score = eval(ctx) })
 		end
-		gemList[2] = nil
+		gemList[first] = nil
 		local emptyScore = eval(ctx)
 		for _, entry in ipairs(ranked) do
 			if entry.score == emptyScore then
@@ -3542,6 +3559,69 @@ local function treeStep(ctx, round)
 	log(ctx, "  -> %.1f", score)
 end
 
+-- Meta skills trigger the Spell that is socketed in their group, and the optimiser only filled support sockets: such a main skill had no
+-- damage. Try every Spell that can be triggered as that Spell (the engine rejects the ones a meta skill can't trigger with a score of 0),
+-- socket the best one at index 2 and select it as the group's active skill, so that the supports found next support it. One Spell only:
+-- the score is that of the group's selected skill
+-- ponytail: a meta skill with room for several Spells gets one; upgrade path = a second Spell while the Energy needed still fits
+local function optimizeMetaSpell(ctx)
+	local group = ctx.group
+	local meta = group.displaySkillList and group.displaySkillList[1]
+	if not (meta and meta.activeEffect.grantedEffect.skillTypes[SkillType.Meta]) then
+		return
+	end
+	local gemList = group.gemList
+	local function select(skillId)
+		for index, skill in ipairs(group.displaySkillList) do
+			if skill.activeEffect.grantedEffect.id == skillId then
+				group.mainActiveSkill, group.mainActiveSkillCalcs = index, index
+				return
+			end
+		end
+	end
+	if metaSpellIndex(group) then
+		select(gemList[2].skillId)
+		sync(ctx)
+		return
+	elseif #gemList > 1 then
+		return
+	end
+	local build = ctx.build
+	local candidates = { }
+	for _, gemData in pairs(build.data.gems) do
+		local grantedEffect = gemData.grantedEffect
+		local types = grantedEffect and grantedEffect.skillTypes
+		if types and not grantedEffect.support and not grantedEffect.fromItem and not grantedEffect.fromTree and not grantedEffect.hideFromSideBar
+			and types[SkillType.Spell] and types[SkillType.Triggerable] and not types[SkillType.Meta]
+			and (grantedEffect.levels and grantedEffect.levels[1] and grantedEffect.levels[1].levelRequirement or 1) <= build.characterLevel then
+			t_insert(candidates, gemData)
+		end
+	end
+	t_sort(candidates, function(a, b) return a.id < b.id end)
+	local best, bestScore = nil, 0
+	for _, gemData in ipairs(candidates) do
+		gemList[2] = makeGemInstance(ctx, gemData)
+		build.skillsTab:ProcessSocketGroup(group)
+		-- (the group's skill list has the new gem after a frame only)
+		build.buildFlag = true
+		runCallback("OnFrame")
+		select(gemData.grantedEffectId)
+		local score = eval(ctx)
+		if score > bestScore then
+			best, bestScore = gemData, score
+		end
+	end
+	gemList[2] = best and makeGemInstance(ctx, best) or nil
+	build.skillsTab:ProcessSocketGroup(group)
+	if best then
+		select(best.grantedEffectId)
+		log(ctx, "  %s triggers %s: %.1f", gemList[1].nameSpec or "the meta skill", best.name, bestScore)
+	else
+		group.mainActiveSkill, group.mainActiveSkillCalcs = 1, 1
+	end
+	sync(ctx)
+end
+
 -- A skill with several stat sets calculates the one that is selected (the program's "Stat set" choice, shown one at a time). When the
 -- selected set deals nothing, the best of the others is selected: Volatile Dead's first set is the skill, its damage is in "Explosion"
 -- and "Core". A set that already deals damage is left alone (the first one, unless the build says otherwise)
@@ -3573,6 +3653,7 @@ end
 
 local function runRound(ctx, round, allowUniques)
 	local score
+	optimizeMetaSpell(ctx)
 	if eval(ctx) <= 0 then
 		-- Attacks do nothing without a weapon, so supports can't be compared before one is equipped
 		log(ctx, "[round %d] weapons", round)
@@ -3793,7 +3874,8 @@ function optimizer.Describe(build, options)
 	add("== Skill links ==")
 	local group = build.skillsTab.socketGroupList[build.mainSocketGroup]
 	for index, gemInstance in ipairs(group and group.gemList or { }) do
-		add("%s %s (level %d, quality %d)", index == 1 and "Skill:  " or "Support:", gemInstance.nameSpec or "?", gemInstance.level or 1, gemInstance.quality or 0)
+		local isSpell = index == 2 and metaSpellIndex(group)
+		add("%s %s (level %d, quality %d)", index == 1 and "Skill:  " or (isSpell and "Spell:  " or "Support:"), gemInstance.nameSpec or "?", gemInstance.level or 1, gemInstance.quality or 0)
 	end
 
 	local others = { }
