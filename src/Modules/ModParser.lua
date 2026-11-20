@@ -3740,6 +3740,15 @@ local specialModList = {
 	} end,
 	-- Extra skill/support
 	["grants skill: spear throw"] = { }, -- Display-only; granted by CharacterMeleeSkills.
+	-- Stormweaver node (two lines, joined by the passive spec). Marks the granted skill for CalcTriggers.lua (supportTrigger, a rule
+	-- with a build-wide source), which calculates its trigger rate with Use approximations on
+	["trigger elemental storm on critical hit with spells grants skill: elemental storm"] = function()
+		local mods = grantedExtraSkill("elemental storm", 1) or { }
+		for _, kv in ipairs({ { "supportTriggerChance", 100 }, { "supportTriggerOnSpellCrit", true } }) do
+			t_insert(mods, mod("ExtraSkillMod", "LIST", { mod = mod("SkillData", "LIST", { key = kv[1], value = kv[2] }) }, { type = "SkillId", skillId = "ElementalStormPlayer" }))
+		end
+		return mods
+	end,
 	["grants skill: (%D+)"] = function(_, skill) return grantedExtraSkill(skill, 1) end,
 	["grants skill: level (%d+) (.+)"] = function(num, _, skill) return grantedExtraSkill(skill, num) end,
 	["[ct][ar][si][tg]g?e?r?s? level (%d+) (.+) when equipped"] = function(num, _, skill) return triggerExtraSkill(skill, num) end,

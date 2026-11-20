@@ -318,6 +318,8 @@ Progress:
     Quill Burst (Thorns retaliations), Charged Mark, Hayoxi's Fulmination, Poison Spores, Creeping Chill, Trickster's Shard, Catalysing
     Elements, Wind Wave, Stomping Ground (no event rate in PoB). Concussive Runes' skill isn't in the exported data; Delayed Reaction
     doesn't grant a skill.
+  - Passive node trigger (same handler): Stormweaver's Elemental Storm triggers on the Critical Hits of the Spell with the most in the whole build, not the
+    group (`supportTriggerOnSpellCrit`, see the skills-without-damage section below); `spec/System/TestNodeTriggers_spec.lua`.
   - Check: `spec/System/TestSupportTriggers_spec.lua`. In-game checks: see Phase 6. Census: support gems with an unmapped stat
     287 → 279 (Mana Flare, Coursing Current, Static Shocks, Fan the Flames I / II, Volcanic Eruption, Fiery Death, Impending Doom).
 
@@ -558,10 +560,15 @@ setup. Causes, in the order they are worth fixing; every entry is **open**.
 Same method as the support triggers (Phase 2): a rate from the supported or main skill's own numbers, capped by the skill's cooldown, with a message in
 the calculation, only with Use approximations on.
 
-- *Elemental Storm* (Stormweaver node): "Trigger Elemental Storm on Critical Hit with Spells" (the storm's element is the Hit's highest). The trigger line
-  isn't parsed (ModCache has it as unparsed text), the granted skill has a 3 s cooldown with one stored use. Needs a parser entry that marks the
-  granted skill, and a trigger rule with its source anywhere in the build (a Spell with the highest Critical Hit rate, chosen as the meta Energy source is,
-  not the same socket group as for supports): Critical Hits per second, capped by the cooldown. Not small after all.
+- *Elemental Storm* (Stormweaver node): "Trigger Elemental Storm on Critical Hit with Spells" (the storm's element is the Hit's highest). **Trigger
+  rate done (November 2026, Use approximations on; off is bit-identical):** the two node lines are one parsed modifier (`ModParser.lua`, the joined
+  text; ModCache entry edited to match what the parser writes) that grants the skill and marks it (`supportTriggerChance`, `supportTriggerOnSpellCrit`
+  through ExtraSkillMod), so `supportTrigger` calculates it: Critical Hits per second of the Spell of the build with the most (any socket group, the
+  meta Energy's source search, now the shared `sourceCandidates` / `eventSource`), capped by its 3 s cooldown with one stored use (the cooldown
+  alignment simulation, at most the event rate). A build without a Spell: 0 triggers, with a message. Check: `spec/System/TestNodeTriggers_spec.lua`.
+  Ceiling: the Hit must deal Elemental damage and picks the storm's element (a Spell without it still counts), and the storm itself still shows no
+  damage: its stat set has no damage type (it comes from the Hit that triggered it), so TotalDPS stays 0 until that is modelled (the element and the
+  share of the Hit's damage it deals, the Living Lightning way).
 - *Elemental Expression* (Invoker node): "chance for an explosion proportional to your Strength, a bolt to your Dexterity, a wave to your Intelligence";
   the event that rolls the chance isn't in the exported description (`chance_to_be_trigger_elemental_expression_%` is unmapped): read the node's text
   first, then the same event rule.

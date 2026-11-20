@@ -9570,7 +9570,7 @@ c["Trigger Detonation on Hit"]={nil,"Trigger Detonation on Hit "}
 c["Trigger Elemental Expression on Melee Critical Hit"]={nil,"Trigger Elemental Expression on Melee Critical Hit "}
 c["Trigger Elemental Expression on Melee Critical Hit Grants Skill: Elemental Expression"]={nil,"Trigger Elemental Expression on Melee Critical Hit Grants Skill: Elemental Expression "}
 c["Trigger Elemental Storm on Critical Hit with Spells"]={nil,"Trigger Elemental Storm on Critical Hit with Spells "}
-c["Trigger Elemental Storm on Critical Hit with Spells Grants Skill: Elemental Storm"]={nil,"Trigger Elemental Storm on Critical Hit with Spells Grants Skill: Elemental Storm "}
+c["Trigger Elemental Storm on Critical Hit with Spells Grants Skill: Elemental Storm"]={{[1]={flags=0,keywordFlags=0,name="ExtraSkill",type="LIST",value={level=1,skillId="ElementalStormPlayer"}},[2]={[1]={skillId="ElementalStormPlayer",type="SkillId"},flags=0,keywordFlags=0,name="ExtraSkillMod",type="LIST",value={mod={flags=0,keywordFlags=0,name="SkillData",type="LIST",value={key="supportTriggerChance",value=100}}}},[3]={[1]={skillId="ElementalStormPlayer",type="SkillId"},flags=0,keywordFlags=0,name="ExtraSkillMod",type="LIST",value={mod={flags=0,keywordFlags=0,name="SkillData",type="LIST",value={key="supportTriggerOnSpellCrit",value=true}}}}},nil}
 c["Trigger Ember Fusillade Skill on casting a Spell"]={nil,"Trigger Ember Fusillade Skill on casting a Spell "}
 c["Trigger Level 1 Create Lesser Shrine when you Kill an Enemy"]={{},nil}
 c["Trigger Level 1 Fire Burst on Kill"]={{},nil}
