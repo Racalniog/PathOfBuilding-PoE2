@@ -10,6 +10,19 @@ describe("TestEventTriggers", function()
 
 	local function calc(setup, config, customMods)
 		assert.is_true(optimizer.SetupCharacter(build, setup))
+		-- other groups of the build (setup.groups, socket group texts), with a Wooden Club for Attacks; the skill's group stays the main
+		-- one unless setup.mainExtra selects the last of them
+		local main = build.mainSocketGroup
+		if setup.groups then
+			build.itemsTab:CreateDisplayItemFromRaw("New Item\nWooden Club\n")
+			build.itemsTab:AddDisplayItem()
+			for _, text in ipairs(setup.groups) do
+				build.skillsTab:PasteSocketGroup(text)
+			end
+			build.mainSocketGroup = setup.mainExtra and #build.skillsTab.socketGroupList or main
+			build.buildFlag = true
+			runCallback("OnFrame")
+		end
 		local group = build.skillsTab.socketGroupList[build.mainSocketGroup]
 		if setup.active then
 			group.mainActiveSkill, group.mainActiveSkillCalcs = setup.active, setup.active
@@ -123,6 +136,56 @@ describe("TestEventTriggers", function()
 			assert.are.equals(0, output.Speed)
 			assert.are.equals(0, output.TotalDPS)
 			assert.are.equals("No Illusions destroyed by enemies to trigger Void Illusion: no triggers", skill.infoMessage2)
+		end)
+	end)
+
+	describe("Elemental Expression", function()
+		-- Invoker: the node triggers it on the Critical Hits of the Melee Attack of the build with the most; the stat sets are the roll
+		-- (1), Fiery Explosion (2, Strength), Icy Wave (3, Intelligence) and Arcing Bolt (4, Dexterity)
+		local function setup(statSet, groups)
+			return { class = "Monk", ascendancy = "Invoker", skill = "Elemental Expression", skillSource = "tree", level = 95, statSet = statSet, groups = groups }
+		end
+		local sunder = { "Sunder 20/0  1" }
+
+		it("keeps the untriggered numbers with approximations off", function()
+			local output, skill = calc(setup(1, sunder))
+			assert.is_nil(skill.infoMessage)
+			assert.is_nil(skill.skillData.triggered)
+			assert.are.equals(0, output.Speed)
+			assert.is_true(skill.skillData.supportTriggerOnMeleeCrit)
+		end)
+
+		it("triggers on the Melee Critical Hits, each stat set with its attribute's share", function()
+			-- Sunder's Critical Hits per second, calculated as the main skill
+			local main = setup(1, sunder)
+			main.mainExtra = true
+			local sunderOutput = calc(main)
+			local crits = (sunderOutput.HitSpeed or sunderOutput.Speed) * sunderOutput.HitChance / 100 * math.min(sunderOutput.CritChance / sunderOutput.AccuracyHitChance, 1)
+			assert.is_true(crits > 0 and crits < 1 / 0.25)
+			local shares, total = { }, 0
+			for set, attribute in pairs({ [2] = "Str", [3] = "Int", [4] = "Dex" }) do
+				newBuild()
+				local output, skill = calc(setup(set, sunder), approx)
+				assert.are.equals("Elemental Expression's Trigger: Sunder", skill.infoMessage)
+				shares[set] = output[attribute] / (output.Str + output.Dex + output.Int)
+				assert.are.near(crits * shares[set], output.Speed, crits * 1e-9)
+				total = total + output.Speed
+			end
+			-- the three outcomes together are every trigger
+			assert.are.near(crits, total, crits * 1e-9)
+			-- the roll itself (the first set) is every trigger
+			newBuild()
+			assert.are.near(crits, (calc(setup(1, sunder), approx)).Speed, crits * 1e-9)
+		end)
+
+		it("doesn't trigger without a Melee Attack", function()
+			local output, skill = calc(setup(2), approx)
+			assert.are.equals(0, output.Speed)
+			assert.are.equals("No Critical Hits with Melee Attacks to trigger Elemental Expression: no triggers", skill.infoMessage2)
+			-- a Spell isn't one
+			newBuild()
+			output = calc(setup(2, { "Spark 20/0  1" }), approx)
+			assert.are.equals(0, output.Speed)
 		end)
 	end)
 

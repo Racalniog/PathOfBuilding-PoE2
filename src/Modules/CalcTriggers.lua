@@ -1742,6 +1742,29 @@ t_insert(supportTriggerEvents, { key = "supportTriggerOnCopyDestroyed", name = "
 	local hits = env.player.modDB:GetMultiplier("ApproxEnemyHitsOnYouPerSecond")
 	return m_min(rolls, hits), { s_format("min(%.2f, %.2f) ^8(dodge rolls per second, enemy Hits on you per second: one copy per roll, destroyed by an enemy Hit; an approximation)", rolls, hits) }
 end })
+-- * Elemental Expression (Invoker node, "Trigger Elemental Expression on Melee Critical Hit"): the Melee Attack of the whole build
+--   with the most Critical Hits per second (a source rule, like Elemental Storm). The skill's stat sets are the three outcomes, each
+--   with the chance proportional to an attribute: explosion (Fire) Strength, wave (Cold) Intelligence, bolt (Lightning)
+--   Dexterity, as that attribute's share of Strength + Dexterity + Intelligence; the first set (the roll itself) takes them all.
+-- ponytail: "proportional" is read as a plain share of the three attributes (the description gives no formula); upgrade path = the
+--   game's formula, if one is found
+local expressionAttributes = { ["Fiery Explosion"] = "Str", ["Arcing Bolt"] = "Dex", ["Icy Wave"] = "Int" }
+t_insert(supportTriggerEvents, { key = "supportTriggerOnMeleeCrit", name = "Critical Hits with Melee Attacks", source = function(skill, flags)
+	return flags.hit and skill.skillTypes[SkillType.Melee] and skill.skillTypes[SkillType.Attack]
+end, rate = function(env, source)
+	return source.rates.crits, s_format("%.2f ^8(Critical Hits per second of %s, the Melee Attack with the most)", source.rates.crits, source.name)
+end, chance = function(env, skill)
+	local effect = skill.activeEffect
+	local set = effect.grantedEffect.statSets[(env.mode == "CALCS" and effect.statSetCalcs or effect.statSet).index]
+	local attribute = expressionAttributes[set and set.label]
+	if not attribute then
+		return 1
+	end
+	local output = env.player.output
+	local total = (output.Str or 0) + (output.Dex or 0) + (output.Int or 0)
+	local share = total > 0 and (output[attribute] or 0) / total or 0
+	return share, s_format("x %.1f%% ^8(%s of %.0f Strength + Dexterity + Intelligence: the chance for the %s is proportional to it; an approximation)", share * 100, attribute, total, set.label)
+end })
 
 local function supportTrigger(env, actor)
 	local mainSkill = actor.mainSkill
@@ -1766,6 +1789,13 @@ local function supportTrigger(env, actor)
 		if record then
 			local events, line = event.rate(env, record)
 			source, rate, lines = skill, events, { line }
+			if event.chance then
+				local share, chanceLine = event.chance(env, mainSkill)
+				rate = rate * share
+				if chanceLine then
+					t_insert(lines, chanceLine)
+				end
+			end
 		end
 	elseif event.build then
 		-- (the rate comes from the approximation inputs, the skill is its own source)
@@ -1803,7 +1833,7 @@ local function supportTrigger(env, actor)
 	if not source and triggeredSource then
 		lines = { s_format("%s is triggered: triggers by a triggered skill are not modelled", triggeredSource.activeEffect.grantedEffect.name) }
 	elseif not source then
-		lines = { event.source and s_format("No Spell of the build has %s", event.name) or s_format("No skill in the group is supported by %s", supportName) }
+		lines = { event.source and s_format("No skill of the build has %s", event.name) or s_format("No skill in the group is supported by %s", supportName) }
 	end
 	if rate == 0 then
 		mainSkill.infoMessage2 = not source and triggeredSource and "Supported skill is triggered: no triggers modelled" or s_format("No %s to trigger %s: no triggers", event.name, triggeredName)
