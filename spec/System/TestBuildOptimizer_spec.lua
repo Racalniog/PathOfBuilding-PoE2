@@ -328,4 +328,23 @@ describe("BuildOptimizer", function()
 		loadBuildFromXML(xmlText, "Optimizer Test")
 		assert.is_true(math.abs(result.score - score()) <= result.score * 1e-6)
 	end)
+
+	it("seeds the search with a saved build, and refuses one that doesn't match", function()
+		local setup = { class = "Sorceress", ascendancy = "Stormweaver", skill = "Spark" }
+		assert.is_true(optimizer.SetupCharacter(build, setup))
+		local first = optimizer.Optimize(build, quickOptions)
+		local xmlText = build:SaveDB("Optimizer Seed")
+		-- the seed comes back as it was saved, and a search from it never ends lower
+		newBuild()
+		assert.is_true(optimizer.SeedBuild(build, xmlText, setup))
+		assert.is_true(math.abs(score() - first.score) <= first.score * 1e-6)
+		local again = optimizer.Optimize(build, quickOptions)
+		assert.is_true(again.score >= first.score * (1 - 1e-6))
+		for _, wrong in ipairs({ { class = "Monk", skill = "Spark" }, { class = "Sorceress", ascendancy = "Chronomancer", skill = "Spark" }, { class = "Sorceress", skill = "Ice Strike" } }) do
+			newBuild()
+			local ok, errMsg = optimizer.SeedBuild(build, xmlText, wrong)
+			assert.is_nil(ok)
+			assert.is_truthy(errMsg:match("^The seed build"))
+		end
+	end)
 end)

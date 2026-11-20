@@ -541,7 +541,8 @@ InfusionRemnantBaseDuration) were already in `data.gameConstants`.
   (the best build after each round is kept), and `--restarts n` / *Restarts* runs the whole search
   n times, each time with another order (the tree before the equipment on every second run) and
   tree exponents scaled by 1 - 0.05 per run, and keeps the best; the run time grows with n.
-  Still open: seeding the search from a known good build, and making ties in the search
+  Seeding the search from a known good build is done (`--seed <file.xml>`, `optimizer.SeedBuild`: the
+  seed's equipment and gems are the start, its tree is refined). Still open: making ties in the search
   deterministic (reruns of one setup differ because some steps iterate tables in memory order).
 - **Speed:** one evaluation takes about 2–4 ms of branchy Lua over modifier tables; a GPU port would
   mean a second engine and isn't worth it. In order: (1) profile an optimizer run to find the hot

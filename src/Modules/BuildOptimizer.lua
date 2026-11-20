@@ -497,6 +497,38 @@ function optimizer.SetupCharacter(build, setup)
 	return true
 end
 
+-- Start from a saved build (the XML text of an earlier result) instead of a fresh character: the search then refines its
+-- equipment, gems and tree (an existing tree is only refined, not searched anew). The build has to match the setup's class,
+-- ascendancy (when given) and main skill (exact or partial name, as in SetupCharacter); level and gems stay the seed's.
+-- Returns true, or nil and an error message
+function optimizer.SeedBuild(build, xmlText, setup)
+	loadBuildFromXML(xmlText, "seed") -- (the build object stays the same, its tabs are made anew)
+	local spec = build.spec
+	if (spec.curClassName or ""):lower() ~= (setup.class or ""):lower() then
+		return nil, "The seed build is a " .. tostring(spec.curClassName) .. ", not a " .. tostring(setup.class)
+	end
+	local wanted = (setup.ascendancy or ""):lower()
+	if wanted ~= "" and wanted ~= "auto" and (spec.curAscendClassName or ""):lower() ~= wanted then
+		return nil, "The seed build's ascendancy is " .. tostring(spec.curAscendClassName) .. ", not " .. setup.ascendancy
+	end
+	local group = build.skillsTab.socketGroupList[build.mainSocketGroup]
+	local gem = group and group.gemList[1]
+	local skill = ((gem and gem.nameSpec) or ""):lower()
+	local wantedSkill = (setup.skill or ""):lower()
+	if wantedSkill == "" or not skill:find(wantedSkill, 1, true) then
+		return nil, "The seed build's main skill is " .. tostring(gem and gem.nameSpec) .. ", not " .. tostring(setup.skill)
+	end
+	for key, value in pairs(setup.config or { }) do
+		build.configTab.input[key] = value
+	end
+	build.configTab:BuildModList()
+	build.buildFlag = true
+	if runCallback then
+		runCallback("OnFrame")
+	end
+	return true
+end
+
 -----------------------------------------------------------------------------------------------
 -- Support gems
 -----------------------------------------------------------------------------------------------

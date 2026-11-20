@@ -19,7 +19,10 @@ Usage: OptimizeBuild.lua --class <name> --skill <gem name> [options]
   --rounds <n>           Optimisation passes per variant (default 2)
   --restarts <n>         Run the whole search n times, each with a different order of steps and tree
                          variants, and keep the best build (default 1; the run time grows with n)
-  --roll <0..1>          Roll quality of crafted affixes and unique ranges (default 1 = perfect)
+  --seed <file.xml>      Start from a saved build (an earlier result of the same class and skill) instead of
+                         a fresh character, and refine it. Its tree is refined, not searched anew; implies
+                         --only-uniques unless --no-uniques is given. --level and --gem-level are ignored
+  --roll <0..1>         Roll quality of crafted affixes and unique ranges (default 1 = perfect)
   --item-level <n>       Highest affix tier level allowed on crafted items (default 82)
   --supports <n>         Number of support gems (default 5)
   --metric <stat>        Calc output to maximise (default CombinedDPS; e.g. TotalDPS, FullDPS)
@@ -195,14 +198,31 @@ if args.coverage and not (args.class and args.skill) then
 	io.stdout:write(optimizer.CoverageReport(build), "\n")
 	os.exit(0)
 end
-local ok, errMsg = optimizer.SetupCharacter(build, {
+local setup = {
 	class = args.class,
 	ascendancy = args.ascendancy,
 	skill = args.skill,
 	level = tonumber(args.level),
 	gemLevel = tonumber(args["gem-level"]),
 	config = args.config,
-})
+}
+local ok, errMsg
+if args.seed then
+	local seedFile = io.open(args.seed, "r")
+	if not seedFile then
+		io.stderr:write("Couldn't read " .. args.seed .. "\n")
+		os.exit(1)
+	end
+	local seedXml = seedFile:read("*a")
+	seedFile:close()
+	ok, errMsg = optimizer.SeedBuild(build, seedXml, setup)
+	-- the seed's equipment (uniques included) is the starting point of the first search: that is the one with uniques
+	if ok and not args["no-uniques"] then
+		args["only-uniques"] = true
+	end
+else
+	ok, errMsg = optimizer.SetupCharacter(build, setup)
+end
 if not ok then
 	io.stderr:write(errMsg .. "\n")
 	os.exit(1)

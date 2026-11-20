@@ -70,6 +70,7 @@ Every setting of the Optimizer tab has a command-line equivalent (see [Command l
 | Support gems | `--supports` | Number of supports linked to the skill (default 5) |
 | Rounds | `--rounds` | Passes over the whole search (default 2); later rounds let earlier choices react to later ones. A round that makes the build worse is undone |
 | Restarts | `--restarts <n>` | Runs the whole search n times (default 1) and keeps the best build. Every run after the first takes another path: odd runs build the passive tree before the equipment, and each scales the tree variants' travel appetite by 5% more. The run time grows with n |
+| Seed | `--seed <file.xml>` | Starts from a saved build (an earlier result of the same class, ascendancy and skill) instead of a fresh character, and refines it: its equipment and gems are the starting point, its tree is refined instead of searched anew. Runs only the search with uniques (like `--only-uniques`) unless `--no-uniques` is given; the level and gem level are the seed's. A build that doesn't match the class, ascendancy or skill is refused |
 | Tree variants | `--tree-width <1-4>` | Number of differently-minded passive trees that are built and compared (default 4) |
 | Unique items | `--no-uniques` (off) | Also make the build with unique items allowed |
 | Lineage supports | `--no-lineage` (off) | Allow lineage support gems |
