@@ -540,72 +540,85 @@ InfusionRemnantBaseDuration) were already in `data.gameConstants`.
 Screen of every skill that only a unique item (91 uniques) or a passive node (45 nodes) grants and that is not also a gem: 101 skills, 8 classes
 at level 95, then a quick optimiser run of 66 of them (the 39 that deal damage with a bare character, and 27 damage, spell, attack or minion skills
 that didn't). 47 runs scored; 19 stopped with "The skill deals no damage in this setup". Of the 101, 63 showed no damage of their own in the bare
-setup. Causes, in the order they are worth fixing; every entry is **open**.
+setup. Everything below that is marked done is only calculated with Use approximations on, with them off the numbers are bit-identical (checked by dumping
+every numeric main output value before and after, on a build with each skill as the main skill).
 
-**1. A calculation gap with a direct fix**
+Second round (same month): 20 of the skills that stopped with no damage were run again on the merged code (level 95, roll 0.6, item level 75, `--assume
+sustained`, approximations on, 2 rounds, tree skills rares only). 13 scored: Apocalypse 31.0M (see item 5: not a per-second figure), Elemental Storm
+5.25M, Cast on Block 3.60M, The Stars Answer 2.75M, Void Illusion 2.20M, Valako's Charge 0.96M, Elemental Expression 0.88M, Archon of Chayula 0.60M,
+Runic Tempering 0.55M, Mist Raven 0.22M, Volatile Dead 0.21M, Spiraling Conspiracy 43k, Harbinger of Madness 37k. Still no damage: Midnight Zenith,
+Inevitable Agony (no hit of its own), Feast of Flesh, Sigil of Power, Time Freeze, Time Snap, Navira (all utility). These are quick-run scores, not
+verified builds.
+
+**1. Calculation gaps with a direct fix**
 
 - *Skills whose damage sits in another stat set.* Volatile Dead (Enezun's Charge) has three stat sets: "Volatile Dead" (no damage), "Explosion" and
   "Core" (both with Fire damage). The engine calculates the selected stat set (the program's own "Stat set" choice, one at a time), set 1 by default, so
-  the skill showed 0 although it hits. **Done (November 2026):** when the selected set deals nothing the optimiser selects the best of the others
-  (`chooseStatSet`, after the weapon step; a set that deals damage is left alone, so other builds are unchanged): Volatile Dead scores with "Core" (9.3
-  per cast against 4.9 for "Explosion" at level 95, one cast each). Not done: the sum of the sets that hit (Explosion + Core happen in one cast), which the
-  program doesn't show either, and a census of the gem skills for the same pattern (a first stat set without damage, a later one with).
-- *Companion skills whose damage is in the Command skill.* Mist Raven (The Auspex): the Summon skill has no hit and no minion output in the calculation; the
-  raven's damage is in the gem's second skill, Command Mist Raven (`additionalGrantedEffects`), and the flock's own skills (Raven Conspiracy: swarm aura,
-  Mad Flight) deal damage over time that the minion's DPS doesn't count (Spiraling Conspiracy: minion TotalDPS 0). Fix: calculate the Command skill as well
-  (as for Kelari, which scored), and count the minion's damage over time in the minion's DPS.
+  the skill showed 0 although it hits. **Done:** when the selected set deals nothing the optimiser selects the best of the others (`chooseStatSet`, after
+  the weapon step; a set that deals damage is left alone, so other builds are unchanged). Not done: the sum of the sets that hit (Explosion + Core happen
+  in one cast), which the program doesn't show either, and a census of the gem skills for the same pattern.
+- *A skill that deals nothing itself but is one of several in its group* (Void Illusion's buff and explosion, The Stars Answer's Starfall, Apocalypse's
+  disasters, Archon's Chayula's Will): **done** (`chooseGroupSkill`): when the selected skill deals nothing the best of the group's others is selected, a
+  triggered one if none deals damage yet (an Attack without a weapon); a meta skill's group is left to `optimizeMetaSpell`.
+- *Companion skills.* **Spiraling Conspiracy:** already counted: the flock's damage over time is in the minion's Combined DPS (182 at level 95 bare), it only
+  reads as 0 in Total DPS because it is no Hit (regression test in `TestRavenMinions_spec.lua`). **Mist Raven: done:** the summon skill had no minion list
+  (the Export text lacked `#minionList MistRaven`), so no minion existed; now `minionList` and a new `minionSkillList` (Mad Flight only: the flock's swarm
+  aura belongs to Spiraling Conspiracy) are set, with a `#minionSkillList` exporter directive (edited by hand, the exporter was not run). Its Command skill
+  has no damage of its own, as Kelari's. Open: Mad Flight's hits per use (the data says the flock hits every 0.12 s for 5 s, the engine counts one Hit of
+  17 per use, which may be about 40 times too low), the ravens it spends, and `companionReservation` (Spirit).
 
-**2. Damage that exists but depends on an event rate PoB has no model of: needs an approximation**
+**2. Damage that depends on an event rate PoB has no model of: approximations (Use approximations on)**
 
-Same method as the support triggers (Phase 2): a rate from the supported or main skill's own numbers, capped by the skill's cooldown, with a message in
-the calculation, only with Use approximations on.
+Same method as the support triggers (Phase 2): a rate from the numbers of the build's own skills or from the approximation inputs, capped by the skill's
+cooldown, with a message in the calculation. Every assumed default is a `ponytail:` comment in the code.
 
-- *Elemental Storm* (Stormweaver node): "Trigger Elemental Storm on Critical Hit with Spells" (the storm's element is the Hit's highest). **Trigger
-  rate done (November 2026, Use approximations on; off is bit-identical):** the two node lines are one parsed modifier (`ModParser.lua`, the joined
-  text; ModCache entry edited to match what the parser writes) that grants the skill and marks it (`supportTriggerChance`, `supportTriggerOnSpellCrit`
-  through ExtraSkillMod), so `supportTrigger` calculates it: Critical Hits per second of the Spell of the build with the most (any socket group, the
-  meta Energy's source search, now the shared `sourceCandidates` / `eventSource`), capped by its 3 s cooldown with one stored use (the cooldown
-  alignment simulation, at most the event rate). A build without a Spell: 0 triggers, with a message. Check: `spec/System/TestNodeTriggers_spec.lua`.
-  Ceiling: the Hit must deal Elemental damage and picks the storm's element (a Spell without it still counts). The skill has one stat set per element
-  ("Fire", "Cold", "Lightning"), the first of them dealt nothing: the optimiser now selects the best one (`chooseStatSet`), and Elemental Storm scores
-  (Stormweaver, level 95, a quick run: "Fire"). **Still open, found when the pieces were tested together:** (1) the optimiser builds around the storm
-  alone, so no Spell group exists to be the source, and the calculation says "no triggers" (Speed 0); a node- or item-triggered skill needs a source
-  group added to the build (the best Spell with Critical Hits, as the meta Spell step does for meta skills); (2) the storm's TotalDPS is its damage
-  while it exists (a Hit every 250 ms, `tornado_base_damage_interval_ms`), unaffected by the trigger rate, so the score (213k in that run) is the same with
-  0 triggers as with 0.3 per second: the damage needs the share of time storms exist (triggers per second x duration, at most `number_of_tornados_allowed`
-  at once), as Living Lightning's Minions got.
-- *Elemental Expression* (Invoker node): "chance for an explosion proportional to your Strength, a bolt to your Dexterity, a wave to your Intelligence";
-  the event that rolls the chance isn't in the exported description (`chance_to_be_trigger_elemental_expression_%` is unmapped): read the node's text
-  first, then the same event rule.
-- *Valako's Charge* (Lightning Coil): charge builds up when you take Lightning damage; at full charge a chaining bolt. Rate = enemy Hits on you per
-  second (the existing Cast on Block input) x the share of them that deals Lightning damage (new option, default 0 = no triggers) / the hits one charge
-  needs (unmapped `cast_on_damage_taken_%`).
-- *The Stars Answer* (item): triggers Starfall every `walking_calamity_spawn_meteor_every_ms`, more often with enemies in the radius
-  (`walking_calamity_meteor_frequency_+%_per_enemy_in_walking_calamity_radius`, capped): a fixed rate from the data (1000 / interval), the enemy bonus as
-  a configured enemy count.
-- *Apocalypse* (node) and *Archon of Chayula* (node): Glory builds from Hits that deal Elemental (Chaos) damage (`active_skill_generates_mp_%_glory_per_..._hit`
-  of `active_skill_requires_X_glory`); at maximum Glory the buff lasts a duration, and Apocalypse triggers a skill every
-  `unleash_the_elements_base_trigger_frequency_ms`. Uptime = duration / (duration + time to fill the Glory from the main skill's Hits per second); the
-  triggered skills' damage at that uptime.
-- *Midnight Zenith* (Eventide Petals): Critical Hits that kill or hit rare / unique enemies build Ice Seeds, enough of them make an Ice Crystal. Rate =
-  Critical Hits per second x kill share (the kills per second option) or the rare share; seeds per crystal from the data.
-- *Void Illusion* (node): copies are made on dodge rolls and explode when an enemy kills them. Needs a new option, dodge rolls per second (default 0: no
-  explosions), then one explosion per copy destroyed (enemy Hits on you).
-- *Runic Tempering* (Serle's Grit): channelled; when Hit while it has plates, some damage is prevented and a backlash deals your Thorns damage in an area
-  (`runic_tempering_backlash_cooldown_ms`). Rate = enemy Hits on you per second per plate, at most one per cooldown, x Thorns damage (already calculated
-  for Thorns skills). Depends on the Thorns retaliation cooldowns that Phase 3 lists as not modelled.
-- *Inevitable Agony* (node): a debuff records a share of the Hits the target takes (`curse_pain_synchronisation_base_recorded_damage_%_to_apply`) and
-  deals it at once when it ends. PoB treats a debuff as applied, so the rate changes nothing; approximation: a more multiplier on the Hit damage of the
-  other skills in Full DPS = the recorded share x the share of the debuff's duration the enemy survives (configured, default all of it). It has no hit
-  of its own.
-- *Meta skills*: Cast on Block (Svalinn), Cast on Charm Use (Bijouborne), Called Shots, Fire Spell on Melee Hit, Thundergod's Wrath, Spirit Vessel
-  (copies of socketed shapeshift skills). The damage is in the skills socketed into the meta skill, and the optimiser fills support sockets only, never
-  those. The engine already calculates the meta Energy triggers (Phase 2), so the missing part is in the optimiser: let the support step fill a meta
-  skill's skill sockets from the Spells (or shapeshift skills) that fit, scored through the existing triggered calculation. Bigger.
-  **Done for the Spell sockets (November 2026):** `optimizeMetaSpell` tries every Triggerable Spell gem as the group's Spell (index 2; the engine scores the
-  ones the meta skill can't trigger 0), keeps the best, selects it as the group's skill and lets the support search start after it; Cast on Block (Svalinn)
-  and a Cast on Critical gem build with it (Use approximations on gives the Energy-based rate). One Spell per meta skill (the score is the selected skill's),
-  and Spirit Vessel (copies of socketed shapeshift skills) is not covered.
+- *Elemental Storm* (Stormweaver node): **done, with an open part.** The two node lines are one parsed modifier (ModParser.lua, ModCache entry written by
+  the parser) that grants and marks the skill. Rate = Critical Hits per second of the Spell of the build with the most (any socket group: `sourceCandidates` /
+  `eventSource`, shared with the meta Energy), capped by the 3 s cooldown with one stored use (the alignment simulation). The skill has one stat set per
+  element, the optimiser selects the best one (`chooseStatSet`). Its damage follows the trigger rate: storms alive = min(`number_of_tornados_allowed`, triggers
+  per second x duration) times a Hit every 250 ms (`ObjectsAlive`, CalcOffence.lua, only for a skill that states an object limit and has a duration).
+  The optimiser adds the trigger source (`optimizeTriggerSource`): a socket group "Trigger source" with the Spell that raises the trigger rate and the
+  main score, supports found for it; generic for any rule with a `source`. Ceiling: the average count of storms (a Poisson count capped at the limit is a
+  little lower near the cap), and **the rule is wrong in one respect:** poe2db and the skill's own description say a Hit that deals no Elemental damage
+  doesn't trigger it, and the code counts any Spell Critical Hit (the source record has `dealsElemental` now: the rule's source filter should use it, and
+  the storm's element should follow the Hit's biggest type). Duration 5 s, radius 1.8 m, no Critical Hits (poe2db).
+- *Elemental Expression* (Invoker node, "Trigger Elemental Expression on Melee Critical Hit"): **done.** Source = the Melee Attack of the build with the most
+  Critical Hits per second; each stat set gets its attribute's share of Strength + Dexterity + Intelligence (explosion Strength, wave Intelligence, bolt
+  Dexterity; the first set, the roll, takes the whole rate); the data has 100 in every set, so "proportional" is read as a plain share. Open: the game's
+  formula.
+- *Valako's Charge* (Lightning Coil): **done.** Rate = enemy Hits on you per second x *Enemy Hits that deal Lightning damage (%)* (new option, default 20,
+  an assumed one of five damage types) x the share of the charge one such Hit fills (`cast_on_damage_taken_threshold` is a damage amount: enemy Lightning
+  damage less your resistance over it, at most 1), then the 1 s cooldown. Open: other damage taken modifiers, a Lightning share read from the enemy.
+- *Runic Tempering* (Serle's Grit): **done.** Backlashes per second = min(enemy Hits on you per second, 1 / the 0.4 s cooldown), each the hidden Thorns
+  skill's Average Damage (it scales with the plates); shown as Total DPS and `BacklashDPS`. New option *Runic Plates while channelling*, default 4 (the
+  maximum; the existing plates input wins): the plate gain rate isn't in the data. Assumes every Hit backlashes. Open: both, to be measured in the game.
+- *Void Illusion* (node): **done.** The hidden skill `VoidIllusionSpawnPlayer` is the explosion; rate = min(dodge rolls per second (new option, default
+  0.2), enemy Hits on you per second), then the 4 s cooldown with 3 stored uses. Every Hit is taken to land on a copy while copies exist.
+- *The Stars Answer* (item): **done.** Starfall every `walking_calamity_spawn_meteor_every_ms` (300 ms), +50% per enemy in the radius after the first, at
+  most +200%; enemies around you is a new input, default 1 (no bonus). Every 15th meteor is a large star: the selected stat set gets its share (14/15 or
+  1/15). The damage is the group's selected skill (`chooseGroupSkill`). Open: the other stat set's damage isn't added (Small Star alone is about 85% of
+  the total at one enemy).
+- *Apocalypse* and *Archon of Chayula* (nodes): **done for the Glory, duration and trigger part.** Glory per second = Hits per second of the build's skill
+  with the most Elemental (Chaos) Hits x `active_skill_generates_mp_%_glory_per_..._hit` x the enemy's Power (20 with the boss options, 5 Rare, else 1: the
+  "mp" is read as Monster Power, unverified), time to fill = 100 / that, uptime = duration (12 s; Archon 10 s) / (duration + time to fill), one trigger per
+  750 ms (Archon: Chayula's Will every 3 s) during the buff, the disaster picked at random (a third each). Open: Archon's "while affected by an Archon
+  Buff" parts; CalcPerform's Archon Buff approximation has its own uptime (`approxArchonRecovery`), two models of one buff to reconcile; each skill's damage
+  is the one PoB shows per cast (Hailstorm's bolts, Crash Lightning's pulses, the tornado's about 40 Hits aren't multiplied).
+- *Midnight Zenith* (Eventide Petals): **engine done, the optimiser run still shows no damage.** Arctic Petals per second = Critical Hits per second x
+  seeds per Critical Hit on a Rare or Unique enemy, plus Critical kills (kills per second x the crit share); 10 Petals make 5 Ice Crystals, capped by the
+  crystal limit over its duration; damage in stat set 2 ("Crystal"). Open: why the optimiser run shows no damage (not diagnosed: the likely cause is that
+  its rule takes the build's best Critical Hit skill and no source group is added for it, as its rule isn't a `source` rule), and the reading of the
+  crystals per consumption is unverified.
+- *Inevitable Agony* (node): **done as a modifier, no hit of its own.** A `DamageTaken` MORE mod on Hits goes on the enemy: the recorded share (25%) x the new
+  input *Debuff duration the enemy survives (%)* (default 100). The engine rounds MORE modifiers to whole percent. It raises the score of every other skill
+  once the node is allocated; the optimiser's auxiliary search doesn't take node skills as candidates, so a run with it as the main skill has nothing to
+  score.
+- *Meta skills*: **Spell sockets done.** `optimizeMetaSpell` tries every Triggerable Spell gem in the group (the engine scores the ones a meta skill can't
+  trigger 0), keeps the best and selects it; `addSpells` then adds Spells while the group's Full DPS rises (score = the group's Full DPS, `addGroupTotal`),
+  at most `maxMetaSpells` = 3 (the number of Spell sockets of a meta gem isn't in the data); a group whose summed Energy exceeds the maximum triggers nothing, so
+  such a Spell scores 0. Spell supports apply to every Spell of the group. Cast on Block (Svalinn) and Cast on Critical build with it. **Spirit Vessel: open:** the
+  engine doesn't calculate the companion (no minion definition, no copies of the socketed Bear / Werewolf / Wyvern skills, the 20% per socketed skill
+  unmapped); with those gems socketed the group scores 0.
 
 **3. Correct as they are: no hit of their own (not gaps)**
 
@@ -618,23 +631,33 @@ Deadeye, Temper Weapon. Three of them matter for damage and are worth a look: *S
 aren't the main skill; they belong to the auxiliary skill search (an item that grants one is a candidate there, as for any aura). Whether the engine
 applies their buff to the main skill when the group is enabled has not been checked.
 
-**4. Limits of the screen itself**
+**4. Limits of the screen and of the setup**
 
 - Item skills were run on one class chosen by skill type (Witch for Spells, Warrior for melee, ...) where the bare-setup damage didn't name a best class;
   a better class may exist.
 - "Main Hand weapon is not usable with this skill" in the bare setup (Crushing Fear, Hollow Focus / Form / Resonance, Manifest Weapon, Temper Weapon,
   Archon of Chayula, Mirage Deadeye) is not a gap: the weapon search equips a fitting weapon first, and the first four scored.
 - The first unique that fits is equipped; a skill that several uniques grant (Parry on ten bucklers) is built around the first by name.
+- The trigger source group is chosen once per round at its start, after the weapon step: a one-round run can pick a poor source with weak gear; the supports
+  of the source are chosen by the main skill's score.
 
-Order of work: stat set choice (done), the Elemental Storm event (the trigger rate done, the source group and the uptime open), the meta skill sockets (done
-for the Spell sockets), then the fixed-interval and Glory triggers, then the options that need a new input (Valako's Charge, Void Illusion).
+**5. Average damage instead of DPS.** 58 gem skills carry `base_skill_show_average_damage_instead_of_dps` (Comet, Firestorm, Flameblast, Ice Nova, Solar
+Orb, Volatile Dead, Icestorm, Walking Calamity, the grenades, the slams and strikes, ...), and so do the triggered skills of Apocalypse, The Stars Answer and
+others. For them the engine's Combined DPS is the average damage per use (plus the ailment damage per use), not per second. poe2db shows that only some of
+them are single-use skills (Comet and Flameblast have a cooldown or channel; Ice Nova and Firestorm have none and are cast on cast time), for those per
+second is the fair comparison. `--per-second` (`perSecond`) scores them x TotalDPS / AverageDamage (the cast rate, cooldown or trigger rate); the default
+stays what the program shows. The Comet and Firestorm results in docs/buildOptimizerRuns.md are per cast, and the Apocalypse score above (31.0M, with 3.3M
+hit DPS) is a per-use figure: none of them has been run again per second.
 
-**5. Found on the way: average damage instead of DPS.** 58 gem skills carry `base_skill_show_average_damage_instead_of_dps` (Comet, Firestorm, Flameblast,
-Ice Nova, Solar Orb, Volatile Dead, Icestorm, Walking Calamity, the grenades, the slams and strikes, ...). For them the engine's Combined DPS is the
-average damage per use, not per second, so the optimiser's score of a Comet or Firestorm build is damage per cast, and compares badly with a DPS skill
-(Hexblast) and ignores cast speed and cooldown. `--per-second` (`perSecond`) scores them x TotalDPS / AverageDamage (the cast rate, cooldown or trigger
-rate); the default stays what the program shows. The Comet and Firestorm results in docs/buildOptimizerRuns.md are per cast; they have not been run again
-per second.
+**6. Checked against public sources (poe2db, November 2026; the wiki refused automated access)**
+
+Confirmed: Living Lightning (limits 5 / 8, 30 s, cooldown 0.2 s with 5 / 8 stored uses, 3 attacks 0.14 s apart), the Mana Flare, Coursing Current, Static
+Shocks, Volcanic Eruption and Fiery Death triggers and cooldowns, Cast on Critical's 1 Energy per Power, Cast on Block's 25, Invocation's 500, Monster Power
+Rare 5 and Unique 20. To change: Elemental Storm needs Elemental damage on the Hit (above); Magic monsters have Power 2 (the code takes 1 and can't select
+2); Spellslinger gains 2 Energy per 0.1 s of base cast time (check `energyPer10msCastTime`); Impending Doom shows "(3-4) Times" stored uses where the data
+has 7 (check which is right); "Hit" versus "damage" for Living Lightning's trigger, the per-target cooldown and the stored uses of Mana Flare, Volcanic Eruption
+and Elemental Storm are not stated. Unverifiable without the game, and the riskiest: the Ailment Threshold factor of the Critical Hit and Ignite Energy
+("a percentage as a number", it scales every Cast on Critical rate; Phase 6), and every default input above.
 
 ### Optimizer and performance follow-ups
 
