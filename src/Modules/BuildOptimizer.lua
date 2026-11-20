@@ -57,6 +57,9 @@ optimizer.defaultOptions = {
 	auxSkills = true,
 	-- Skill gems the character can have in total (the main skill included)
 	maxSkills = 9,
+	-- Spells the optimiser sockets into a meta skill (Cast on Critical, ...); more are added while the group's Full DPS rises
+	-- ponytail: the game's number of Spell sockets of a meta gem isn't in the data; upgrade path = that number
+	maxMetaSpells = 3,
 	-- Equip flasks and charms where they add damage (they are assumed to be active)
 	flasks = true,
 	-- Use the second weapon set: supporting skills that gain from it are cast with their own
@@ -135,6 +138,36 @@ local function baseSignature(build)
 		tostring(build.partyTab and build.partyTab.enemyModList), tostring(build.characterLevel), tostring(build.spec.curClassId) }, "|")
 end
 
+-- Spells that follow a meta skill (Cast on Block, Cast on Critical, ...) in its group: the group is the meta skill, its Spells, then the
+-- supports. The meta skill triggers the Spells, and they deal the damage. Returns how many Spells the group has (0 for a group that
+-- isn't a meta skill's, or a meta skill without a Spell yet)
+local function metaSpellCount(group)
+	local meta = group.displaySkillList and group.displaySkillList[1]
+	local count = 0
+	if meta and meta.activeEffect.grantedEffect.skillTypes[SkillType.Meta] then
+		while true do
+			local spell = group.gemList[count + 2] and group.gemList[count + 2].gemData
+			if not spell or spell.grantedEffect.support then
+				break
+			end
+			count = count + 1
+		end
+	end
+	return count
+end
+
+-- The engine calculates the main skill of the selected socket group only. A meta skill's group with several Spells has each of them
+-- as its own skill (all triggered at the group's rate, which falls with every Spell: the Energy they need is summed), so its damage is
+-- the program's Full DPS of the group (the group has "Include in Full DPS" on, which the optimiser only sets for a group with several
+-- Spells), added to the output as FullDPS and scored instead of CombinedDPS (scoreOutput)
+local function addGroupTotal(ctx, override, output)
+	local group = ctx.group
+	if group.includeInFullDPS and metaSpellCount(group) > 0 then
+		local base = ctx.baseDB
+		output.FullDPS = ctx.calcs.calcFullDPS(ctx.build, "CALCULATOR", override, { cachedPlayerDB = base.player, cachedEnemyDB = base.enemy, cachedMinionDB = base.minion }).combinedDPS
+	end
+end
+
 local function calcOutput(ctx, override)
 	local build = ctx.build
 	local signature = baseSignature(build)
@@ -147,6 +180,7 @@ local function calcOutput(ctx, override)
 			-- for skills calculated in their own environment during perform (calcs.buildActiveSkill: Thorns hits, buff rates)
 			env.override, env.cachedDBs = override, cachedDBs
 			ctx.calcs.perform(env, ctx.skipEHP)
+			addGroupTotal(ctx, override, env.player.output)
 			return env.player.output, env
 		end
 	end
@@ -154,6 +188,7 @@ local function calcOutput(ctx, override)
 	ctx.baseDB = { signature = signature, player = player, enemy = enemy, minion = minion }
 	env.override = override
 	ctx.calcs.perform(env, ctx.skipEHP)
+	addGroupTotal(ctx, override, env.player.output)
 	return env.player.output, env
 end
 
@@ -262,6 +297,9 @@ local function scoreOutput(ctx, output, env)
 		value = metric(output, minions)
 	else
 		value = output[metric] or 0
+		if metric == "CombinedDPS" and output.FullDPS then
+			value = output.FullDPS -- (a meta skill's group with several Spells, see addGroupTotal)
+		end
 		-- A skill that shows average damage instead of DPS (Comet, Firestorm, Volatile Dead, ...: 58 gem skills) has its average damage per use
 		-- as Combined DPS. perSecond scores it per second instead: x the rate (Speed: cast rate, cooldown or trigger rate)
 		local skillData = env and env.player and env.player.mainSkill and env.player.mainSkill.skillData
@@ -774,22 +812,12 @@ end
 -- pick (some supports only work alone, or are only good in combination), so the fill is started
 -- from several different first supports, and from the current links; every result is then
 -- polished by swapping single supports, and the best set of links wins
--- A meta skill (Cast on Block, Cast on Critical, ...) triggers the Spell socketed in its group, and that Spell is what deals the damage:
--- the group is the meta skill, the Spell, then the supports. Returns the index of that Spell (2) when the group has one
-local function metaSpellIndex(group)
-	local meta = group.displaySkillList and group.displaySkillList[1]
-	local spell = group.gemList[2] and group.gemList[2].gemData
-	if meta and meta.activeEffect.grantedEffect.skillTypes[SkillType.Meta] and spell and not spell.grantedEffect.support then
-		return 2
-	end
-end
-
 local function optimizeSupports(ctx)
 	local gemList = ctx.group.gemList
 	local candidates = supportCandidates(ctx)
 	local cur
-	-- (the first support slot: after the meta skill's Spell, if there is one)
-	local first = metaSpellIndex(ctx.group) and 3 or 2
+	-- (the first support slot: after the meta skill's Spells, if it has any)
+	local first = metaSpellCount(ctx.group) + 2
 
 	local function conflicts(gemData, skipIndex)
 		for index = first, #gemList do
@@ -3577,9 +3605,11 @@ end
 
 -- Meta skills trigger the Spell that is socketed in their group, and the optimiser only filled support sockets: such a main skill had no
 -- damage. Try every Spell that can be triggered as that Spell (the engine rejects the ones a meta skill can't trigger with a score of 0),
--- socket the best one at index 2 and select it as the group's active skill, so that the supports found next support it. One Spell only:
--- the score is that of the group's selected skill
--- ponytail: a meta skill with room for several Spells gets one; upgrade path = a second Spell while the Energy needed still fits
+-- socket the best one at index 2 and select it as the group's active skill, so that the supports found next support it. Then more
+-- Spells are added while the group's Full DPS rises (the Energy they need is summed: the engine gives a group that needs more than the
+-- meta skill can hold no triggers, and a Spell that costs more Energy than it adds damage lowers the rate of the others), at most
+-- opts.maxMetaSpells. A group with one Spell is scored by the selected skill as before; with several, by the group's Full DPS
+-- (addGroupTotal), which the group's "Include in Full DPS" shows in the program too
 local function optimizeMetaSpell(ctx)
 	local group = ctx.group
 	local meta = group.displaySkillList and group.displaySkillList[1]
@@ -3595,13 +3625,6 @@ local function optimizeMetaSpell(ctx)
 			end
 		end
 	end
-	if metaSpellIndex(group) then
-		select(gemList[2].skillId)
-		sync(ctx)
-		return
-	elseif #gemList > 1 then
-		return
-	end
 	local build = ctx.build
 	local candidates = { }
 	for _, gemData in pairs(build.data.gems) do
@@ -3614,6 +3637,55 @@ local function optimizeMetaSpell(ctx)
 		end
 	end
 	t_sort(candidates, function(a, b) return a.id < b.id end)
+	-- more Spells: the group's Full DPS decides; one Spell is scored by the selected skill
+	local function addSpells()
+		local function show()
+			build.skillsTab:ProcessSocketGroup(group)
+			build.buildFlag = true
+			runCallback("OnFrame")
+			select(gemList[2].skillId)
+		end
+		if metaSpellCount(group) >= ctx.opts.maxMetaSpells then
+			return
+		end
+		local added = false
+		group.includeInFullDPS = true
+		local cur = eval(ctx)
+		while metaSpellCount(group) < ctx.opts.maxMetaSpells do
+			local at = metaSpellCount(group) + 2
+			local taken = { }
+			for index = 2, at - 1 do
+				taken[gemList[index].gemData] = true
+			end
+			local best, bestScore = nil, cur
+			for _, gemData in ipairs(candidates) do
+				if not taken[gemData] then
+					t_insert(gemList, at, makeGemInstance(ctx, gemData))
+					local score = eval(ctx)
+					t_remove(gemList, at)
+					if better(ctx, score, bestScore) then
+						best, bestScore = gemData, score
+					end
+				end
+			end
+			if not best then
+				break
+			end
+			t_insert(gemList, at, makeGemInstance(ctx, best))
+			cur, added = bestScore, true
+			log(ctx, "  + %s as a second Spell of %s: group Full DPS %.1f", best.name, gemList[1].nameSpec or "the meta skill", cur)
+		end
+		group.includeInFullDPS = (added or metaSpellCount(group) > 1) or nil
+		show()
+	end
+	if metaSpellCount(group) > 0 then
+		select(gemList[2].skillId)
+		addSpells()
+		sync(ctx)
+		return
+	elseif #gemList > 1 then
+		return
+	end
 	local best, bestScore = nil, 0
 	for _, gemData in ipairs(candidates) do
 		gemList[2] = makeGemInstance(ctx, gemData)
@@ -3632,6 +3704,7 @@ local function optimizeMetaSpell(ctx)
 	if best then
 		select(best.grantedEffectId)
 		log(ctx, "  %s triggers %s: %.1f", gemList[1].nameSpec or "the meta skill", best.name, bestScore)
+		addSpells()
 	else
 		group.mainActiveSkill, group.mainActiveSkillCalcs = 1, 1
 	end
@@ -3923,6 +3996,9 @@ function optimizer.Describe(build, options)
 	local detail = output.Minion or output
 	local mainGroup = build.skillsTab.socketGroupList[build.mainSocketGroup]
 	local minions = output.Minion and mainGroup and mainGroup.gemList[1] and mainGroup.gemList[1].count or 1
+	if output.FullDPS and mainGroup and mainGroup.includeInFullDPS then
+		add("Full DPS of the group's Spells (the score): %.0f", output.FullDPS)
+	end
 	add("Combined DPS: %.0f   (%shit DPS %.0f, crit chance %.1f%%, speed %.2f/s)", (output.CombinedDPS or 0) + (output.Minion and output.Minion.CombinedDPS or 0) * minions, output.Minion and "per minion: " or "", detail.TotalDPS or 0, detail.CritChance or 0, detail.Speed or 0)
 	if output.Minion then
 		add("Minions: %d (gem count; the engine's own figures are for one minion)", minions)
@@ -3964,7 +4040,7 @@ function optimizer.Describe(build, options)
 	add("== Skill links ==")
 	local group = build.skillsTab.socketGroupList[build.mainSocketGroup]
 	for index, gemInstance in ipairs(group and group.gemList or { }) do
-		local isSpell = index == 2 and metaSpellIndex(group)
+		local isSpell = index > 1 and index <= metaSpellCount(group) + 1
 		add("%s %s (level %d, quality %d)", index == 1 and "Skill:  " or (isSpell and "Spell:  " or "Support:"), gemInstance.nameSpec or "?", gemInstance.level or 1, gemInstance.quality or 0)
 	end
 
